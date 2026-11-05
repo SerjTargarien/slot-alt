@@ -1,0 +1,170 @@
+# Plan: a minimal OS for slot on the RGB20SX
+
+Status: direction agreed 2026-11-05 (option C). Phase 0 has started.
+
+## Goals
+
+- As light and focused as possible, while keeping everything that makes slot feel like a
+  proper console OS: a simple, snappy interface and multiplayer across devices.
+- It should feel like slot on a different device. The more compatible with upstream slot,
+  the better: same cards, same saves, same link play.
+- Once all of that works well, add a few more systems from slotPlus
+  (`nelynes/slotPlus`, a fork of slot that adds WonderSwan, Lynx, Game Gear, NeoGeo Pocket,
+  TurboGrafx-16 and DS). Still focused and limited.
+
+Today slot runs as a layer on ROCKNIX 20261101: a launch script stops EmulationStation,
+sway, InputPlumber and the hotkey daemon, then hands the device back. The goal is an OS
+whose only job is slot: it boots straight to the shelf, runs nothing slot doesn't need,
+and draws less battery than ROCKNIX.
+
+## Where we start (measured on the device)
+
+| | ROCKNIX 20261101 on the RGB20SX |
+|---|---|
+| Boot to frontend target | 29.2 s: kernel 2.4 s, userspace 26.8 s, of which `userconfig` 9.2 s and `rocknix-autostart` 14.7 s. EmulationStation starts after that. |
+| Boot chain | U-Boot, then `/flash/extlinux/extlinux.conf`, then `/flash/KERNEL` (30 MB, kernel plus an initramfs) and `rk3566-powkiddy-rgb20sx.dtb` |
+| Root | `/flash/SYSTEM`, a 1.35 GB squashfs mounted read-only as `/`. The initramfs always hands over to `/usr/lib/systemd/systemd`. |
+| Partitions | `mmcblk1p1` FAT (`/flash`, 2 GB), `mmcblk1p2` ext4 (`/storage`) |
+| Modules loaded | 17: `mali_kbase`, rtw88 Wi-Fi, Bluetooth, `hantro_vpu`, `rockchip_rga`, ntfs |
+| GPU | `libmali` (57 MB) over `mali_kbase`. Panfrost and Mesa 26.2.4 are in the image too. |
+| Audio | PipeWire on the `rk817ext` ALSA card |
+| What slot needs | glibc and `libgcc_s` at link time. At runtime it loads `libEGL`, `libGLESv2`, `libgbm`, `libdrm` and `libasound`. Plus the three libretro cores. |
+
+Battery while playing, with slot on ROCKNIX: menu about 1.8 W, Gambatte 2.03 W, gpSP 2.13 W,
+mGBA about 2.7 W. The fixed baseline is about 1.8 W, so most of what is left to win is in
+the baseline (services, Wi-Fi, GPU power policy, voltages), not in slot's frame loop.
+
+## Prior art
+
+- **BaseOS** (`pvaibhav/BaseOS`, the base upstream slot uses on H700): no build system to
+  speak of. It reuses the vendor's U-Boot, kernel 4.9 and blobs unchanged, harvested from
+  the stock image, and adds a static BusyBox userspace. BusyBox init respawns a
+  `frontend-session` that starts `System/launch_frontend.sh` or `System/slot`. It has no
+  udev, plain ALSA, `wpa_supplicant` and `udhcpc`, and `/usr/lib` as an LZ4 squashfs.
+  A/B root slots with a 3-boot trial roll back a bad `.bosupd` update. It reports about
+  3.2 s to the frontend. No license file. Its binaries don't apply here, but the design does,
+  and slot's BaseOS code paths (Wi-Fi through `wpa_cli`, ALSA, updates) expect that contract.
+- **slot-rg353v** (`mriverodorta/slot-rg353v`, GPL-3.0, same SoC and the same libmali and
+  GBM stack): builds a full image with ROCKNIX's build system pinned at `20261001`, keeps
+  ROCKNIX's initramfs and systemd, slims the kernel and prunes userspace. It reports
+  4.3 s (eMMC) to 5.2 s (SD) from Linux start to the shelf. Costs: builds take hours on
+  an ARM64 Docker host with 24 GB of RAM, and its slot changes are a 17k-line patch.
+- Nothing else boots an RK3566 handheld straight into one app.
+
+## Options
+
+**A. Stay a ROCKNIX layer, trimmed.** Start slot at boot in place of EmulationStation
+(through `UI_SERVICE`) and mask services we don't need. Little work, but boot stays near
+25 s, ROCKNIX updates can undo our changes, and services like `powerstate` keep fighting
+slot. It doesn't meet the goal.
+
+**B. Fork ROCKNIX's build system, as slot-rg353v does.** Proven on this SoC and gets to
+about 5 s, but it keeps systemd and ROCKNIX's whole build and package tree. Every build is
+hours, and it can't easily run on this WSL machine.
+
+**C. Our own small root filesystem, BaseOS style (recommended).**
+- Kernel side, harvested from a pinned ROCKNIX release at first: U-Boot, kernel, device
+  tree, the matching modules, Wi-Fi firmware and `libmali`. Later we build the kernel
+  ourselves from ROCKNIX's config and patches.
+- Userspace built with Buildroot: glibc, BusyBox init, ALSA, `wpa_supplicant`, Dropbear
+  for development, and slot with its cores.
+- No systemd, no udev, no PipeWire.
+
+This is the smallest system and the fastest to iterate on. It runs on this machine and
+matches upstream slot's BaseOS contract.
+
+The open question for C is the kernel. ROCKNIX's `KERNEL` has its initramfs built in, and
+that initramfs only knows how to start systemd. The kernel falls back to mounting `root=`
+and running `init=` when the `rdinit` program is missing, so `rdinit=/none root=... init=/sbin/init`
+may let us boot ROCKNIX's exact kernel binary with our own root. Phase 1 tests that first,
+because it decides whether we need a kernel build on day one.
+
+## Phases (each ends with a measurement)
+
+**0. Decide the GPU and audio stacks on ROCKNIX first.** These are cheap experiments on the
+current card, and they change what the new image must contain.
+- Panfrost against `libmali`: switch with ROCKNIX's `gpudriver` and compare slot's frame
+  pacing and power. Panfrost would drop the 57 MB blob and the `always_on` GPU power
+  policy, and is fully open.
+- ALSA direct against PipeWire: give slot `plughw:CARD=rk817ext` and compare latency and
+  the audio underruns at launch and quit.
+- Exit: a measured choice for each, recorded in this file.
+- **Audio, decided: direct ALSA.** Gambatte with the 400 MHz GPU floor, against run E on
+  PipeWire: 1.95 W in play instead of 2.03 W at the same 1104 MHz, and 0 samples dropped
+  or starved after the start, against 5466 dropped and 4202 starved. 0 misses in all 13
+  play windows. Sound was clean and loud at the top volume, without distortion.
+  - The headphone jack switches in hardware. Plugging in moves the sound to the headphones
+    and unplugging brings it back to the speaker, with no software involved. Our system
+    needs no headphone helper.
+  - The speaker channels are in the right order. A device-tree comment says they are
+    reversed, but a left-channel test played from the left speaker.
+  - Every run, on either path, starves 6144 samples once at startup, before the game's
+    first sound.
+- Tools: `SLOT_ALSA_DEVICE` names slot's ALSA device. On our own system it is required,
+  because card 0 is HDMI and the speaker is card 1 (`rk817ext`). `SLOT_AUDIO=alsa` in the
+  launch script stops PipeWire for the session and points slot at
+  `plughw:CARD=rk817ext,DEV=0`.
+
+**1. Boot our root on a second card.** Keep the ROCKNIX card untouched as the fallback.
+- A card with ROCKNIX's U-Boot, kernel and device tree, plus a Buildroot root with BusyBox
+  init that brings up the panel console, loads the modules and starts Dropbear over Wi-Fi
+  (or USB gadget networking).
+- Try ROCKNIX's kernel with `rdinit=/none` first, and build the kernel only if that fails.
+- Exit: SSH into our own system. Kernel-to-shell time measured.
+
+**2. Boot straight into slot.**
+- Add the GPU stack chosen in phase 0, ALSA, the cores, and a `frontend-session` that
+  starts and respawns slot.
+- Teach slot a new platform id. Most ROCKNIX-specific code stays (KMS, gamepad table, FN
+  through the ADC, the clock cap). The ROCKNIX service juggling and the GPU floor
+  workaround become unnecessary.
+- Exit: power-on to the shelf timed, with a target under 5 s. Menu and in-game power
+  compared with the ROCKNIX numbers above.
+
+**3. Power work on our own base.**
+- A Wi-Fi radio off by default when not needed.
+- CPU undervolt with ROCKNIX's tested `rk3566-undervolt-cpu-l1` overlay (408 to 1104 MHz
+  at 800 mV).
+- The GPU power policy, the clock-cap thresholds, and sleep.
+- Exit: the baseline below 1.8 W, measured.
+
+**4. Features back.** Wi-Fi through slot's existing `wpa_cli` path, the web server, RomM,
+rumble if the hardware has it, and the 720x720 layout. Link play across devices:
+- **How it works today:** the host runs its own network through `wpa_supplicant` in AP
+  mode on 5745 MHz (`card/System/slotlink.sh`). The joiner tries that frequency, then
+  every channel.
+- **The RGB20SX's RTL8723DS is 2.4 GHz only.** It must host on a 2.4 GHz channel. An RG SP
+  can still join, because its fallback scans every channel.
+- **To join an RG SP host,** that host needs to use 2.4 GHz. That's a small upstream change
+  or setting to propose (the RG SP's RTL8821CS does both bands).
+- **Both sides need** the same mGBA and gpSP builds and the same slot link protocol, so our
+  slot stays close to upstream.
+- The image needs `wpa_supplicant` built with AP mode, `udhcpc` and `ip`.
+
+**4b. slotPlus systems.** A few of slotPlus's systems, chosen for the 720x720 screen and the
+RK3566's speed, built and pinned like the current three cores.
+
+**5. Updates and releases.**
+- A/B root slots with a trial boot and rollback, as BaseOS does, but signed.
+- A CI job that builds the image and the update file.
+- Pin and track the ROCKNIX release we harvest from, or our own kernel build.
+
+## Decisions (2026-11-05)
+
+1. Option C is the direction. B is the fallback if the kernel route gets stuck.
+2. Phase 0 may switch ROCKNIX's GPU driver and audio on the current card.
+3. A spare microSD card holds the new system. The ROCKNIX card stays as it is.
+4. Platform contract: follow the BaseOS shape (a release file, `System/launch_frontend.sh`,
+   `/mnt/sdcard`, `wpa_cli`, ALSA) where it fits cleanly, under our own name, so the device
+   feels like slot on a different device. Where BaseOS assumptions don't fit, a small
+   platform layer in slot rather than a mix of three systems.
+
+## Risks
+
+- **No serial console** without opening the device (UART on `ttyS2`). Early boot problems
+  will only show on the panel (`console=tty0`) or in a log on the card.
+- **Harvested blobs:** redistribution terms for `libmali` and the Wi-Fi firmware need
+  checking before anything is published.
+- **Drift:** ROCKNIX moves fast. We pin one release and update on purpose.
+- **Cores** may need extra libraries (`libstdc++` and the like). Check each core's
+  `NEEDED` before building the root.
