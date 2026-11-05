@@ -96,6 +96,30 @@ OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer w
 `server_ui`, `pipeline` and `quad` tests need `HeadlessSurface`, which only builds on
 macOS; `romm_ui` needs `--features romm`.
 
+## Resume here (2026-11-06)
+
+**Branch state:** the work is on **`slotsq-plus`**: our branch
+`claude/beautiful-feynman-ffzfnx` plus the slotPlusUltra merge and everything after it.
+`claude/beautiful-feynman-ffzfnx` is pushed to the fork up to `e9c035d`; `slotsq-plus` is
+local only. Fold it into the main branch and push when the user asks. The device runs
+`slotsq-plus`'s build, with slotPlus's cores from its release.
+
+**Next session, first: button mapping** (asked by the user on 2026-11-05):
+- The new systems have more buttons than slot's default set, and the controls don't adapt
+  to them. Example: in Dicing Knight (WonderSwan) a move can't be done comfortably. The
+  WonderSwan has X1-X4 and Y1-Y4 plus A, B and Start; slotPlus maps them through
+  `wonderswan_for` and a horizontal/vertical layout (`session.rs`), with turbo rows named
+  after X and Y.
+- Wanted: **several physical buttons mapped to the same emulated input**, and **per-system
+  mappings** (today Controls has one In-Game set for every system).
+- Start by reading how `Controls`/`GameButton` (slot-store `bindings.rs`), the In-Game
+  Controls page, `Pad::mask` and slotPlus's per-core mask changes fit together, then
+  propose a design to the user before building.
+
+**Then:** the DS screen layouts on the square screen; a vertical WonderSwan game and
+Klonoa to check; bezels at Integer/Fit for the new systems; learning to build the cores
+ourselves before adding more; our own KMS HDMI; link play when the second device arrives.
+
 **slotPlus merged (2026-11-05, late; branch `slotsq-plus`):** slotPlusUltra
 (`nelynes/slotPlus` branch `slot-1.14-ultra`, upstream 1.14.0 plus WonderSwan, Lynx, Game
 Gear, NeoGeo Pocket, TurboGrafx-16 and DS) is merged into our fork, decided as option 1:
@@ -127,9 +151,15 @@ take it whole rather than port pieces, so later merges from slotPlus stay cheap.
   - Done: **TurboGrafx-16** the same way (`scale_tg16`, `stretched_tg16`); its picture
     follows the width the game draws (`video_mode::tg16_picture`), a 512-wide frame
     taking the room of a 256-wide one.
-  - Next: Lynx and WonderSwan as first-class systems: Integer and Fit in both orientations, including
-    games that turn mid-play (Klonoa on the WonderSwan), then the DS (layouts that use
-    the square screen).
+  - Done: **WonderSwan and Lynx** in both orientations (`scale_ws`, `scale_lynx`,
+    `stretched_ws`, `stretched_lynx`): the host turns sideways frames before slot sees
+    them, so the picture follows the drawn frame (`video_mode::drawn_picture`) and a game
+    that turns mid-play just changes shape. Lynx checked on the device ("work like a
+    charm"); a vertical WonderSwan game and Klonoa's mid-game turn not tried yet.
+  - Next: the DS, with layouts that use the square screen (both screens stacked could
+    fill the height at about 1.9x instead of 1.25x).
+  - Label art sizes (from slotPlus's SYSTEMS.md): WS 324x132, Lynx 284x190, GG 290x200,
+    NGP 246x133, TG16 191 wide up to 163 tall (keeps its shape), NDS 230x250.
   - New-system label art isn't fetched: the art server covers only GB, GBC and GBA. The
     user makes labels by hand for now.
 - RetroAchievements' row is hidden, not greyed out, while it's switched off.
