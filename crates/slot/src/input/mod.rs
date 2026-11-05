@@ -1,3 +1,4 @@
+pub mod adc;
 mod bind;
 mod device;
 pub mod evdev;

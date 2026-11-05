@@ -509,11 +509,18 @@ impl Frontend {
         session
             .app_mut()
             .set_romm_jobs(crate::romm::romm_jobs(platform.root().to_path_buf(), crate::romm::http_api));
-        session.app_mut().set_wifi(wifi_worker(platform.root()));
+        let rocknix = cfg!(feature = "device") && crate::rocknix::running();
+        if rocknix {
+            session.app_mut().set_wifi_absent();
+        } else {
+            session.app_mut().set_wifi(wifi_worker(platform.root()));
+        }
         #[cfg(feature = "device")]
-        session
-            .app_mut()
-            .set_wifi_probe(std::path::PathBuf::from("/sys/class/net/wlan0"));
+        if !rocknix {
+            session
+                .app_mut()
+                .set_wifi_probe(std::path::PathBuf::from("/sys/class/net/wlan0"));
+        }
         session.app_mut().connect_wifi();
         session.app_mut().require_fetch_faces();
         if let (Some(target), Some(version)) = (

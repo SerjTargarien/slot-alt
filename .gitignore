@@ -20,6 +20,7 @@
 /target-device
 /target-verify
 /dist-device
+/dist-rocknix
 /site/public
 /site/.cache
 

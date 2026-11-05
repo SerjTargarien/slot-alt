@@ -13,101 +13,82 @@ ssh root@<device-ip> sh /storage/probe.sh
 ssh -t root@<device-ip> sh /storage/probe.sh buttons
 ```
 
-The `buttons` run asks you to press each button in turn. It stops InputPlumber for
-about a minute, so EmulationStation won't react to buttons until it finishes. If the
-script is killed partway through, reboot or run `systemctl start inputplumber`. Both
-runs save their output to `/storage/slot-probe.txt`.
+The `buttons` run asks you to press each button and move the sticks. It stops
+InputPlumber for about two minutes, so EmulationStation won't react to buttons until it
+finishes. If the script is killed partway through, reboot or run
+`systemctl start inputplumber`. Both runs save their output to `/storage/slot-probe.txt`.
+
+## What the probe confirmed
+
+Measured on an RGB20SX running ROCKNIX 20261101 (kernel 7.2.11, glibc 2.44):
+
+| Area | BaseOS on H700 | ROCKNIX on RGB20SX |
+|---|---|---|
+| Display | Mali closed driver with an fbdev EGL window | DSI-1, 720x720 at 60.69 Hz (37 MHz clock, 814x749 total). `libmali` is active and bind-mounted over Mesa's `libEGL`, `libGLESv2` and `libgbm`. HDMI is a second connector on the same card. `/dev/fb0` exists too, from DRM's fbdev emulation. |
+| Frontend | `launch_frontend.sh`, started by BaseOS | `essway.service` runs EmulationStation under `sway.service` |
+| Buttons | Anbernic codes, D-pad on `ABS_HAT0X/Y` | `gpio-keys-control`: A `0x131`, B `0x130`, X `0x133`, Y `0x134`, L1 `0x136`, R1 `0x137`, L2 `0x138`, R2 `0x139`, Select `0x13a`, Start `0x13b`, L3 `0x13d`, R3 `0x13e`, D-pad `0x220`-`0x223`. `gpio-keys-vol`: 115 and 114. Power: `rk805 pwrkey`, 116. |
+| FN | an evdev key | Never reported by the kernel. See `rocknix-fn-report.md`. Its ADC channel, `iio:device0/in_voltage0_raw`, reads 1023 released and 15 held. |
+| Input ownership | slot reads `/dev/input` | InputPlumber hides the raw nodes in `/dev/inputplumber/sources`. Stopping it puts them back. |
+| Hotkeys | none | `input.service` (`input_sense`) handles volume, power and FN/hotkey combos system-wide |
+| Power key | slot | logind: `HandlePowerKey=suspend` |
+| Sticks | centred on 0 | `adc-joystick`: declared 250 to 800, but really moves 19 to 1032, resting near 520 |
+| Audio | ALSA | PipeWire owns the `rk817_ext` card. ALSA `default` goes to PipeWire. |
+| Backlight, battery | generic | `backlight` (0 to 255), `battery` and `charger` (USB, 3.8 V to 5.5 V input). LEDs: `green:status`, `red:charging`. |
+| Storage | FAT/exFAT card | `/storage` (with `/storage/roms`) is ext4 on `mmcblk1p2` and allows executables |
+| Wi-Fi | RTL8821CS, slot drives `wpa_supplicant` | RTL8723DS, 2.4 GHz, can run an access point. Managed by NetworkManager and iwd. No `wpa_cli` or `hostapd`. |
 
 ## Step 1: slot boots to the shelf and plays a game
 
-**Done when:** started from SSH, slot shows the shelf on the RGB20SX panel, every face
-button, shoulder button, the D-pad and Menu work, a GBA, GB and GBC game each run at full
-speed with sound, saves land on the card, and quitting returns the device to
-EmulationStation.
+**Done when:** started from SSH, slot shows the shelf on the RGB20SX panel, every
+button including FN works, a GBA, GB and GBC game each run at full speed with sound,
+saves land on the card, and quitting returns the device to EmulationStation.
 
-What is known before probing, from the ROCKNIX source (`ROCKNIX/distribution`) and the
-mainline device tree (`rk3566-powkiddy-rgb20sx.dts`, `rk3566-powkiddy-rk2023.dtsi`):
+What step 1 adds:
 
-| Area | BaseOS on H700 (today) | ROCKNIX on RGB20SX |
-|---|---|---|
-| Display | Mali closed driver with an fbdev EGL window (`slot-gfx/src/fbdev.rs`) | DRM/KMS. GPU is the Mali closed driver (`libmali`, the default) or Panfrost, switched by `gpudriver`. Neither has an fbdev EGL window. sway owns the screen. |
-| Frontend | `System/launch_frontend.sh`, started by BaseOS | `essway.service` runs EmulationStation under `sway.service` |
-| Buttons | Anbernic BSP codes: `0x136` Select, `0x137` Start, `0x138` Menu, `0x13a`/`0x13b` L2/R2, D-pad on `ABS_HAT0X/Y` | Standard Linux gamepad codes: `BTN_EAST` A, `BTN_SOUTH` B, `BTN_NORTH` X, `BTN_WEST` Y, `BTN_TL`/`TR` L1/R1, `BTN_TL2`/`TR2` (`0x138`/`0x139`) L2/R2, `BTN_SELECT` `0x13a`, `BTN_START` `0x13b`, FN = `BTN_MODE` `0x13c` on a separate `adc-keys` device, D-pad as `BTN_DPAD_*` keys `0x220`-`0x223` |
-| Input ownership | slot reads `/dev/input` directly | InputPlumber merges `gpio-keys-control`, `adc-joystick` and `adc-keys` into a virtual DualSense and hides the originals |
-| Sticks | centred on 0, deadzone 2048 | `adc-joystick`, raw 250 to 800 in ROCKNIX's device tree (15 to 1023 in mainline) |
-| Audio | ALSA | ALSA with PipeWire in front (ES uses the PulseAudio API) |
-| Backlight, battery | `/sys/class/backlight`, `axp2202-battery` | `pwm-backlight`, `rk817` battery. slot already finds both generically. |
-| Rumble | `EV_FF` | PWM motor at `pwmchip1`, no `EV_FF` |
-| Wi-Fi | RTL8821CS, slot drives `wpa_supplicant` | RTL8723DS (2.4 GHz only), owned by ROCKNIX's network stack |
-| Panel | 640x480 or 720x480 | 720x720 |
+- **Platform detection** (`slot/src/rocknix.rs`): `OS_NAME="ROCKNIX"` in
+  `/etc/os-release`, or `SLOT_PLATFORM=rocknix`.
+- **KMS display** (`slot-gfx/src/kms.rs`): picks the built-in panel over HDMI and its
+  preferred mode, renders through GBM and EGL with GLES2, and blocks on each page flip
+  so the existing frame pacing still works. It loads its libraries at runtime, so the
+  device build has no new dependencies.
+- **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The
+  Anbernic table stays for BaseOS, since the two disagree about codes like `0x138`.
+- **FN** (`slot/src/input/adc.rs`): read from its ADC channel about 60 times a second as
+  Menu. The gap between the press and release levels keeps noise from making it flicker.
+- **Features with no ROCKNIX support yet:** Wi-Fi is reported absent, which hides Tools
+  (web server, RomM, art fetching, update checks) and Wi-Fi, and makes link play refuse.
+  The boot logo is skipped. LEDs that belong to input devices are ignored.
+- **Launch script** (`card/rocknix/rocknix.sh`):
+  - stops `essway`, `sway`, `inputplumber` and `input`
+  - blocks logind's power-key suspend while slot runs
+  - loads ROCKNIX's environment, so audio reaches PipeWire
+  - starts everything again however slot ends
+  - turns Ctrl-C or a dropped SSH session into SIGTERM, so slot saves first
 
-### Work
+  `card/test-rocknix.sh` tests all of this off-device.
+- **Packaging:** `task dist:rocknix`, and the `rocknix` GitHub Actions workflow, which
+  builds the tree on every push to a `claude/` branch and uploads it as an artifact.
 
-1. **Platform detection.** A small module answering "BaseOS or ROCKNIX": `NAME=ROCKNIX`
-   in `/etc/os-release`, with a `SLOT_PLATFORM` override. Everything below branches on
-   it. Choose the display by platform, not by whether `/dev/fb0` exists: DRM's fbdev
-   emulation can create `/dev/fb0` on ROCKNIX too.
-2. **KMS display backend** (`slot-gfx/src/kms.rs`, behind the existing `Surface` trait).
-   Open the DRM card, pick the connected connector and its preferred mode, create a GBM
-   surface, and get an EGL display on GBM with a GLES2 context. Swap = `eglSwapBuffers`,
-   lock the front buffer, `drmModePageFlip`, and block until the flip event, then free
-   the previous buffer. That keeps the blocking-swap pacing `device_app.rs` is tuned for.
-   Load `libdrm.so.2`, `libgbm.so.1` and `libEGL` with `libloading`, as `fbdev.rs` does,
-   so the device build gains no crates. This needs sway stopped, because KMS allows only
-   one owner of the screen.
-   *Why not a Wayland window under sway:* it would mean bringing winit into the device
-   build, folding winit's event loop into `device_app.rs`, and an extra frame of
-   compositor latency. Keep it as the fallback if KMS turns out to be blocked.
-3. **Button table by platform** (`slot/src/input/evdev.rs`). Keep the current Anbernic
-   table for BaseOS and add a standard-gamepad table for ROCKNIX, including
-   `BTN_DPAD_*` and `BTN_MODE`. The two tables conflict (`0x138` is Menu on one and L2
-   on the other), so one shared table can't serve both. `WANTED`, which decides which
-   `/dev/input` nodes to open, must follow the table, or the `adc-keys` node holding FN
-   is never opened.
-4. **Launch script** (`card/rocknix/slot.sh`). Stop `essway`, `sway` and
-   `inputplumber`, run slot with `SLOT_ROOT` pointing at its card tree, and start all
-   three again when slot exits, crashes or is killed. Step 1 is run from SSH only, so a
-   bad build can't leave the device on a black screen at boot.
-5. **Switch off BaseOS-only features on ROCKNIX.**
-   - OTA updates (they download the upstream H700 release)
-   - BaseOS updates
-   - Boot-logo install (Allwinner `boot-resource` partition)
-   - `baseos-splash`
-   - slot's Wi-Fi, link play, web server and RomM, which all assume slot owns
-     `wpa_supplicant`
-   - The `8821cs` unload before power-off
-   - The AXP-specific `led.sh` and `lid.sh`
-6. **Packaging.** `task dist:rocknix` builds the same aarch64 binary and cores as
-   `dist:device`. ROCKNIX's glibc is newer than the bullseye build box's, so the
-   binaries run as they are. The task lays out the card tree with the ROCKNIX launch
-   script.
-7. **Tests.** Unit tests for platform detection, both button tables, the `WANTED`
-   choice, and connector and mode picking (from fixture sysfs trees, like the existing
-   `slot-power` probe tests). `task check` stays green, including `lint:device`.
+### Install and run
 
-### Questions the probe answers
+1. Download the `slot-rocknix-<commit>` artifact from the newest **rocknix** workflow
+   run on GitHub (the repository's Actions tab). Extract it into a folder named `slot`.
+2. Copy it to the device: `scp -r slot root@<device-ip>:/storage/`
+3. Copy a few unzipped ROMs into `/storage/slot/Games/GBA`, `Games/GB` and `Games/GBC`.
+4. Run it: `ssh -t root@<device-ip> bash /storage/slot/System/rocknix.sh`
+5. Press Ctrl-C in that terminal to save and go back to ROCKNIX. The log is in
+   `/storage/slot/Logs/slot.log`.
 
-- Does stopping InputPlumber put the raw nodes back in `/dev/input`, and do the codes
-  match the table above? ROCKNIX patches the shoulder buttons on Powkiddy boards.
-- Which GPU driver is active, and do `libgbm`/`libEGL` resolve to Mesa or `libmali`?
-- The panel mode and refresh rate, against the GBA's 59.73 Hz.
-- Does ALSA `default` go through PipeWire, and is `hw:0,0` free?
-- Does `systemd-logind` handle `KEY_POWER` itself? If so it would power off or suspend
-  underneath slot's own power menu.
-- Where the roms partition is mounted, its filesystem, and whether it allows
-  executables.
-
-### Later steps (not step 1)
+## Later steps
 
 - Autostart slot at boot in place of EmulationStation.
 - A layout that uses the square 720x720 panel instead of letterboxing 720x480 into it.
-- Left stick as D-pad, normalised from the axis range.
+- Left stick as D-pad, normalised from the real 19 to 1032 range rather than the
+  declared one.
 - Rumble on the PWM motor.
-- Status LEDs.
 - Brightness and volume shared with ROCKNIX's settings.
 - Sleep.
-- Wi-Fi through ROCKNIX's network stack.
-- Link play on a 2.4 GHz channel (`AGS_LINK_FREQ`, after checking that the RTL8723DS can
-  run an access point).
+- Wi-Fi through NetworkManager.
+- Link play on a 2.4 GHz channel (`AGS_LINK_FREQ`).
 - The web server and RomM.
 - An update channel for ROCKNIX builds.

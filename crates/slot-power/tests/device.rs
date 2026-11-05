@@ -322,6 +322,31 @@ fn a_mono_led_is_on_except_when_the_battery_is_low() {
 }
 
 #[test]
+fn a_controllers_led_is_never_taken_for_the_consoles() {
+    let d = sysfs("255", "87");
+    leds(
+        &d,
+        "input43:rgb:indicator",
+        &[("multi_intensity", "0 0 0"), ("brightness", "0")],
+    );
+    leds(
+        &d,
+        "red:charging",
+        &[("brightness", "0"), ("max_brightness", "1")],
+    );
+    leds(
+        &d,
+        "green:status",
+        &[("brightness", "0"), ("max_brightness", "1")],
+    );
+    let mut p = platform(&d);
+    p.set_led(LedState::Running);
+    assert_eq!(read(&d, "green:status/brightness"), "1");
+    assert_eq!(read(&d, "red:charging/brightness"), "0");
+    assert_eq!(read(&d, "input43:rgb:indicator/multi_intensity"), "0 0 0");
+}
+
+#[test]
 fn a_tree_with_no_led_is_a_silent_no_op() {
     let d = sysfs("255", "87");
     let mut p = platform(&d);

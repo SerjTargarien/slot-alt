@@ -6688,6 +6688,10 @@ impl App {
         self.wifi_probe = Some((wlan0, 0));
     }
 
+    pub fn set_wifi_absent(&mut self) {
+        self.wifi_probe = Some((PathBuf::new(), Millis::MAX));
+    }
+
     fn has_wifi_hardware(&mut self) -> bool {
         if self.wifi_probe.as_ref().is_some_and(|(p, _)| p.exists()) {
             self.wifi_probe = None;

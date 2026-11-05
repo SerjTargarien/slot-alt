@@ -15,6 +15,8 @@ mod grade;
 mod headless;
 #[cfg(feature = "host")]
 mod host;
+#[cfg(target_os = "linux")]
+pub mod kms;
 mod layout;
 mod lcd3x;
 mod pipeline;
@@ -36,6 +38,8 @@ pub use grade::{
 pub use headless::HeadlessSurface;
 #[cfg(feature = "host")]
 pub use host::HostSurface;
+#[cfg(target_os = "linux")]
+pub use kms::KmsSurface;
 pub use layout::Canvas;
 pub use lcd3x::{lcd3x_factors, lcd3x_mask, ScreenEffect};
 pub use pipeline::{SCALE, SRC_H, SRC_W, WHOLE_TEXTURE};

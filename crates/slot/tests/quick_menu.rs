@@ -682,6 +682,16 @@ fn no_wifi_hardware_hides_tools_and_wifi() {
 }
 
 #[test]
+fn wifi_marked_absent_stays_hidden_however_long_slot_runs() {
+    let (_d, mut a, _) = on_carousel();
+    a.set_wifi_absent();
+    a.tick_ms(a.now() + 60 * 60 * 1000);
+    let hidden = a.hidden_rows();
+    assert!(hidden.contains(&QuickRow::Network));
+    assert!(hidden.contains(&QuickRow::Wifi));
+}
+
+#[test]
 fn wifi_row_toggles_with_a_and_left_right() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::WifiPower);

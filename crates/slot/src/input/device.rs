@@ -186,6 +186,11 @@ impl Trace {
 }
 
 impl DeviceInput {
+    pub fn watch_adc(&self, path: PathBuf, btn: Btn) {
+        eprintln!("slot: input {} as {btn:?}", path.display());
+        super::adc::spawn(path, btn, self.pending.clone());
+    }
+
     pub fn steer_with_stick(&self, on: bool) {
         self.stick.store(on, Ordering::Relaxed);
     }

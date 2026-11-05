@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use slot::frontend::Frontend;
 use slot::input::DeviceInput;
 use slot::panel_turn::{panel_turn, PanelTurn};
-use slot_gfx::{Compositor, FbdevSurface, Surface};
+use slot_gfx::{Compositor, FbdevSurface, GfxError, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
 const CARD: &str = "/mnt/sdcard";
@@ -77,7 +77,11 @@ pub fn run() {
     let root = std::env::var_os("SLOT_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CARD));
-    let mut surface = match FbdevSurface::new() {
+    let rocknix = slot::rocknix::running();
+    if rocknix {
+        eprintln!("slot: running on ROCKNIX, model {}", slot::rocknix::model());
+    }
+    let mut surface = match open_surface(rocknix) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("slot: {e}");
@@ -85,7 +89,7 @@ pub fn run() {
         }
     };
     slot::boot_time::mark("surface");
-    let mut compositor = match Compositor::new(&surface) {
+    let mut compositor = match Compositor::new(&*surface) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("slot: {e}");
@@ -135,13 +139,22 @@ pub fn run() {
     slot::boot_time::mark("faces");
     frontend.upload_bezel(&mut compositor, window);
     slot::boot_time::mark("bezel");
+    if rocknix {
+        slot::input::evdev::set_layout(slot::input::evdev::Layout::Gamepad);
+    }
     let mut input = DeviceInput::open(&root);
+    let fn_adc = std::path::Path::new(slot::input::adc::RGB20SX_FN);
+    if rocknix && slot::rocknix::model() == slot::rocknix::RGB20SX && fn_adc.exists() {
+        input.watch_adc(fn_adc.to_path_buf(), slot_input::Btn::Menu);
+    }
     slot::boot_time::mark("input");
     let card = root.clone();
     let _ = std::thread::Builder::new()
         .name("slot-bootlogo".into())
         .spawn(move || {
-            slot::bootlogo::refresh(&card);
+            if !rocknix {
+                slot::bootlogo::refresh(&card);
+            }
             slot::root::sweep_temps(&card);
         });
     let _ = std::thread::Builder::new()
@@ -210,6 +223,15 @@ pub fn run() {
             std::thread::sleep(left);
         }
     }
+}
+
+fn open_surface(rocknix: bool) -> Result<Box<dyn Surface>, GfxError> {
+    #[cfg(target_os = "linux")]
+    if rocknix {
+        return slot_gfx::KmsSurface::new().map(|s| Box::new(s) as Box<dyn Surface>);
+    }
+    let _ = rocknix;
+    FbdevSurface::new().map(|s| Box::new(s) as Box<dyn Surface>)
 }
 
 fn sync_log_writes() {

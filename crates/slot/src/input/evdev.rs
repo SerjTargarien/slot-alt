@@ -1,6 +1,26 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use slot_input::{Btn, RawEvent};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Layout {
+    Anbernic,
+    Gamepad,
+}
+
+static LAYOUT: AtomicU8 = AtomicU8::new(0);
+
+pub fn set_layout(layout: Layout) {
+    LAYOUT.store(layout as u8, Ordering::Relaxed);
+}
+
+pub fn layout() -> Layout {
+    match LAYOUT.load(Ordering::Relaxed) {
+        1 => Layout::Gamepad,
+        _ => Layout::Anbernic,
+    }
+}
 
 pub const EVENT_BYTES: usize = 24;
 
@@ -102,8 +122,12 @@ pub fn decode(bytes: &[u8]) -> Option<Ev> {
 }
 
 pub fn to_raw(ev: Ev) -> Option<RawEvent> {
+    to_raw_in(layout(), ev)
+}
+
+pub fn to_raw_in(layout: Layout, ev: Ev) -> Option<RawEvent> {
     let btn = match ev.kind {
-        EV_KEY => code_to_btn(ev.code)?,
+        EV_KEY => code_to_btn_in(layout, ev.code)?,
         EV_SW if ev.code == SW_LID => Btn::Lid,
         _ => return None,
     };
@@ -115,6 +139,41 @@ pub fn to_raw(ev: Ev) -> Option<RawEvent> {
 }
 
 pub fn code_to_btn(code: u16) -> Option<Btn> {
+    code_to_btn_in(layout(), code)
+}
+
+pub fn code_to_btn_in(layout: Layout, code: u16) -> Option<Btn> {
+    match layout {
+        Layout::Anbernic => anbernic_btn(code),
+        Layout::Gamepad => gamepad_btn(code),
+    }
+}
+
+fn gamepad_btn(code: u16) -> Option<Btn> {
+    Some(match code {
+        0x131 => Btn::A,
+        0x130 => Btn::B,
+        0x133 => Btn::X,
+        0x134 => Btn::Y,
+        0x136 => Btn::L1,
+        0x137 => Btn::R1,
+        0x138 => Btn::L2,
+        0x139 => Btn::R2,
+        0x13a => Btn::Select,
+        0x13b => Btn::Start,
+        0x13c => Btn::Menu,
+        0x220 => Btn::Up,
+        0x221 => Btn::Down,
+        0x222 => Btn::Left,
+        0x223 => Btn::Right,
+        115 => Btn::VolUp,
+        114 => Btn::VolDown,
+        116 => Btn::Power,
+        _ => return None,
+    })
+}
+
+fn anbernic_btn(code: u16) -> Option<Btn> {
     Some(match code {
         0x130 => Btn::A,
         0x131 => Btn::B,
@@ -139,9 +198,25 @@ const WANTED: [u16; 15] = [
     116,
 ];
 
+const GAMEPAD_WANTED: [u16; 18] = [
+    0x130, 0x131, 0x133, 0x134, 0x136, 0x137, 0x138, 0x139, 0x13a, 0x13b, 0x13c, 0x220, 0x221,
+    0x222, 0x223, 115, 114, 116,
+];
+
+fn wanted(layout: Layout) -> &'static [u16] {
+    match layout {
+        Layout::Anbernic => &WANTED,
+        Layout::Gamepad => &GAMEPAD_WANTED,
+    }
+}
+
 pub use slot_power::has_bit;
 
 pub fn pick_devices(dev: &Path, sys: &Path) -> Vec<PathBuf> {
+    pick_devices_in(dev, sys, layout())
+}
+
+pub fn pick_devices_in(dev: &Path, sys: &Path, layout: Layout) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(dev) else {
         return Vec::new();
     };
@@ -158,16 +233,16 @@ pub fn pick_devices(dev: &Path, sys: &Path) -> Vec<PathBuf> {
         let Some(name) = node.file_name() else {
             return false;
         };
-        wanted_node(&sys.join(name).join("device"))
+        wanted_node(&sys.join(name).join("device"), layout)
     });
     nodes
 }
 
-fn wanted_node(device: &Path) -> bool {
+fn wanted_node(device: &Path, layout: Layout) -> bool {
     let cap = |file: &str| std::fs::read_to_string(device.join("capabilities").join(file));
     let keys = cap("key").unwrap_or_default();
     let lid = cap("sw").is_ok_and(|sw| has_bit(&sw, SW_LID));
-    lid || WANTED.iter().any(|bit| has_bit(&keys, *bit))
+    lid || wanted(layout).iter().any(|bit| has_bit(&keys, *bit))
 }
 
 pub fn device_name(sys: &Path, node: &Path) -> String {

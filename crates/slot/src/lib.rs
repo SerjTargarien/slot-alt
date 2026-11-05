@@ -50,6 +50,7 @@ pub mod prefetch;
 pub mod print_scene;
 pub mod resample;
 pub mod rewind;
+pub mod rocknix;
 pub mod romm;
 pub mod root;
 pub mod server;
