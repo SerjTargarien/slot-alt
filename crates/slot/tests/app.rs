@@ -2280,7 +2280,7 @@ fn a_jumped_to_letter_is_set_at_the_titles_size_on_its_baseline() {
     assert_eq!(h, slot_ui::TITLE_LINE_H as f32);
     assert_eq!(
         y + h,
-        slot_ui::slot_name_y() + slot_ui::HINT_H as f32,
+        slot_ui::slot_name_y(Canvas::FRAMED) + slot_ui::HINT_H as f32,
         "the letter left the title's baseline"
     );
 }
@@ -2305,7 +2305,7 @@ fn the_shelf_name_is_set_at_the_letters_size_on_its_baseline() {
     assert_eq!(h, slot_ui::TITLE_LINE_H as f32);
     assert_eq!(
         y + h,
-        slot_ui::slot_name_y() + slot_ui::HINT_H as f32,
+        slot_ui::slot_name_y(Canvas::FRAMED) + slot_ui::HINT_H as f32,
         "the shelf name left the title's baseline"
     );
 }

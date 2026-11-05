@@ -44,6 +44,10 @@ fn a_4_by_3_panel_fills_its_width_from_the_top() {
     assert!(slot_gfx::framed((720, 720)), "a square panel is framed");
     assert!(slot_gfx::framed((480, 640)), "a portrait panel is framed");
     assert!(!slot_gfx::framed((1280, 720)), "a 16:9 panel is not framed");
+    assert!(
+        !slot_gfx::framed((600, 480)),
+        "a 5:4 panel keeps the fitted band"
+    );
     assert!(!slot_gfx::framed((0, 480)));
     assert_eq!(slot_gfx::screen_rect((640, 480)), (0, 0, 640, 427));
     assert_eq!(blit_rect((640, 480), 0.0), (0, 53, 640, 427));

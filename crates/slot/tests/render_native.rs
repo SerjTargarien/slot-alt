@@ -131,7 +131,7 @@ fn a_title_shows_under_the_cart_when_titles_are_on() {
     f.compose(&mut c);
     let frame = c.read_frame();
     write_png("native-shelf-title", 640, 480, &frame);
-    let y = slot_ui::slot_name_y() as usize + 8;
+    let y = slot_ui::slot_name_y(Canvas::FRAMED) as usize + 8;
     let lit = (100..540)
         .filter(|&x| {
             let o = (y * 640 + x) * 4;

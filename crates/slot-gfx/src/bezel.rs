@@ -1,14 +1,14 @@
 use crate::surface::{OUT_H, OUT_W};
 
-/// Whether the panel is laid out "framed": a canvas as tall as the 3:2 band but only as
-/// wide as the panel's shape allows, drawn over the whole panel, with games free to use
-/// the whole panel. That's every panel at least as tall as 4:3, so 640x480 and square
-/// ones such as the RGB20SX's 720x720. SLOT_TALL_PANELS=0 keeps panels taller than 4:3 on
-/// the plain band instead, letterboxed, to compare the two.
+/// Whether the panel is laid out "framed": drawn over the whole panel through a buffer
+/// of its own size, with games free to use the whole panel. That's 4:3 panels such as
+/// 640x480, and square or portrait ones such as the RGB20SX's 720x720 (see Canvas::of for
+/// their layout canvas). Other shapes get the 3:2 band, fitted. SLOT_TALL_PANELS=0 puts
+/// square and portrait panels back on the band, letterboxed, to compare the two.
 pub fn framed(panel: (u32, u32)) -> bool {
     match panel.0 * 3 == panel.1 * 4 {
         true => panel.0 > 0,
-        false => panel.0 > 0 && panel.0 * 3 < panel.1 * 4 && tall_panels(),
+        false => panel.0 > 0 && panel.0 <= panel.1 && tall_panels(),
     }
 }
 

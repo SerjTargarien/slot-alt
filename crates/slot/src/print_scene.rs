@@ -507,7 +507,21 @@ fn paper_draw(tex: TexId, p: &Paper, shift: f32, flap: bool) -> Draw {
 
 pub fn print_draws(f: &PrintFrame, tex: &PrintTextures, canvas: Canvas, out: &mut Vec<Draw>) {
     let from = out.len();
+    // On a taller canvas the wood fills the screen and the scene sits in its middle.
+    if canvas.extra() > 0.0 {
+        out.push(Draw::Part {
+            x: 0.0,
+            y: 0.0,
+            w: canvas.w,
+            h: canvas.h,
+            tex: tex.wood,
+            alpha: 1.0,
+            uv: canvas.cover(OUT_W as f32),
+        });
+    }
+    let scene = out.len();
     scene_draws(f, tex, canvas, out);
+    shift_down(&mut out[scene..], canvas.extra() / 2.0);
     shift_down(&mut out[from..], -f.slide * canvas.h);
 }
 

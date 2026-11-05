@@ -35,12 +35,13 @@ pub fn draw_footer(
     ink: [u8; 3],
     out: &mut Vec<Draw>,
 ) {
-    let y = FOOTER_Y + (HINT_H as f32 - GAUGE_H) / 2.0;
+    let y = canvas.below(FOOTER_Y) + (HINT_H as f32 - GAUGE_H) / 2.0;
     let charging = matches!(battery, Some(b) if b.charge == Charge::Charging) && bolt.is_some();
     let lead = if charging { 0.0 } else { BOLT_LEAD };
     let x = left_x(canvas, GAUGE_ROW_W + percent.w as f32, lead);
     draw_gauge(x, y, battery, percent, bolt, ink, out);
     printed(
+        canvas,
         canvas.w - left_x(canvas, clock.w as f32, 0.0) - clock.w as f32,
         clock,
         out,
@@ -72,7 +73,7 @@ pub fn draw_wifi_icon(
     };
     let row = GAUGE_ROW_W + percent.w as f32;
     let x = left_x(canvas, row, BOLT_LEAD) + row + WIFI_GAP;
-    let y = FOOTER_Y + (HINT_H as f32 - h as f32) / 2.0;
+    let y = canvas.below(FOOTER_Y) + (HINT_H as f32 - h as f32) / 2.0;
     out.push(Draw::Tex {
         x: x.round(),
         y: y.round(),
@@ -121,6 +122,6 @@ pub(crate) fn draw_printed(x: f32, y: f32, p: Printed, out: &mut Vec<Draw>) {
     });
 }
 
-fn printed(x: f32, p: Printed, out: &mut Vec<Draw>) {
-    draw_printed(x, FOOTER_Y, p, out);
+fn printed(canvas: Canvas, x: f32, p: Printed, out: &mut Vec<Draw>) {
+    draw_printed(x, canvas.below(FOOTER_Y), p, out);
 }

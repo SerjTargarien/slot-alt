@@ -1,4 +1,4 @@
-use slot_gfx::{Canvas, Draw, TexId};
+use slot_gfx::{shift, Canvas, Draw, TexId};
 use slot_store::{civil_from_days, days_from_civil, days_in_month, parse_stamp, Zone};
 
 use crate::plate::UndoFace;
@@ -455,6 +455,13 @@ pub struct ClockScreen<'a> {
 impl ClockScreen<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         draw_menu_ground(self.canvas, self.ground, out);
+        // Laid out on the band, drawn in the middle of a taller canvas.
+        let first = out.len();
+        self.draw_content(out);
+        shift(&mut out[first..], self.canvas.extra() / 2.0);
+    }
+
+    fn draw_content(&self, out: &mut Vec<Draw>) {
         let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
         let (start, len, selected) = self.picker.window();
         let top = (LEGEND_Y - QUICK_PITCH * len as f32) / 2.0;

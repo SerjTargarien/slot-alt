@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use crate::draw::{Canvas, Draw, TexId, OUT_H};
+use crate::draw::{shift, Canvas, Draw, TexId, OUT_H};
 use crate::hud::HUD_INK;
 use crate::icon::symbols_font;
 use crate::plate::UndoFace;
@@ -187,6 +187,13 @@ fn push(out: &mut Vec<Draw>, (tex, w, h): NetFace, x: f32, y: f32) {
 impl NetworkList<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         draw_menu_ground(self.canvas, self.ground, out);
+        // Laid out on the band, drawn in the middle of a taller canvas.
+        let first = out.len();
+        self.draw_content(out);
+        shift(&mut out[first..], self.canvas.extra() / 2.0);
+    }
+
+    fn draw_content(&self, out: &mut Vec<Draw>) {
         let pad = MENU_PAD as f32;
         let right = self.canvas.w - QUICK_EDGE;
         let count = self.lines.len() + self.message.is_some() as usize;
@@ -358,6 +365,13 @@ pub struct PairScreen<'a> {
 impl PairScreen<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         draw_menu_ground(self.canvas, self.ground, out);
+        // Laid out on the band, drawn in the middle of a taller canvas.
+        let first = out.len();
+        self.draw_content(out);
+        shift(&mut out[first..], self.canvas.extra() / 2.0);
+    }
+
+    fn draw_content(&self, out: &mut Vec<Draw>) {
         if let Some(face) = self.qr {
             let inset = (PAIR_QR.saturating_sub(face.1) / 2) as f32;
             push(out, face, PAIR_X + inset, PAIR_TOP + inset);

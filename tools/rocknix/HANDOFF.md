@@ -1,6 +1,6 @@
 # Handover: slot on the Powkiddy RGB20SX
 
-Last updated 2026-11-05, end of the first local session. Read this first, then
+Last updated 2026-11-05, evening. Read this first, then
 `tools/distro/PLAN.md` (where the project is going) and `tools/rocknix/README.md`
 (measured device facts and what the ROCKNIX port does).
 
@@ -8,63 +8,63 @@ Branch: `claude/beautiful-feynman-ffzfnx` (fork `SerjTargarien/slot-alt` of
 `BrandonKowalski/slot`). Upstream `main` was still exactly our fork point `f1f6ef9` on
 2026-11-05. Commits from this session are local only, not pushed.
 
-## Resume here (paused 2026-11-05 for lunch)
+## Resume here (2026-11-05, evening)
 
-**Device state when we stopped:**
-- The **dev card is in slot 1** and running **slot²**, our own OS. It boots straight
-  into slot.
+**Device state:**
+- The **dev card is in slot 1** and runs **slot²** on our own kernel (Linux
+  7.2.11-slotsq, our device tree). It boots straight into slot in 11-12 s.
 - The **ROCKNIX card is in slot 2**, unused and unmounted. It boots ROCKNIX again when
   put back in slot 1.
 - SSH into slot²:
   `ssh -o UserKnownHostsFile=~/.ssh/known_hosts_slotsq root@192.168.1.72`.
   It needs that separate known_hosts file, since the address is the same as ROCKNIX's
   and the host key differs.
-- **The card's slot build is current:** `System/slot` is the HEAD build (`e5e8386`),
-  with the square layout and the frame dump. `System/slot.band` is an older build kept
-  only for reference.
-- **The card's root** has the HEAD overlay pushed by hand; the image in
-  `~/slotsq-build/output/images/rootfs.tar` matches it.
+- **The card's slot build is current:** `System/slot` has the height-aware layout
+  (option B). `System/slot.band` is an older build kept only for reference.
 
-**What we were doing:** making slot use the whole 720x720 screen. The shelf is done
-(`e5e8386`): panels taller than 4:3 are now laid out "framed" like the 640x480 devices,
-on a 480x480 layout canvas drawn at 1.5x, with games able to use the whole panel. The
-footer readouts are centred beside the slot's bay.
+**Working on our kernel** (BRINGUP.md attempts 6 and 7): picture, speaker and
+headphones, every button, FN once per press, brightness and slot's hotkeys, and Wi-Fi at
+the OS level. GBA audio sounds right. `extlinux.conf.rocknix-kernel` on the SLOT
+partition boots ROCKNIX's kernel again (`dev.sh kernel-back`). Still borrowed from
+ROCKNIX: U-Boot, libmali and its wrappers, and the Wi-Fi firmware and regdb (PLAN.md
+decision 6).
 
-**Our own kernel works** (2026-11-05 afternoon, BRINGUP.md attempts 6 and 7): Linux
-7.2.11-slot² with our own device tree. Picture, speaker and headphones, every button,
-FN once per press, brightness and slot's hotkeys, and Wi-Fi all work. The GBA audio that
-sounded out of tune on ROCKNIX's kernel sounds right now. The dev card boots it by default
-(`extlinux.conf`); `extlinux.conf.rocknix-kernel` on the SLOT partition boots ROCKNIX's
-kernel again (`dev.sh kernel-back`). A fresh dev card gets our kernel from
-`dev.sh bootable`. Still borrowed from ROCKNIX: U-Boot, libmali and its wrappers, and the
-Wi-Fi firmware and regdb (PLAN.md decision 6).
+**Screen layout is done (option B, PLAN.md "Screen layout on the square panel"):** a
+square panel gets a 720x720 canvas drawn 1:1. Upstream's band coordinates stay; whole
+groups move with `Canvas::below`, `Canvas::mid` and `shift`. The user checked the shelf,
+settings, in-game menu, core picker, clock, About, screenshots and games. Capture screens
+with `sh tools/distro/dev.sh shot NAME`; `dev.sh capture NAME SLOT_TALL_PANELS=0` shows
+the old band layout for a before and after.
+
+**What slot² still lacks compared with slot on its own devices.** The `frontend` script
+sets `SLOT_PLATFORM=rocknix`, and slot treats ROCKNIX as having no usable Wi-Fi:
+- `set_wifi_absent()` (`frontend.rs`): no Wi-Fi worker, so the network menu can't join a
+  network, and nothing that needs the internet runs: box-art fetch, self-update, RomM,
+  the update scenes.
+- Link play: the in-game link menu shows the "no Wi-Fi" toast (`open_game_menu`).
+- The clock can't sync: `set_ntp` calls `timedatectl`, which slot² doesn't have.
+  Setting the time by hand uses `date` and `hwclock`.
+- The boot logo refresh is skipped (`device_app.rs`).
+The fix for all of them is slot's device layer (PLAN.md decision 5), with self-update
+pointed at our builds or kept off.
+
+**Known test failures that predate our work** (they also fail on a clean checkout):
+`slot-store` `header_index` `keeping_every_entry_leaves_the_index_saved`, `slot`
+`header_index_boot` `boot_drops_index_entries_for_games_no_longer_on_the_card`, and
+`slot-ui` `house_label::a_game_boy_label_is_the_shape_of_its_own_well`. The `render_*`,
+`server_ui`, `pipeline` and `quad` tests need `HeadlessSurface`, which only builds on
+macOS; `romm_ui` needs `--features romm`.
 
 **Next, in order:**
-1. **Screen tour.** The user opens each screen and names it, and we capture it with
-   `sh tools/distro/dev.sh shot NAME` (saved to `~/slotsq-build/frames/`, readable as
-   an image). For a before and after of one screen, use
-   `dev.sh capture NAME SLOT_TALL_PANELS=0` (the old band layout) against
-   `dev.sh capture NAME`, though that restarts slot, so it suits the shelf only.
-   - Screens to cover: GB and GBA in game, with each picture size and bezel; the
-     in-game menu (FN) and its settings; screenshots and polaroids; the clock screen;
-     the power menu; the eject animation.
-   - Expected trouble: the on-screen keyboard (`keyboard.rs` uses a fixed
-     `Canvas::of((720, 480))`) and anything else laid out for 720 units of width.
-   - Already reported by the user:
-     - GB: bezel "default" with SP scale looks great; bezel "none" with any scale looks
-       great; stretch grows the picture only horizontally.
-     - GBA: stretch grows it only vertically. AGS-102 sits the picture toward the top,
-       which is slot's intended layout for that bezel.
-   - Later, optional: UI text and art are rasterised at layout size, then drawn 1.5x
-     with linear filtering, so they're a little soft. Rasterising at 1.5x would make
-     them crisp, but that's a wider change.
-2. **GBA audio:** it sounded out of tune on ROCKNIX's kernel under slot², and right on
-   ours. Keep an ear on it.
-3. **Wi-Fi radio off when slot doesn't need it,** and power save off during link play
-   (measured: 0.13-0.19 W, see PLAN.md).
-4. **slot's device layer** (replace `SLOT_PLATFORM=rocknix`; the `timedatectl` call),
-   then **our own kernel** (phase 1b) and **U-Boot** (no 2 s countdown). The OS gets
-   its real name with the first proper version: "slot²" is a working name.
+1. **slot's device layer:** replace `SLOT_PLATFORM=rocknix`, bring Wi-Fi features back
+   (network menu, link play, box art, NTP without `timedatectl`), and fix the update
+   scenes, which still draw their carts in band coordinates.
+2. **Wi-Fi radio off when slot doesn't need it,** and power save off during link play
+   (measured: 0.13-0.19 W, see PLAN.md). Then link play cross-device on 2.4 GHz.
+3. **A battery run on our kernel** (CPU idle states may differ from ROCKNIX's).
+4. **Our own U-Boot** (no 2 s countdown).
+5. Later: more menu rows on a tall canvas (`QUICK_VISIBLE` is 6), a crisper wallpaper,
+   then systems from slotPlus.
 - **Parked by the user:** boot time (11-12 s power-on to shelf is fine for now; analysis
   in BRINGUP.md).
 

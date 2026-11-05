@@ -244,23 +244,36 @@ Design that follows (phase 3):
 - the radio off whenever slot doesn't need Wi-Fi (its own Wi-Fi setting off);
 - power save off during link play, where beacon-interval latency would hurt lockstep.
 
-**Screen layout on the square panel** (decided 2026-11-05: use the whole screen, with a
-full-resolution buffer):
-- slot already supported two panel shapes:
-  - 720x480 (3:2): the 720x480 "band", scaled by a whole number;
-  - 640x480 (4:3): "framed". The layout canvas keeps 480 units of height and narrows to
-    the panel's shape (640x480), it's drawn over the whole panel through a full-size
-    buffer, and games may use the band or the whole panel. It also has full-panel
-    bezels, the SP frame strip and a wallpaper crop.
-- `framed()` now also takes every panel taller than 4:3, so a square panel gets a 480x480
-  canvas drawn at 1.5x (`e5e8386`). The game picture renders at real screen pixels, so
-  shaders are pixel-coherent.
-- `SLOT_TALL_PANELS=0` brings back the old letterboxed band, for comparison.
-- Fixed so far: the footer readouts (battery, clock, Wi-Fi), centred beside the slot's
-  bay when the usual margin doesn't fit.
-- Accepted as is: the wallpaper cropped at the sides (its stickers are part of the image).
-- Open: the screen tour (see HANDOFF.md, "Resume here"); stretch modes on a square panel;
-  softer UI art at 1.5x.
+**Screen layout on the square panel** (decided 2026-11-05: option B, a height-aware
+canvas):
+- slot laid everything out on a 480-unit-tall canvas. On a square panel that meant a
+  480x480 canvas drawn 1.5x: everything too big and soft, and menus overflowing their
+  480 units of width.
+- Now `Canvas::of` gives square and portrait panels slot's full 720-unit width and their
+  own height, so a 720x720 panel gets a 720x720 canvas drawn 1:1, as sharp and as large
+  as on slot's 720x480 devices. `framed()` takes 4:3, square and portrait panels; other
+  shapes keep the fitted band. `SLOT_TALL_PANELS=0` puts the square panel back on the
+  letterboxed band.
+- Upstream's coordinates stay on the 480-unit band. Elements are placed on the taller
+  canvas as groups:
+  - `Canvas::below(y)` moves a band y to the bottom (slot mouth, footer, legend strip,
+    keyboard legends, link-cable art);
+  - `Canvas::mid(y)` and `shift(&mut draws[first..], canvas.extra() / 2.0)` move it to
+    the middle (the shelf row, menu rows, keyboard, clock and network lists, toasts and
+    alarms, About sticker, prompts, the unboxing, the printer scene, the core picker);
+  - grounds and scrims cover `canvas.h`, and `Canvas::cover` crops band-high art to any
+    canvas shape.
+  - On 480-tall canvases every shift is 0, so upstream devices are unchanged; upstream's
+    tests that build on Linux pass (slot-gfx 38, slot-ui 483, slot as listed in the
+    commit).
+- Checked on the device by capture or by eye: shelf, settings pages, in-game menu, core
+  picker, clock, About, screenshots, games. The settings overflow and footer-hint
+  overlap are gone.
+- Not yet handled: the slot-update scenes (an update cart drops onto the shelf and
+  opens) still draw their carts in band coordinates. They can't show until Wi-Fi works
+  on this device; fix them with the device layer.
+- Later: menus could show more rows on a taller canvas (`QUICK_VISIBLE` is 6), and the
+  wallpaper is a band-sized texture scaled up, a little soft.
 
 **GBA audio** sounded out of tune on slot² with ROCKNIX's kernel, and sounds right with
 our own kernel. Cause unknown; keep an ear on it.

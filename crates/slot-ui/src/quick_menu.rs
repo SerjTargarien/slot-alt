@@ -1,5 +1,5 @@
 use crate::bitmaps::{button_legend, ButtonLegend};
-use crate::draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
+use crate::draw::{shift, Canvas, Draw, TexId, OUT_H, OUT_W};
 use crate::icon::{Icon, WARNING_INK};
 use crate::plate::{blit, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE};
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
@@ -1561,14 +1561,20 @@ pub struct QuickMenu<'a> {
 
 impl QuickMenu<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
+        // Rows are laid out on the band. On a taller canvas a page's rows sit in its
+        // middle, and the play-screen panel over a game at its bottom.
+        let rows_dy = match self.row.page() == QuickRow::PLAY_SCREEN {
+            true => self.canvas.extra(),
+            false => self.canvas.extra() / 2.0,
+        };
         match (self.over_game, self.row.page() == QuickRow::PLAY_SCREEN) {
             (false, _) => draw_menu_ground(self.canvas, self.ground, out),
             (true, panel) => {
                 let y = match panel {
-                    true => quick_row_top(self.row.page()[0], self.hidden) - PANEL_GAP,
+                    true => quick_row_top(self.row.page()[0], self.hidden) - PANEL_GAP + rows_dy,
                     false => 0.0,
                 };
-                let bottom = self.footer_top.max(y);
+                let bottom = self.canvas.below(self.footer_top).max(y);
                 out.push(Draw::Rect {
                     x: 0.0,
                     y,
@@ -1592,6 +1598,7 @@ impl QuickMenu<'_> {
             .unwrap_or(0);
         let shown = self.row.shown(self.hidden);
         let (start, len) = quick_window(self.row, self.hidden);
+        let first = out.len();
         for row in shown.into_iter().skip(start).take(len) {
             let y = quick_row_top_at(row, self.row, self.hidden) + TYPE_DROP;
             let lit = row == self.row;
@@ -1666,15 +1673,18 @@ impl QuickMenu<'_> {
                 colour: [lit[0], lit[1], lit[2], 1.0],
             });
         }
+        shift(&mut out[first..], rows_dy);
         if let Some((tex, w, h)) = self.description {
-            let y = OUT_H as f32 - MOUTH_H - h as f32 - DESCRIPTION_GAP;
+            let y = self
+                .canvas
+                .below(OUT_H as f32 - MOUTH_H - h as f32 - DESCRIPTION_GAP);
             push(out, tex, self.canvas.centred(w as f32), y, w, h);
         }
     }
 }
 
 pub fn draw_menu_ground(canvas: Canvas, ground: Option<(TexId, u32)>, out: &mut Vec<Draw>) {
-    let (w, h) = (canvas.w, OUT_H as f32);
+    let (w, h) = (canvas.w, canvas.h);
     match ground {
         Some((tex, tex_w)) => {
             out.push(Draw::Part {

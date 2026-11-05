@@ -124,7 +124,7 @@ pub fn draw_backdrop(canvas: Canvas, face: Option<(TexId, u32)>, out: &mut Vec<D
         x: 0.0,
         y: 0.0,
         w: canvas.w,
-        h: OUT_H as f32,
+        h: canvas.h,
         colour: [0.0, 0.0, 0.0, SCRIM],
     });
 }
@@ -134,7 +134,7 @@ fn ground(canvas: Canvas, (tex, tex_w): (TexId, u32)) -> Draw {
         x: 0.0,
         y: 0.0,
         w: canvas.w,
-        h: OUT_H as f32,
+        h: canvas.h,
         tex,
         alpha: 1.0,
         uv: canvas.cover(tex_w as f32),

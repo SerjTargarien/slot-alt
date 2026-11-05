@@ -1,4 +1,4 @@
-use slot_gfx::{Canvas, Draw, TexId, OUT_H};
+use slot_gfx::{shift, Canvas, Draw, TexId, OUT_H};
 use slot_store::Cart;
 
 use crate::cart::{cart_box, label_colour, label_text, seated_box, SEATED_W};
@@ -70,8 +70,8 @@ const LIP_Y: f32 = BAND_Y;
 
 const SEATED_Y: f32 = BAY_Y + 4.0;
 
-fn catch_at(foot: f32, seated_foot: f32) -> f32 {
-    (LIP_Y - foot) / (seated_foot - foot)
+fn catch_at(lip: f32, foot: f32, seated_foot: f32) -> f32 {
+    (lip - foot) / (seated_foot - foot)
 }
 
 const CATCH_IN: f32 = 0.42;
@@ -106,7 +106,7 @@ impl SlotChrome<'_> {
                 x: 0.0,
                 y: 0.0,
                 w: canvas.w,
-                h: OUT_H as f32,
+                h: canvas.h,
                 colour: [0.0, 0.0, 0.0, dim],
             });
         }
@@ -129,8 +129,9 @@ impl SlotChrome<'_> {
         let (w0, h0) = (cw * scale, ch * scale);
         let (sw, sh) = seated_box(self.cart.platform);
         let (sw, sh) = (sw as f32, sh as f32);
-        let (foot0, seated_foot) = (foot_y(ch), SEATED_Y + sh);
-        let catch = catch_at(foot0, seated_foot);
+        // The cart leaves the shelf, centred on the canvas, for the slot at its bottom.
+        let (foot0, seated_foot) = (canvas.mid(foot_y(ch)), canvas.below(SEATED_Y + sh));
+        let catch = catch_at(canvas.below(LIP_Y), foot0, seated_foot);
         let travel = travel(seat, catch);
         let k = (travel / catch).min(1.0);
         let (cw, ch) = (w0 + (sw - w0) * k, h0 + (sh - h0) * k);
@@ -224,7 +225,7 @@ fn band(x: f32, y: f32, w: f32, h: f32, c: [f32; 4], alpha: f32) -> Draw {
 fn strip(canvas: Canvas, tex: TexId, alpha: f32) -> Draw {
     Draw::Part {
         x: 0.0,
-        y: BAND_Y,
+        y: canvas.below(BAND_Y),
         w: canvas.w,
         h: MOUTH_H,
         tex,
@@ -244,6 +245,7 @@ pub fn draw_slot_back(
         return;
     }
     let (bay_x, mouth_x) = (bay_x(canvas), mouth_x(canvas));
+    let start = out.len();
     out.push(band(bay_x, BAND_Y, BAY_W, LIP_H, housing(), alpha));
     out.push(band(mouth_x, BAND_Y, MOUTH_W, LIP_H, edge(), alpha));
     out.push(band(bay_x, BAY_Y, BAY_W, RECESS_H, recess(), alpha));
@@ -251,6 +253,7 @@ pub fn draw_slot_back(
     for_each_scoop_span(canvas, |x, w, depth| {
         out.push(band(x, SCOOP_Y, w, depth, opening(), alpha));
     });
+    shift(&mut out[start..], canvas.extra());
 }
 
 pub fn draw_slot_front(
@@ -266,7 +269,10 @@ pub fn draw_slot_front(
     front_bands(canvas, |x, y, w, h, c| out.push(band(x, y, w, h, c, alpha)));
 }
 
-fn front_bands(canvas: Canvas, mut band: impl FnMut(f32, f32, f32, f32, [f32; 4])) {
+fn front_bands(canvas: Canvas, mut put: impl FnMut(f32, f32, f32, f32, [f32; 4])) {
+    // Laid out on the band, drawn at the bottom of the canvas.
+    let dy = canvas.extra();
+    let mut band = |x, y: f32, w, h, c| put(x, y + dy, w, h, c);
     let w = canvas.w;
     let (bay_x, cx) = (bay_x(canvas), canvas.w / 2.0);
     let right = bay_x + BAY_W;
@@ -306,8 +312,8 @@ fn for_each_scoop_span(canvas: Canvas, mut span: impl FnMut(f32, f32, f32)) {
 
 const SLOT_NAME_GAP: f32 = 6.0;
 
-pub fn slot_name_y() -> f32 {
-    OUT_H as f32 - MOUTH_H - HINT_H as f32 - SLOT_NAME_GAP
+pub fn slot_name_y(canvas: Canvas) -> f32 {
+    canvas.below(OUT_H as f32 - MOUTH_H - HINT_H as f32 - SLOT_NAME_GAP)
 }
 
 pub fn draw_slot_title(canvas: Canvas, title: Printed, alpha: f32, out: &mut Vec<Draw>) {
@@ -317,7 +323,7 @@ pub fn draw_slot_title(canvas: Canvas, title: Printed, alpha: f32, out: &mut Vec
     let (w, h) = (title.w as f32, crate::plate::TITLE_LINE_H as f32);
     out.push(Draw::Tex {
         x: canvas.centred(w),
-        y: slot_name_y() + HINT_H as f32 - h,
+        y: slot_name_y(canvas) + HINT_H as f32 - h,
         w,
         h,
         tex,

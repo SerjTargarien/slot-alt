@@ -12,6 +12,31 @@ impl TexId {
     }
 }
 
+/// Moves everything in `draws` down by `dy` layout units. A group laid out on the 480-unit
+/// band is placed on a taller canvas this way: by `Canvas::extra` when it belongs at the
+/// bottom of the screen, by half of it when it belongs in the middle. `dy` is 0 on the band
+/// itself.
+pub fn shift(draws: &mut [Draw], dy: f32) {
+    if dy == 0.0 {
+        return;
+    }
+    for d in draws {
+        match d {
+            Draw::Rect { y, .. }
+            | Draw::Tex { y, .. }
+            | Draw::Part { y, .. }
+            | Draw::Turned { y, .. } => *y += dy,
+            Draw::Quad { corners, .. } => {
+                for c in corners.iter_mut() {
+                    c[1] += dy;
+                }
+            }
+            Draw::Paper { pivot, .. } => pivot[1] += dy,
+            Draw::Game | Draw::Shot { .. } | Draw::Capture => {}
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Draw {
     Rect {

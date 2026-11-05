@@ -1,7 +1,7 @@
 use slot_input::Btn;
 
 use crate::bitmaps::ButtonLegend;
-use crate::draw::{Canvas, Draw, TexId, OUT_H};
+use crate::draw::{shift, Canvas, Draw, TexId, OUT_H};
 use crate::guide::{draw_help_screen, help_rows_face, GUIDE_HELP_HINT};
 use crate::hud::footer_ink;
 use crate::icon::{icon_coverage, Icon};
@@ -786,6 +786,13 @@ pub fn draw_keyboard(
         return draw_help_screen(canvas, Some(title), Some(back), Some(faces.help), out);
     }
     draw_menu_ground(canvas, ground, out);
+    // Laid out on the band, drawn in the middle of a taller canvas.
+    let first = out.len();
+    draw_keyboard_content(canvas, faces, kb, out);
+    shift(&mut out[first..], canvas.extra() / 2.0);
+}
+
+fn draw_keyboard_content(canvas: Canvas, faces: &KeyboardTex, kb: &Keyboard, out: &mut Vec<Draw>) {
     place(
         out,
         faces.title,
@@ -806,7 +813,7 @@ pub fn draw_keyboard(
 }
 
 pub fn draw_keyboard_legends(canvas: Canvas, faces: &KeyboardTex, out: &mut Vec<Draw>) {
-    let y = OUT_H as f32 - MOUTH_H;
+    let y = canvas.below(OUT_H as f32 - MOUTH_H);
     let [(cancel, cw, _), (done, dw, _)] = faces.legends;
     for (tex, w, x) in [
         (cancel, cw, 0.0),

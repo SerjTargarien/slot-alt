@@ -2058,7 +2058,7 @@ impl App {
                 x: 0.0,
                 y: 0.0,
                 w: self.canvas().w,
-                h: OUT_H as f32,
+                h: self.canvas().h,
                 colour: [0.0, 0.0, 0.0, alpha],
             });
         }
@@ -4721,7 +4721,7 @@ impl App {
             x: 0.0,
             y: 0.0,
             w: self.canvas().w,
-            h: OUT_H as f32,
+            h: self.canvas().h,
             colour: [0.0, 0.0, 0.0, 1.0],
         });
         if self.panel_lit() && self.screen > 0.0 {
@@ -5124,7 +5124,7 @@ impl App {
                 x: 0.0,
                 y: 0.0,
                 w: self.canvas().w,
-                h: OUT_H as f32,
+                h: self.canvas().h,
                 colour: [0.0, 0.0, 0.0, 1.0],
             });
             let which = if self.repairing {
@@ -5137,7 +5137,7 @@ impl App {
             if let Some((tex, w, h)) = self.shutdown_faces.get(which.index()).copied() {
                 out.push(Draw::Tex {
                     x: self.canvas().centred(w as f32).floor(),
-                    y: ((OUT_H - h) / 2) as f32,
+                    y: self.canvas().mid(((OUT_H - h) / 2) as f32),
                     w: w as f32,
                     h: h as f32,
                     tex,
@@ -5364,7 +5364,7 @@ impl App {
                     x: 0.0,
                     y: 0.0,
                     w: self.canvas().w,
-                    h: OUT_H as f32,
+                    h: self.canvas().h,
                     colour: [0.0, 0.0, 0.0, 1.0],
                 });
                 self.draw_sp_strip(out);
@@ -5451,6 +5451,11 @@ impl App {
         }
     }
 
+    /// Top of the legend strip in the footer, at the bottom of the canvas.
+    fn legend_y(&self) -> f32 {
+        self.canvas().below(LINK_LEGEND_Y)
+    }
+
     fn draw_menu_footer(&self, out: &mut Vec<Draw>) {
         let carousel = matches!(self.phase, Phase::QuickMenu { .. } | Phase::About);
         let dy = if carousel {
@@ -5485,7 +5490,7 @@ impl App {
         };
         shift_down(&mut out[start..], dy);
         if let Some(row) = row {
-            self.draw_menu_legends(row, LINK_LEGEND_Y + dy, out);
+            self.draw_menu_legends(row, self.legend_y() + dy, out);
         }
     }
 
@@ -5543,7 +5548,7 @@ impl App {
             x: 0.0,
             y: 0.0,
             w: self.canvas().w,
-            h: OUT_H as f32,
+            h: self.canvas().h,
             colour: [0.0, 0.0, 0.0, 1.0],
         });
         let [lines @ .., no, yes] = faces else {
@@ -5551,7 +5556,7 @@ impl App {
         };
         let gaps = REPAIR_GAP * lines.len().saturating_sub(1) as u32;
         let total = lines.iter().map(|l| l.2).sum::<u32>() + gaps;
-        let mut y = (OUT_H.saturating_sub(total) / 2) as f32;
+        let mut y = self.canvas().mid((OUT_H.saturating_sub(total) / 2) as f32);
         for &(tex, w, h) in lines {
             out.push(Draw::Tex {
                 x: self.canvas().centred(w as f32).floor(),
@@ -5563,8 +5568,8 @@ impl App {
             });
             y += (h + REPAIR_GAP) as f32;
         }
-        self.draw_side_legend((no.0, no.1), false, LINK_LEGEND_Y, out);
-        self.draw_side_legend((yes.0, yes.1), true, LINK_LEGEND_Y, out);
+        self.draw_side_legend((no.0, no.1), false, self.legend_y(), out);
+        self.draw_side_legend((yes.0, yes.1), true, self.legend_y(), out);
     }
 
     fn draw_about_legend(&self, out: &mut Vec<Draw>) {
@@ -5575,8 +5580,8 @@ impl App {
             true => faces.legend_light,
             false => faces.legend,
         };
-        self.draw_side_legend(back, false, LINK_LEGEND_Y, out);
-        self.draw_side_legend(restart, true, LINK_LEGEND_Y, out);
+        self.draw_side_legend(back, false, self.legend_y(), out);
+        self.draw_side_legend(restart, true, self.legend_y(), out);
     }
 
     fn draw_menu_legends(&self, row: QuickRow, y: f32, out: &mut Vec<Draw>) {
@@ -5621,7 +5626,7 @@ impl App {
             (None, false, ClockRow::Zone) => vec![back, open],
             (None, false, ClockRow::Clock | ClockRow::NetworkTime) => vec![back, change],
         };
-        self.draw_spread_legends(&legends, LINK_LEGEND_Y, 1.0, out);
+        self.draw_spread_legends(&legends, self.legend_y(), 1.0, out);
     }
 
     fn draw_spread_legends(
@@ -5922,6 +5927,9 @@ impl App {
         let shelf = shelf_cart_shaped(shell, rest, scale);
         let board = board_from_shaped(self.canvas(), shell, shelf, progress);
         let ready = self.core_faces_ready();
+        // The cart opens where it sits on the shelf, which is in the middle of a taller
+        // canvas: the board, chips, shadow and lid move down with it.
+        let first = out.len();
 
         if ready {
             if let Some(tex) = self.core_interior_face {
@@ -6001,9 +6009,11 @@ impl App {
             });
         }
 
+        slot_gfx::shift(&mut out[first..], self.canvas().extra() / 2.0);
+
         let legends = &self.core_legend_faces[self.light() as usize];
         if !legends.is_empty() {
-            self.draw_spread_legends(legends, LINK_LEGEND_Y, lift, out);
+            self.draw_spread_legends(legends, self.legend_y(), lift, out);
         }
     }
 
@@ -6014,7 +6024,7 @@ impl App {
                 x: 0.0,
                 y: 0.0,
                 w: canvas.w,
-                h: OUT_H as f32,
+                h: self.canvas().h,
                 tex,
                 alpha: 1.0,
             });
@@ -6023,10 +6033,13 @@ impl App {
             x: 0.0,
             y: 0.0,
             w: canvas.w,
-            h: OUT_H as f32,
+            h: self.canvas().h,
             colour: LINK_SCRIM,
         });
         if let Some(sprites) = &self.link_sprites {
+            // The port sits at the bottom of the screen, so the art moves down with it on
+            // a taller canvas. The title above stays at the top.
+            let first = out.len();
             crate::link_screen::draw_link_art(
                 self.canvas(),
                 menu,
@@ -6035,6 +6048,7 @@ impl App {
                 sprites,
                 out,
             );
+            slot_gfx::shift(&mut out[first..], self.canvas().extra());
         }
         let line = match menu {
             GameMenu::Pick(role) => self.link_menu_faces.get(role.index()).copied(),
@@ -6083,7 +6097,7 @@ impl App {
         for (tex, w) in all {
             out.push(Draw::Tex {
                 x: x.round(),
-                y: LINK_LEGEND_Y,
+                y: self.legend_y(),
                 w: w as f32,
                 h: MOUTH_H,
                 tex,
@@ -6113,7 +6127,7 @@ impl App {
         for &(tex, w) in faces {
             out.push(Draw::Tex {
                 x,
-                y: LINK_LEGEND_Y,
+                y: self.legend_y(),
                 w: w as f32,
                 h: MOUTH_H,
                 tex,
@@ -6958,7 +6972,7 @@ impl App {
             let e = if self.studio_closing.is_some() { 1.0 - ease(t) } else { ease(t) };
             self.draw_background(out);
             self.shelf().draw_row(canvas, Some(&studio.cart.stem), 0.0, 0.0, 1.0, out);
-            self.draw_studio_ground((e - 1.0) * OUT_H as f32, out);
+            self.draw_studio_ground((e - 1.0) * self.canvas().h, out);
             self.draw_studio_cart(out);
             return draw_empty_slot(canvas, self.slot_faces, out);
         }
@@ -7035,7 +7049,7 @@ impl App {
         if n <= 2 {
             for (i, legend) in legends.iter().enumerate() {
                 if let Some(face) = self.studio_legends.get(&(*legend, i == 0, light)) {
-                    self.draw_side_legend(*face, i == 1, LINK_LEGEND_Y, out);
+                    self.draw_side_legend(*face, i == 1, self.legend_y(), out);
                 }
             }
             return;
@@ -7049,7 +7063,14 @@ impl App {
         let gap = (self.canvas().w - total) / (faces.len() + 1) as f32;
         let mut x = gap;
         for (tex, w) in faces {
-            out.push(Draw::Tex { x: x.floor(), y: LINK_LEGEND_Y, w: w as f32, h: MOUTH_H, tex, alpha: 1.0 });
+            out.push(Draw::Tex {
+                x: x.floor(),
+                y: self.legend_y(),
+                w: w as f32,
+                h: MOUTH_H,
+                tex,
+                alpha: 1.0,
+            });
             x += w as f32 + gap;
         }
     }
@@ -7193,7 +7214,7 @@ impl App {
 
     fn draw_studio_ground(&self, top: f32, out: &mut Vec<Draw>) {
         let w = self.canvas().w;
-        let h = OUT_H as f32;
+        let h = self.canvas().h;
         out.push(Draw::Rect { x: 0.0, y: top, w, h, colour: [0.122, 0.267, 0.216, 1.0] });
         let line = |x: f32, y: f32, w: f32, h: f32, a: f32| Draw::Rect {
             x,
@@ -7768,7 +7789,7 @@ impl App {
         const LINE_H: f32 = 40.0;
         const GAP: f32 = 18.0;
         let mid = self.canvas().w / 2.0;
-        let room = OUT_H as f32 - MOUTH_H;
+        let room = self.canvas().below(OUT_H as f32 - MOUTH_H);
         let top = ((room - (2.0 * LINE_H + BAR_H + 2.0 * GAP)) / 2.0).floor();
         let (x, y) = ((mid - BAR_W / 2.0).floor(), top + LINE_H + GAP);
         self.draw_fetch_text(0, mid, top, out);
@@ -7799,12 +7820,19 @@ impl App {
                     Some(scene) => {
                         self.draw_fetch_scene(scene, out);
                         self.draw_fetch_text(0, mid, 26.0, out);
-                        self.draw_fetch_text(1, mid, slot_ui::slot_name_y() - 30.0, out);
-                        self.draw_fetch_text(2, mid, slot_ui::slot_name_y(), out);
+                        self.draw_fetch_text(
+                            1,
+                            mid,
+                            slot_ui::slot_name_y(self.canvas()) - 30.0,
+                            out,
+                        );
+                        self.draw_fetch_text(2, mid, slot_ui::slot_name_y(self.canvas()), out);
                     }
                     None => {
                         let lines = self.fetch_text.len().min(2) as f32;
-                        let top = ((OUT_H as f32 - MOUTH_H - 40.0 * lines) / 2.0).floor();
+                        let top = self
+                            .canvas()
+                            .mid(((OUT_H as f32 - MOUTH_H - 40.0 * lines) / 2.0).floor());
                         self.draw_fetch_text(0, mid, top, out);
                         self.draw_fetch_text(1, mid, top + 40.0, out);
                     }
@@ -7820,12 +7848,12 @@ impl App {
         draw_empty_slot(canvas, self.slot_faces, out);
         if let Some(legends) = self.fetch_legends {
             let legends = legends[usize::from(self.light())];
-            self.draw_side_legend(legends[legend], false, LINK_LEGEND_Y, out);
+            self.draw_side_legend(legends[legend], false, self.legend_y(), out);
             if legend == 0 {
-                self.draw_side_legend(legends[1], true, LINK_LEGEND_Y, out);
+                self.draw_side_legend(legends[1], true, self.legend_y(), out);
             }
             if self.fetch_can_skip() {
-                self.draw_side_legend(legends[4], true, LINK_LEGEND_Y, out);
+                self.draw_side_legend(legends[4], true, self.legend_y(), out);
             }
         }
     }
@@ -7834,7 +7862,7 @@ impl App {
         const MARGIN: f32 = 44.0;
         const COLUMN: f32 = 288.0;
         const ROW: f32 = 40.0;
-        let ground = OUT_H as f32 - MOUTH_H;
+        let ground = self.canvas().below(OUT_H as f32 - MOUTH_H);
         let canvas_w = self.canvas().w;
         let (left, right) = match featured {
             Some(_) => (MARGIN + COLUMN + 40.0, canvas_w - MARGIN),
@@ -7919,7 +7947,9 @@ impl App {
         let (fw, fh) = (tex.w as f32, tex.h as f32);
         let (w, h) = (fw * scale, fh * scale);
         let x = ((self.canvas().w - w) / 2.0).floor();
-        let y = ((OUT_H as f32 - MOUTH_H - h) / 2.0).floor();
+        let y = self
+            .canvas()
+            .mid(((OUT_H as f32 - MOUTH_H - h) / 2.0).floor());
         let rect = [
             x + well[0] as f32 * scale,
             y + well[1] as f32 * scale,
@@ -8659,6 +8689,8 @@ impl App {
         };
         let canvas = self.canvas();
         shelf.draw_row(canvas, Some(stem), 0.0, 0.0, 1.0, out);
+        // The unwrapping happens on the shelf, which sits in the middle of a taller canvas.
+        let first = out.len();
         unwrap_draws(
             &scene.frame(self.now()),
             tex,
@@ -8667,6 +8699,7 @@ impl App {
             canvas,
             out,
         );
+        slot_gfx::shift(&mut out[first..], canvas.extra() / 2.0);
         draw_empty_slot(canvas, self.slot_faces, out);
         true
     }
@@ -8834,9 +8867,9 @@ impl App {
             return;
         };
         let light = self.light() as usize;
-        self.draw_side_legend(net.cancel[light], false, LINK_LEGEND_Y, out);
+        self.draw_side_legend(net.cancel[light], false, self.legend_y(), out);
         if self.pair_retryable() {
-            self.draw_side_legend(net.retry[light], true, LINK_LEGEND_Y, out);
+            self.draw_side_legend(net.retry[light], true, self.legend_y(), out);
         }
     }
 
@@ -9169,7 +9202,7 @@ impl App {
             "Cancel" => net.map_or(back, |n| n.cancel[light as usize]),
             _ => back,
         };
-        self.draw_side_legend(left, false, LINK_LEGEND_Y, out);
+        self.draw_side_legend(left, false, self.legend_y(), out);
         let right = match self.network_action() {
             Some("Open") => Some(open),
             Some("Change") => Some(change),
@@ -9181,7 +9214,7 @@ impl App {
             _ => None,
         };
         if let Some(right) = right {
-            self.draw_side_legend(right, true, LINK_LEGEND_Y, out);
+            self.draw_side_legend(right, true, self.legend_y(), out);
         }
     }
 
@@ -9591,11 +9624,11 @@ impl App {
         };
         match self.update {
             Some(UpdateState::Checking | UpdateState::Downloading(..)) => {
-                self.draw_side_legend(cancel, false, LINK_LEGEND_Y, out)
+                self.draw_side_legend(cancel, false, self.legend_y(), out)
             }
             Some(UpdateState::Available(..)) => {
-                self.draw_side_legend(cancel, false, LINK_LEGEND_Y, out);
-                self.draw_side_legend(install, true, LINK_LEGEND_Y, out);
+                self.draw_side_legend(cancel, false, self.legend_y(), out);
+                self.draw_side_legend(install, true, self.legend_y(), out);
             }
             _ => {}
         }
@@ -9608,13 +9641,13 @@ impl App {
             x: 0.0,
             y: 0.0,
             w: canvas.w,
-            h: OUT_H as f32,
+            h: self.canvas().h,
             colour: [r, g, b, alpha],
         });
         let (tex, w, h) = scene.logo;
         out.push(Draw::Tex {
             x: canvas.centred(w as f32).floor(),
-            y: ((OUT_H - h) / 2) as f32,
+            y: self.canvas().mid(((OUT_H - h) / 2) as f32),
             w: w as f32,
             h: h as f32,
             tex,
@@ -9695,13 +9728,13 @@ impl App {
             x: 0.0,
             y: 0.0,
             w: self.canvas().w,
-            h: OUT_H as f32,
+            h: self.canvas().h,
             colour: [0.0, 0.0, 0.0, 1.0],
         });
         let lines = &self.update_faces;
         let gaps = REPAIR_GAP * lines.len().saturating_sub(1) as u32;
         let total = lines.iter().map(|l| l.2).sum::<u32>() + gaps;
-        let mut y = (OUT_H.saturating_sub(total) / 2) as f32;
+        let mut y = self.canvas().mid((OUT_H.saturating_sub(total) / 2) as f32);
         for &(tex, w, h) in lines {
             out.push(Draw::Tex {
                 x: self.canvas().centred(w as f32).floor(),
@@ -9718,15 +9751,15 @@ impl App {
         };
         match self.update {
             Some(UpdateState::Available(..)) => {
-                self.draw_side_legend(cancel, false, LINK_LEGEND_Y, out);
-                self.draw_side_legend(install, true, LINK_LEGEND_Y, out);
+                self.draw_side_legend(cancel, false, self.legend_y(), out);
+                self.draw_side_legend(install, true, self.legend_y(), out);
             }
             Some(UpdateState::Battery(_)) => {
-                self.draw_side_legend(cancel, false, LINK_LEGEND_Y, out);
-                self.draw_side_legend(install, true, LINK_LEGEND_Y, out);
+                self.draw_side_legend(cancel, false, self.legend_y(), out);
+                self.draw_side_legend(install, true, self.legend_y(), out);
             }
             Some(UpdateState::UpToDate | UpdateState::Failed(_) | UpdateState::Notice(_)) => {
-                self.draw_side_legend(back, false, LINK_LEGEND_Y, out)
+                self.draw_side_legend(back, false, self.legend_y(), out)
             }
             _ => {}
         }

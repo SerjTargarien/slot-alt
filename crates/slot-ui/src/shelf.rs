@@ -1,4 +1,4 @@
-use slot_gfx::{Canvas, Draw, TexId, OUT_H};
+use slot_gfx::{shift, Canvas, Draw, TexId, OUT_H};
 use slot_store::{Cart, Platform};
 
 use crate::board::{board_in, Placed};
@@ -523,6 +523,8 @@ impl Shelf {
         let recede = recede.clamp(0.0, 1.0);
         let dim = dim.clamp(0.0, 1.0);
         let target = self.scroll_target();
+        // Laid out on the band, drawn in the middle of the space above the slot.
+        let start = out.len();
         for slot in -SLOTS..=SLOTS {
             let Some(i) = self.cart_at_offset(slot) else {
                 continue;
@@ -587,6 +589,7 @@ impl Shelf {
                 });
             }
         }
+        shift(&mut out[start..], canvas.extra() / 2.0);
     }
 }
 

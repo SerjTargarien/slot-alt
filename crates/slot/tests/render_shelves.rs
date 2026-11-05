@@ -74,7 +74,7 @@ fn hud_ink(px: &[u8]) -> usize {
 fn name_window() -> (usize, usize, usize, usize) {
     (
         OUT_W as usize / 2 - 70,
-        slot_name_y() as usize,
+        slot_name_y(Canvas::FRAMED) as usize,
         140,
         HINT_H as usize,
     )

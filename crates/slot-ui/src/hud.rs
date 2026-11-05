@@ -340,7 +340,7 @@ impl Hud {
     fn draw_alarm(&self, canvas: Canvas, age: Millis, out: &mut Vec<Draw>) {
         out.push(Draw::Rect {
             x: 0.0,
-            y: (OUT_H as f32 - ALARM_BAND_H) / 2.0,
+            y: canvas.mid((OUT_H as f32 - ALARM_BAND_H) / 2.0),
             w: canvas.w,
             h: ALARM_BAND_H,
             colour: pulse(age),
