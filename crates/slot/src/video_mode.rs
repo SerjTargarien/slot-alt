@@ -125,9 +125,11 @@ pub fn picture_for(
     scale: Scale,
     stretch: Stretch,
 ) -> (Sizing, [f32; 4]) {
+    // slot²: the Game Gear and NeoGeo Pocket share the Game Boy's 240x160 buffer, so they
+    // scale (Integer or Fit) and stretch (to the whole screen) the same way.
     if !matches!(
         platform.hardware(),
-        Platform::Gba | Platform::Gb | Platform::Gbc
+        Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp
     ) {
         return (Sizing::Band, source_rect(platform, mode));
     }

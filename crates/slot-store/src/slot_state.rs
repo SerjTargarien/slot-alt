@@ -418,6 +418,12 @@ pub struct SlotState {
     /// square panel); elsewhere stretch is per game (`Config/video_mode.txt`).
     pub stretched_gb: bool,
     pub stretched_gbc: bool,
+    /// slot²: the Game Gear and NeoGeo Pocket scale like the Game Boy (Integer or Fit)
+    /// and stretch on or off, one value per platform.
+    pub scale_gg: Scale,
+    pub scale_ngp: Scale,
+    pub stretched_gg: bool,
+    pub stretched_ngp: bool,
     pub blending_gba: Blending,
     pub blending_gb: Blending,
     pub blending_gbc: Blending,
@@ -636,6 +642,10 @@ impl Default for SlotState {
             stretch_gbc: Stretch::Classic,
             stretched_gb: false,
             stretched_gbc: false,
+            scale_gg: Scale::Integer,
+            scale_ngp: Scale::Integer,
+            stretched_gg: false,
+            stretched_ngp: false,
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -766,6 +776,10 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("stretch_gbc={}\n", s.stretch_gbc.name()));
     text.push_str(&format!("stretched_gb={}\n", s.stretched_gb as u8));
     text.push_str(&format!("stretched_gbc={}\n", s.stretched_gbc as u8));
+    text.push_str(&format!("scale_gg={}\n", s.scale_gg.name()));
+    text.push_str(&format!("scale_ngp={}\n", s.scale_ngp.name()));
+    text.push_str(&format!("stretched_gg={}\n", s.stretched_gg as u8));
+    text.push_str(&format!("stretched_ngp={}\n", s.stretched_ngp as u8));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -848,6 +862,10 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut stretch_gbc = None;
     let mut stretched_gb = None;
     let mut stretched_gbc = None;
+    let mut scale_gg = None;
+    let mut scale_ngp = None;
+    let mut stretched_gg = None;
+    let mut stretched_ngp = None;
     let mut blending_gba = None;
     let mut blending_gb = None;
     let mut blending_gbc = None;
@@ -914,6 +932,10 @@ fn parse(text: &str) -> Option<SlotState> {
             "stretch_gbc" => stretch_gbc = Stretch::parse(value),
             "stretched_gb" => stretched_gb = flag(value),
             "stretched_gbc" => stretched_gbc = flag(value),
+            "scale_gg" => scale_gg = Scale::parse(value),
+            "scale_ngp" => scale_ngp = Scale::parse(value),
+            "stretched_gg" => stretched_gg = flag(value),
+            "stretched_ngp" => stretched_ngp = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
             "blending_gb" => blending_gb = Blending::parse(value),
             "blending_gbc" => blending_gbc = Blending::parse(value),
@@ -1017,6 +1039,10 @@ fn parse(text: &str) -> Option<SlotState> {
         stretch_gbc: stretch_gbc.unwrap_or(fallback.stretch_gbc),
         stretched_gb: stretched_gb.unwrap_or(fallback.stretched_gb),
         stretched_gbc: stretched_gbc.unwrap_or(fallback.stretched_gbc),
+        scale_gg: scale_gg.unwrap_or(fallback.scale_gg),
+        scale_ngp: scale_ngp.unwrap_or(fallback.scale_ngp),
+        stretched_gg: stretched_gg.unwrap_or(fallback.stretched_gg),
+        stretched_ngp: stretched_ngp.unwrap_or(fallback.stretched_ngp),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),
         blending_gb: blending_gb.unwrap_or(fallback.blending_gb),
         blending_gbc: blending_gbc.unwrap_or(fallback.blending_gbc),

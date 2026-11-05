@@ -1521,7 +1521,8 @@ impl App {
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
         let platform = self.playing_platform();
-        let no_bezel = platform.hardware() == Platform::Gba && !self.framed_panel();
+        let no_bezel =
+            (platform.hardware() == Platform::Gba && !self.framed_panel()) || unbezelled(platform);
         let mut hidden = Vec::new();
         // None of the added systems' cores has colour correction to set. Their
         // bezel is None, the SP frame on a 4:3 panel, or a png of the card's own.
@@ -1696,6 +1697,10 @@ impl App {
             (QuickRow::Scale, Platform::Gbc) => QuickRow::GbcScale,
             (QuickRow::Stretch, Platform::Gb) => QuickRow::GbStretch,
             (QuickRow::Stretch, Platform::Gbc) => QuickRow::GbcStretch,
+            (QuickRow::Scale, Platform::Gg) => QuickRow::GgScale,
+            (QuickRow::Scale, Platform::Ngp) => QuickRow::NgpScale,
+            (QuickRow::Stretch, Platform::Gg) => QuickRow::GgStretch,
+            (QuickRow::Stretch, Platform::Ngp) => QuickRow::NgpStretch,
             (QuickRow::PlayBrightness, _) => QuickRow::Brightness,
             (QuickRow::PlayBlueLight, _) => QuickRow::BlueLight,
             (QuickRow::PlaySaturation, _) => QuickRow::Saturation,
@@ -1723,13 +1728,17 @@ impl App {
             QuickRow::GbaScale => Some(scale_value(self.resolved_scale(Platform::Gba))),
             QuickRow::GbScale => Some(scale_value(self.resolved_scale(Platform::Gb))),
             QuickRow::GbcScale => Some(scale_value(self.resolved_scale(Platform::Gbc))),
-            QuickRow::GbStretch | QuickRow::GbcStretch if self.tall() => {
-                let platform = match row {
-                    QuickRow::GbcStretch => Platform::Gbc,
-                    _ => Platform::Gb,
-                };
-                Some(QuickValue::flag(self.stretched(platform)))
+            QuickRow::GgScale => Some(scale_value(self.resolved_scale(Platform::Gg))),
+            QuickRow::NgpScale => Some(scale_value(self.resolved_scale(Platform::Ngp))),
+            QuickRow::GbStretch
+            | QuickRow::GbcStretch
+            | QuickRow::GgStretch
+            | QuickRow::NgpStretch
+                if self.tall() =>
+            {
+                Some(QuickValue::flag(self.stretched(stretch_row_platform(row))))
             }
+            QuickRow::GgStretch | QuickRow::NgpStretch => None,
             QuickRow::GbStretch => Some(stretch_value(self.resolved_stretch(Platform::Gb))),
             QuickRow::GbcStretch => Some(stretch_value(self.resolved_stretch(Platform::Gbc))),
             QuickRow::GbaBlending => Some(blending_value(self.state.blending_gba)),
@@ -2087,7 +2096,7 @@ impl App {
     }
 
     pub fn shown_game_bezel(&self) -> Option<TexId> {
-        if self.picture_fills() {
+        if self.picture_fills() || unbezelled(self.playing_platform()) {
             return None;
         }
         if self.resolved_bezel(self.playing_platform()) == BezelPick::Default
@@ -2099,7 +2108,7 @@ impl App {
     }
 
     pub fn bezel_art(&self) -> Option<BezelArt> {
-        if self.picture_fills() {
+        if self.picture_fills() || unbezelled(self.playing_platform()) {
             return None;
         }
         let gba = self.playing_platform().hardware() == Platform::Gba;
@@ -2260,10 +2269,13 @@ impl App {
         if !self.framed_panel() {
             hidden.push(QuickRow::GbaBezel);
         }
+        hidden.extend([QuickRow::GgBezel, QuickRow::NgpBezel]);
         for (row, platform) in [
             (QuickRow::GbaScale, Platform::Gba),
             (QuickRow::GbScale, Platform::Gb),
             (QuickRow::GbcScale, Platform::Gbc),
+            (QuickRow::GgScale, Platform::Gg),
+            (QuickRow::NgpScale, Platform::Ngp),
         ] {
             if self.scale_choices(platform).len() < 2 {
                 hidden.push(row);
@@ -2272,6 +2284,8 @@ impl App {
         for (row, platform) in [
             (QuickRow::GbStretch, Platform::Gb),
             (QuickRow::GbcStretch, Platform::Gbc),
+            (QuickRow::GgStretch, Platform::Gg),
+            (QuickRow::NgpStretch, Platform::Ngp),
         ] {
             if self.stretch_choices(platform).len() < 2 && !self.tall() {
                 hidden.push(row);
@@ -2960,13 +2974,24 @@ impl App {
     /// The shared stretch value covers the Game Boy and Game Boy Color; slotPlus's systems
     /// keep their per-game stretch (`Config/video_mode.txt`).
     fn stretch_switch(&self) -> bool {
-        self.tall() && matches!(self.playing_platform(), Platform::Gb | Platform::Gbc)
+        self.tall() && shares_stretch(self.playing_platform())
     }
 
     fn stretched(&self, platform: Platform) -> bool {
         match platform {
             Platform::Gbc => self.state.stretched_gbc,
+            Platform::Gg => self.state.stretched_gg,
+            Platform::Ngp => self.state.stretched_ngp,
             _ => self.state.stretched_gb,
+        }
+    }
+
+    fn set_stretched(&mut self, platform: Platform, on: bool) {
+        match platform {
+            Platform::Gbc => self.state.stretched_gbc = on,
+            Platform::Gg => self.state.stretched_gg = on,
+            Platform::Ngp => self.state.stretched_ngp = on,
+            _ => self.state.stretched_gb = on,
         }
     }
 
@@ -2993,6 +3018,8 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.scale_gba,
             Platform::Gb => self.state.scale_gb,
             Platform::Gbc => self.state.scale_gbc,
+            Platform::Gg => self.state.scale_gg,
+            Platform::Ngp => self.state.scale_ngp,
             _ => Scale::default(),
         }
     }
@@ -3001,6 +3028,8 @@ impl App {
         match platform {
             Platform::Gb => self.state.stretch_gb,
             Platform::Gbc => self.state.stretch_gbc,
+            // A Game Gear or Pocket picture stretches to fill the screen, as slotPlus's did.
+            Platform::Gg | Platform::Ngp => Stretch::FullScreen,
             _ => Stretch::Classic,
         }
     }
@@ -3054,6 +3083,8 @@ impl App {
     fn scale_candidates(platform: Platform) -> &'static [Scale] {
         match platform.hardware() {
             Platform::Gba => &[Scale::Fit, Scale::Integer, Scale::FullScreen],
+            // No SP Screen: that's the Game Boy's band with its SP bezel.
+            Platform::Gg | Platform::Ngp => &[Scale::Integer, Scale::Fit],
             _ => &[Scale::SpFrame, Scale::Integer, Scale::Fit],
         }
     }
@@ -3142,6 +3173,8 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.scale_gba = to,
             Platform::Gb => self.state.scale_gb = to,
             Platform::Gbc => self.state.scale_gbc = to,
+            Platform::Gg => self.state.scale_gg = to,
+            Platform::Ngp => self.state.scale_ngp = to,
             _ => {}
         }
     }
@@ -3452,11 +3485,7 @@ impl App {
 
     fn set_picture(&mut self, mode: VideoMode) {
         if self.stretch_switch() {
-            let on = mode == VideoMode::Stretch;
-            match self.playing_platform() {
-                Platform::Gbc => self.state.stretched_gbc = on,
-                _ => self.state.stretched_gb = on,
-            }
+            self.set_stretched(self.playing_platform(), mode == VideoMode::Stretch);
             return self.persist();
         }
         if self.video_mode == mode {
@@ -4502,8 +4531,12 @@ impl App {
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
+            | QuickRow::GgScale
+            | QuickRow::NgpScale
             | QuickRow::GbStretch
             | QuickRow::GbcStretch
+            | QuickRow::GgStretch
+            | QuickRow::NgpStretch
             | QuickRow::GbaBlending
             | QuickRow::GbcBlending
             | QuickRow::GbBlending
@@ -4623,26 +4656,32 @@ impl App {
             self.persist();
             return;
         }
-        if let QuickRow::GbaScale | QuickRow::GbScale | QuickRow::GbcScale = row {
+        if let QuickRow::GbaScale
+        | QuickRow::GbScale
+        | QuickRow::GbcScale
+        | QuickRow::GgScale
+        | QuickRow::NgpScale = row
+        {
             let platform = match row {
                 QuickRow::GbaScale => Platform::Gba,
                 QuickRow::GbScale => Platform::Gb,
+                QuickRow::GgScale => Platform::Gg,
+                QuickRow::NgpScale => Platform::Ngp,
                 _ => Platform::Gbc,
             };
             self.cycle_scale(platform, right);
             self.persist();
             return;
         }
-        if let QuickRow::GbStretch | QuickRow::GbcStretch = row {
-            let platform = match row {
-                QuickRow::GbStretch => Platform::Gb,
-                _ => Platform::Gbc,
-            };
+        if let QuickRow::GbStretch
+        | QuickRow::GbcStretch
+        | QuickRow::GgStretch
+        | QuickRow::NgpStretch = row
+        {
+            let platform = stretch_row_platform(row);
             if self.tall() {
-                match platform {
-                    Platform::Gbc => self.state.stretched_gbc = !self.state.stretched_gbc,
-                    _ => self.state.stretched_gb = !self.state.stretched_gb,
-                }
+                let on = !self.stretched(platform);
+                self.set_stretched(platform, on);
                 self.persist();
                 return;
             }
@@ -4871,8 +4910,12 @@ impl App {
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
+            | QuickRow::GgScale
+            | QuickRow::NgpScale
             | QuickRow::GbStretch
             | QuickRow::GbcStretch
+            | QuickRow::GgStretch
+            | QuickRow::NgpStretch
             | QuickRow::Blending
             | QuickRow::Scale
             | QuickRow::Stretch
@@ -5525,7 +5568,10 @@ impl App {
     pub fn game_fills_panel(&self) -> bool {
         self.framed_panel()
             && self.video_mode == VideoMode::Stretch
-            && !matches!(self.platform, Platform::Gb | Platform::Gbc)
+            && !matches!(
+                self.platform,
+                Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp
+            )
             && !self.portrait()
             && matches!(self.phase, Phase::Playing { .. })
             && self.screen >= 1.0
@@ -12246,6 +12292,31 @@ fn scale_value(scale: Scale) -> QuickValue {
         Scale::Integer => QuickValue::Integer,
         Scale::Fit => QuickValue::Fit,
         Scale::FullScreen => QuickValue::FullScreen,
+    }
+}
+
+/// The platforms that scale and stretch the Game Boy's way (Integer or Fit, stretch on or
+/// off, one value per platform on a tall panel).
+fn shares_stretch(platform: Platform) -> bool {
+    matches!(
+        platform,
+        Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp
+    )
+}
+
+/// slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, and no bezel is
+/// made for those sizes yet (slotPlus's were for the old fixed size), so none is drawn.
+fn unbezelled(platform: Platform) -> bool {
+    matches!(platform, Platform::Gg | Platform::Ngp)
+}
+
+/// The platform a shelf Screen page's Stretch row belongs to.
+fn stretch_row_platform(row: QuickRow) -> Platform {
+    match row {
+        QuickRow::GbcStretch => Platform::Gbc,
+        QuickRow::GgStretch => Platform::Gg,
+        QuickRow::NgpStretch => Platform::Ngp,
+        _ => Platform::Gb,
     }
 }
 

@@ -143,11 +143,11 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_GG.map(QuickRow::label),
-        ["Shader", "Bezel"]
+        ["Shader", "Bezel", "Scale", "Stretch"]
     );
     assert_eq!(
         QuickRow::SCREEN_NGP.map(QuickRow::label),
-        ["Shader", "Bezel"]
+        ["Shader", "Bezel", "Scale", "Stretch"]
     );
     assert_eq!(
         QuickRow::SCREEN_TG16.map(QuickRow::label),

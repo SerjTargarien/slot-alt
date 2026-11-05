@@ -17,6 +17,22 @@ fn root_for(platform: Platform) -> TempDir {
         Platform::Gba => tmp_root_with_carts(&["Game", "Zzz"]),
         Platform::Gb => tmp_root_with_gb_carts(&["Game", "Zzz"]),
         Platform::Gbc => tmp_root_with_gbc_carts(&["Game", "Zzz"]),
+        Platform::Gg | Platform::Ngp => {
+            let d = tmp_root_with_gb_carts(&[]);
+            let (dir, ext) = match platform {
+                Platform::Gg => ("GG", "gg"),
+                _ => ("NGP", "ngc"),
+            };
+            for stem in ["Game", "Zzz"] {
+                let rom = d
+                    .path()
+                    .join("Games")
+                    .join(dir)
+                    .join(format!("{stem}.{ext}"));
+                std::fs::write(rom, vec![0u8; 0x10000]).unwrap();
+            }
+            d
+        }
         Platform::Gbav => {
             let d = tmp_root_with_carts(&["Zzz"]);
             let dir = d.path().join("Games").join(Platform::Gbav.dir_name());
@@ -459,4 +475,67 @@ fn a_suffixed_bezel_follows_the_scale_to_its_matching_file() {
         &only_fit,
     );
     assert_eq!(pick, BezelPick::None);
+}
+
+/// The picture's size in pixels on a 720x720 panel. A layout that takes the whole panel
+/// keeps its rectangle in band units (720x480), so its height scales by 720/480.
+fn drawn(a: &App) -> (f32, f32) {
+    let layout = a.game_layout();
+    assert!(layout.panel, "the picture is laid out on the whole panel");
+    (layout.rect[2], (layout.rect[3] * 720.0 / 480.0).round())
+}
+
+#[test]
+fn the_game_gear_and_pocket_scale_to_integer_or_fit_on_a_square_panel() {
+    for (platform, integer, fit) in [
+        (Platform::Gg, (640.0, 576.0), (720.0, 648.0)),
+        (Platform::Ngp, (640.0, 608.0), (720.0, 684.0)),
+    ] {
+        let (_d, mut a) = playing(platform, (720, 720), SlotState::default());
+        assert_eq!(a.scale_choices(platform), [Scale::Integer, Scale::Fit]);
+        assert_eq!(drawn(&a), integer, "{platform:?} starts at Integer");
+        let row = match platform {
+            Platform::Gg => QuickRow::GgScale,
+            _ => QuickRow::NgpScale,
+        };
+        assert_eq!(a.quick_value(row), Some(QuickValue::Integer));
+        to_in_game_row(&mut a, QuickRow::Scale);
+        press(&mut a, Btn::Right);
+        assert_eq!(a.quick_value(row), Some(QuickValue::Fit));
+        assert_eq!(drawn(&a), fit, "{platform:?} at Fit");
+    }
+}
+
+#[test]
+fn the_game_gear_and_pocket_stretch_to_the_whole_square_panel() {
+    for platform in [Platform::Gg, Platform::Ngp] {
+        let (d, mut a) = playing(platform, (720, 720), SlotState::default());
+        assert!(!a.picture_fills());
+        to_in_game_row(&mut a, QuickRow::Stretch);
+        press(&mut a, Btn::Right);
+        assert!(a.picture_fills(), "{platform:?}");
+        assert!(a.game_layout().panel);
+        let saved = slot_store::read_slot_state(d.path());
+        assert_eq!(
+            (saved.stretched_gg, saved.stretched_ngp),
+            (platform == Platform::Gg, platform == Platform::Ngp)
+        );
+        a.apply(Action::QuickMenu);
+        a.apply(Action::StretchOff);
+        assert!(!a.picture_fills(), "{platform:?}: Stretch Off");
+    }
+}
+
+#[test]
+fn the_game_gear_and_pocket_draw_no_bezel_and_hide_its_rows() {
+    for platform in [Platform::Gg, Platform::Ngp] {
+        let (_d, mut a) = playing(platform, (720, 720), SlotState::default());
+        a.set_game_bezel(Some(TexId::from_raw(77)));
+        assert_eq!(a.shown_game_bezel(), None, "{platform:?}");
+        assert_eq!(a.bezel_art(), None);
+        assert!(a.in_game_hidden().contains(&QuickRow::Bezel));
+        assert!(a.hidden_rows().contains(&QuickRow::GgBezel));
+        assert!(!a.in_game_hidden().contains(&QuickRow::Scale));
+        assert!(!a.in_game_hidden().contains(&QuickRow::Stretch));
+    }
 }

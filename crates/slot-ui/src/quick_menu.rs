@@ -59,9 +59,13 @@ pub enum QuickRow {
     ScreenGg,
     GgShader,
     GgBezel,
+    GgScale,
+    GgStretch,
     ScreenNgp,
     NgpShader,
     NgpBezel,
+    NgpScale,
+    NgpStretch,
     ScreenTg16,
     Tg16Shader,
     Tg16Bezel,
@@ -161,7 +165,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 149] = [
+    pub const ALL: [QuickRow; 153] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -212,9 +216,13 @@ impl QuickRow {
         QuickRow::ScreenGg,
         QuickRow::GgShader,
         QuickRow::GgBezel,
+        QuickRow::GgScale,
+        QuickRow::GgStretch,
         QuickRow::ScreenNgp,
         QuickRow::NgpShader,
         QuickRow::NgpBezel,
+        QuickRow::NgpScale,
+        QuickRow::NgpStretch,
         QuickRow::ScreenTg16,
         QuickRow::Tg16Shader,
         QuickRow::Tg16Bezel,
@@ -457,9 +465,19 @@ impl QuickRow {
 
     pub const SCREEN_LYNX: [QuickRow; 2] = [QuickRow::LynxShader, QuickRow::LynxBezel];
 
-    pub const SCREEN_GG: [QuickRow; 2] = [QuickRow::GgShader, QuickRow::GgBezel];
+    pub const SCREEN_GG: [QuickRow; 4] = [
+        QuickRow::GgShader,
+        QuickRow::GgBezel,
+        QuickRow::GgScale,
+        QuickRow::GgStretch,
+    ];
 
-    pub const SCREEN_NGP: [QuickRow; 2] = [QuickRow::NgpShader, QuickRow::NgpBezel];
+    pub const SCREEN_NGP: [QuickRow; 4] = [
+        QuickRow::NgpShader,
+        QuickRow::NgpBezel,
+        QuickRow::NgpScale,
+        QuickRow::NgpStretch,
+    ];
 
     pub const SCREEN_TG16: [QuickRow; 2] = [QuickRow::Tg16Shader, QuickRow::Tg16Bezel];
     pub const SCREEN_NDS: [QuickRow; 2] = [QuickRow::NdsShader, QuickRow::NdsBezel];
@@ -560,8 +578,13 @@ impl QuickRow {
             | QuickRow::PlayContrast => &QuickRow::PLAY_SCREEN,
             QuickRow::WsShader | QuickRow::WsBezel => &QuickRow::SCREEN_WS,
             QuickRow::LynxShader | QuickRow::LynxBezel => &QuickRow::SCREEN_LYNX,
-            QuickRow::GgShader | QuickRow::GgBezel => &QuickRow::SCREEN_GG,
-            QuickRow::NgpShader | QuickRow::NgpBezel => &QuickRow::SCREEN_NGP,
+            QuickRow::GgShader | QuickRow::GgBezel | QuickRow::GgScale | QuickRow::GgStretch => {
+                &QuickRow::SCREEN_GG
+            }
+            QuickRow::NgpShader
+            | QuickRow::NgpBezel
+            | QuickRow::NgpScale
+            | QuickRow::NgpStretch => &QuickRow::SCREEN_NGP,
             QuickRow::Tg16Shader | QuickRow::Tg16Bezel => &QuickRow::SCREEN_TG16,
             QuickRow::NdsShader | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
@@ -853,10 +876,17 @@ impl QuickRow {
             QuickRow::ScreenGb => "Game Boy",
             QuickRow::GbBezel => "Bezel",
             QuickRow::GbcBezel => "Bezel",
-            QuickRow::GbaScale | QuickRow::GbScale | QuickRow::GbcScale | QuickRow::Scale => {
-                "Scale"
-            }
-            QuickRow::GbStretch | QuickRow::GbcStretch | QuickRow::Stretch => "Stretch",
+            QuickRow::GbaScale
+            | QuickRow::GbScale
+            | QuickRow::GbcScale
+            | QuickRow::GgScale
+            | QuickRow::NgpScale
+            | QuickRow::Scale => "Scale",
+            QuickRow::GbStretch
+            | QuickRow::GbcStretch
+            | QuickRow::GgStretch
+            | QuickRow::NgpStretch
+            | QuickRow::Stretch => "Stretch",
             QuickRow::GbaBlending
             | QuickRow::GbcBlending
             | QuickRow::GbBlending
