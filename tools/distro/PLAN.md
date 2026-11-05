@@ -5,7 +5,8 @@ kernel).
 
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 Phase 1 done: our root boots and SSH logins work (init at 1.97 s, SSH at 6.7-9.7 s,
-54 MB RAM). Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,
+54 MB RAM). Phase 1b done: our own kernel (7.2.11-rgbslot) and device tree boot and work.
+Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,
 sound, clock cap all work). rgbslot boots straight into slot: first frame 5.29 s after kernel start (init 1.59 s,
 slot started at 2.28 s, then 3.0 s of slot startup, against 0.6 s under ROCKNIX: the
 cold 57 MB libmali read and shader setup). How it boots, and every
@@ -259,9 +260,8 @@ full-resolution buffer):
 - Open: the screen tour (see HANDOFF.md, "Resume here"); stretch modes on a square panel;
   softer UI art at 1.5x.
 
-**Known issue: GBA audio sounds out of tune on rgbslot.** Not yet investigated. The same
-direct-ALSA path sounded right under ROCKNIX, so suspect our `/etc/asound.conf` (plug on
-`hw:CARD=rk817ext`) or the sample rate.
+**GBA audio** sounded out of tune on rgbslot with ROCKNIX's kernel, and sounds right with
+our own kernel. Cause unknown; keep an ear on it.
 
 ## Decisions (2026-11-05)
 

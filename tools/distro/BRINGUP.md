@@ -4,7 +4,7 @@ Everything learned while first booting rgbslot on the Powkiddy RGB20SX (2026-11-
 written so the OS can be rebuilt in one go. `PLAN.md` says where the project is going.
 This file says how the pieces actually fit, and which traps cost time.
 
-Status: our own root boots from the dev card. Init starts at 1.97 s after kernel start,
+Status: our own kernel and root boot from the dev card (attempt 7 below). Init starts at 1.97 s after kernel start,
 and SSH is ready at 6.73 s, against ROCKNIX's 29 s to its frontend. It still uses
 ROCKNIX 20261101's kernel, modules, U-Boot and libmali (phase 1). Our own kernel is phase
 1b.
@@ -178,9 +178,8 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   - Where ROCKNIX's dtb comes from wasn't traced. The card's `KERNEL` and
     `device_trees` are dated 2026-11-05 07:57, so the user may have updated ROCKNIX
     that morning.
-  - So the first boot of our kernel uses ROCKNIX's dtb (`dev.sh kernel rocknix-dtb`);
-    the second tests ours. If something breaks with ours (speaker, Wi-Fi), port the
-    missing node in `patches/5-rgbslot`.
+  - Both were tested (attempts 6 and 7). Ours works fully, speaker and headphones
+    included, so the missing `spk_amp` node isn't needed. Ours is the default.
 - **Build output:** `Image` 27.3 MB (no initramfs), dtb 61 KB, 279 modules in
   `/lib/modules/7.2.11-rgbslot`, including `mali-bifrost/mali_kbase.ko`.
 - **Don't** reset the kernel source with `rm` in an agent shell. Use Buildroot's
@@ -312,6 +311,8 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 | 3 | same, SDR104 removed | cursor only | the same `/root` panic as attempt 1, hidden by `quiet` |
 | 4 | same, plus `INITRD /rootdir.cpio`, `loglevel=8` | **booted**, `ssh ready` at 6.73 s | SSH then dropped connections: the Dropbear key folder |
 | 5 | same, Dropbear key folder fixed | **SSH login works.** Init at 1.97 s, SSH ready at 6.7-9.7 s (mostly waiting for `wlan0`), 54 MB RAM used, 5 user processes | phase 1 done |
+| 6 | **our own kernel** `7.2.11-rgbslot` with ROCKNIX's dtb (plus SDR50) | **booted**: init 1.54 s, slot 2.07 s, first frame about 5.0 s; picture, speaker, buttons, FN once per press, Wi-Fi all fine; GBA audio now sounds right | — |
+| 7 | our own kernel **with our own dtb** | **booted**, all of the above plus headphones, volume, brightness and slot's hotkeys; CPU idle states active (`state0`, `state1`) | **the default from now on** |
 
 What the running system looked like on that boot:
 - `/dev/root` ext4 read-write, SLOT at `/mnt/sdcard`;

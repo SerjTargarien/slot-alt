@@ -230,35 +230,21 @@ EOF
 
 bootable() {
 	# Makes the dev card boot on its own from slot 1: ROCKNIX's bootloader (the gap
-	# before the first partition), its kernel and dtb, and an extlinux.conf that
-	# boots our root. Swapping the two cards then switches systems, and a failed boot
-	# can't strand the ROCKNIX card.
+	# before the first partition, until we build our own U-Boot), our kernel and dtb
+	# (dev.sh build), and an extlinux.conf that boots our root. Swapping the two cards
+	# then switches systems, and a failed boot can't strand the ROCKNIX card.
 	#
-	# The dtb is ROCKNIX's with slot 1 (mmc@fe2b0000) on SDR50 (100 MHz) instead of
-	# SDR104: the dev card failed SDR104 tuning there ("mmc1: tuning execution failed:
-	# -5") and the kernel then never found the root. SDR50 tunes fine.
-	fdt="$BUILD/output/host/bin"
-	[ -x "$fdt/fdtput" ] || { echo "no fdtput: run make host-dtc in $BUILD/buildroot" >&2; exit 1; }
-	dtb="$BUILD/dtb"
-	mkdir -p "$dtb"
-	scp -q "$DEVICE:/flash/device_trees/rk3566-powkiddy-rgb20sx.dtb" "$dtb/rocknix.dtb"
-	cp "$dtb/rocknix.dtb" "$dtb/rgbslot.dtb"
-	"$fdt/fdtput" -d "$dtb/rgbslot.dtb" /mmc@fe2b0000 sd-uhs-sdr104
-	"$fdt/fdtput" "$dtb/rgbslot.dtb" /mmc@fe2b0000 sd-uhs-sdr50
-	if "$fdt/fdtget" -p "$dtb/rgbslot.dtb" /mmc@fe2b0000 | grep -q sd-uhs-sdr104; then
-		echo "slot 1 still has SDR104 in the dtb" >&2
-		exit 1
-	fi
-	scp -q "$dtb/rgbslot.dtb" "$DEVICE:/tmp/rgbslot.dtb"
-	# ROCKNIX's kernel has its initramfs built in, and that initramfs has no /root, the
-	# fixed directory where Linux mounts root= when there's no rdinit to run. So the
-	# mount failed with ENOENT and the kernel panicked. U-Boot passes this tiny extra
-	# cpio as the initrd, which the kernel unpacks on top, adding the missing /root.
-	cpiodir="$dtb/rootdir"
-	rm -rf "$cpiodir"
-	mkdir -p "$cpiodir/root"
-	(cd "$cpiodir" && echo root | cpio -o -H newc --quiet) > "$dtb/rootdir.cpio"
-	scp -q "$dtb/rootdir.cpio" "$DEVICE:/tmp/rootdir.cpio"
+	# Before our own kernel, this used ROCKNIX's KERNEL with a /root initrd and a patched
+	# copy of its dtb (BRINGUP.md, "The kernel: what made it boot").
+	images="$BUILD/output/images"
+	for f in Image rk3566-powkiddy-rgb20sx.dtb; do
+		[ -f "$images/$f" ] || {
+			echo "no $images/$f: run dev.sh build" >&2
+			exit 1
+		}
+	done
+	scp -q "$images/Image" "$DEVICE:/tmp/rgbslot-Image"
+	scp -q "$images/rk3566-powkiddy-rgb20sx.dtb" "$DEVICE:/tmp/rgbslot.dtb"
 	on_device "CARD=$CARD sh -s" << 'EOF'
 set -eu
 src=/dev/mmcblk1
@@ -273,15 +259,14 @@ slot=/tmp/rgbslot-slot
 mkdir -p "$slot"
 grep -q " $slot " /proc/mounts || mount -t vfat "${CARD}p1" "$slot"
 mkdir -p "$slot/extlinux" "$slot/device_trees"
-cp /flash/KERNEL "$slot/KERNEL"
-cp /tmp/rgbslot.dtb "$slot/device_trees/rk3566-powkiddy-rgb20sx.dtb"
-cp /tmp/rootdir.cpio "$slot/rootdir.cpio"
+cp /tmp/rgbslot-Image "$slot/Image.rgbslot"
+cp /tmp/rgbslot.dtb "$slot/device_trees/rgbslot.dtb"
+rm -f /tmp/rgbslot-Image /tmp/rgbslot.dtb
 cat > "$slot/extlinux/extlinux.conf" << CONF
 LABEL rgbslot
-  LINUX /KERNEL
-  FDT /device_trees/rk3566-powkiddy-rgb20sx.dtb
-  INITRD /rootdir.cpio
-  APPEND console=ttyS2,1500000 console=tty0 quiet rdinit=/nonexistent root=PARTUUID=$uuid rootwait rootfstype=ext4 init=/sbin/init panic=0
+  LINUX /Image.rgbslot
+  FDT /device_trees/rgbslot.dtb
+  APPEND console=ttyS2,1500000 console=tty0 quiet root=PARTUUID=$uuid rootwait rootfstype=ext4 init=/sbin/init panic=0
 CONF
 sync
 umount "$slot"
