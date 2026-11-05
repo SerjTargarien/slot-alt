@@ -154,4 +154,32 @@ FAKE_ACTIVE="essway sway" FAKE_STATUS=3 launch || true
 [ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")" = schedutil ] ||
 	fail "the CPU governor must come back when slot fails"
 
+setup
+echo powersave > "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor"
+FAKE_ACTIVE="essway sway" SLOT_GOVERNOR=schedutil launch || fail "a clean exit should return 0"
+grep -q "cpu schedutil gpu simple_ondemand" "$TMP/card/Logs/slot.log" ||
+	fail "a named governor goes only where it is offered: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
+[ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")" = powersave ] ||
+	fail "the CPU governor was not put back after a named governor"
+
+setup
+bat="$TMP/sys/class/power_supply/battery"
+mkdir -p "$bat"
+echo Battery > "$bat/type"
+echo -786556 > "$bat/current_avg"
+echo 3772740 > "$bat/voltage_avg"
+echo 81 > "$bat/capacity"
+echo Discharging > "$bat/status"
+echo 1800000 > "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq"
+echo 800000000 > "$TMP/sys/class/devfreq/fde60000.gpu/cur_freq"
+FAKE_ACTIVE="essway sway" FAKE_RUN=5 SLOT_TRACE_POWER=1 SLOT_POWER_EVERY=0.1 launch ||
+	fail "a clean exit should return 0"
+grep -q "slot starting, governor performance" "$TMP/card/Logs/power.log" || fail "the power log has no header"
+grep -q "battery 2964 mW 81% Discharging cpu 1800 MHz gpu 800 MHz" "$TMP/card/Logs/power.log" ||
+	fail "the power log lines are wrong: $(sed -n 2p "$TMP/card/Logs/power.log")"
+
+setup
+FAKE_ACTIVE="essway sway" launch || true
+[ ! -f "$TMP/card/Logs/power.log" ] || fail "no power log unless SLOT_TRACE_POWER is set"
+
 echo "rocknix launch: ok"
