@@ -124,8 +124,10 @@ take it whole rather than port pieces, so later merges from slotPlus stay cheap.
     bezel for them yet: slotPlus's Game Gear bezel was drawn for the old 3x picture.
   - Rule from the user: Scale offers only **Integer and Fit**; slotPlus's fixed "actual"
     size may stay in the code but never appears in a menu. Stretch is On/Off.
-  - Next: TurboGrafx-16 (its width changes between 256 and 512), then Lynx and
-    WonderSwan as first-class systems: Integer and Fit in both orientations, including
+  - Done: **TurboGrafx-16** the same way (`scale_tg16`, `stretched_tg16`); its picture
+    follows the width the game draws (`video_mode::tg16_picture`), a 512-wide frame
+    taking the room of a 256-wide one.
+  - Next: Lynx and WonderSwan as first-class systems: Integer and Fit in both orientations, including
     games that turn mid-play (Klonoa on the WonderSwan), then the DS (layouts that use
     the square screen).
   - New-system label art isn't fetched: the art server covers only GB, GBC and GBA. The
