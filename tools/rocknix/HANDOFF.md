@@ -94,19 +94,29 @@ OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer w
 `server_ui`, `pipeline` and `quad` tests need `HeadlessSurface`, which only builds on
 macOS; `romm_ui` needs `--features romm`.
 
-**Next, in order:**
-1. **slot's device layer.** Steps 1 and 2 are done: slot reads `/etc/slot-device`
-   (`crates/slot/src/hardware.rs`; keys `DISPLAY`, `BUTTONS`, `FN_ADC`, `CPU_CAP`, `WIFI`,
-   `LEFT_STICK`, `BOOT_LOGO`), falling back to the ROCKNIX preset or BaseOS, and it runs
-   Wi-Fi. Step 3: check box art and RomM, point self-update at our builds some day, and fix the update scenes, which still draw their carts in band
-   coordinates.
-2. **A battery run on our kernel without `slotsq-dev`** (CPU idle states may differ from
-   ROCKNIX's; the radio should now be off in games, worth 0.13-0.19 W, PLAN.md).
-3. **Link play (step 4)** when the second device (vanilla slot) arrives: host on `wlan0`
-   on 2.4 GHz, power save off during play.
-4. **Our own U-Boot** (no 2 s countdown).
-5. Later: more menu rows on a tall canvas (`QUICK_VISIBLE` is 6), a crisper wallpaper,
-   then systems from slotPlus.
+**Backlight scale (2026-11-05 evening):** our device tree had no `brightness-levels`, so
+the kernel built a perceptual curve (1666 steps) under slot's own curve, and level 5 was
+"dark as night". `5-slotsq/0002` gives it ROCKNIX's linear 0-255 scale (default 77);
+installed by copying the dtb to the card's `device_trees/slotsq.dtb` (the old one is
+`slotsq.dtb.prev`). Level 10 is full PWM duty, level 1 about 3% (slot's
+`BACKLIGHT_FLOOR`). The user prefers the widest range, with more levels rather than a
+capped top or bottom.
+
+**Next, in order (user's priorities, 2026-11-05 evening):**
+1. **A battery run on our kernel without `slotsq-dev`**: the radio should now be off in
+   games (worth 0.13-0.19 W, PLAN.md), and CPU idle states may differ from ROCKNIX's. Log
+   with `SLOT_TRACE_POWER=1` in `/run/slot.env` (the frontend writes `Logs/power.log`),
+   then `python3 -I tools/rocknix/medians.py NAME`.
+2. **More menu rows on a tall canvas** (`QUICK_VISIBLE` is 6).
+3. Whichever comes first:
+   - **Self-update from our own GitHub releases**, together with the update scenes,
+     which still draw their carts in band coordinates (device layer step 3);
+   - **Link play (step 4)** when the second device (vanilla slot) arrives: host on
+     `wlan0` on 2.4 GHz, power save off during play.
+- Later: our own U-Boot (no 2 s countdown), a crisper wallpaper, systems from slotPlus.
+  The device layer reads `/etc/slot-device` (`crates/slot/src/hardware.rs`; keys
+  `DISPLAY`, `BUTTONS`, `FN_ADC`, `CPU_CAP`, `WIFI`, `LEFT_STICK`, `BOOT_LOGO`,
+  `SELF_UPDATE`), falling back to the ROCKNIX preset or BaseOS.
 - **Parked by the user:** boot time (11-12 s power-on to shelf is fine for now; analysis
   in BRINGUP.md).
 

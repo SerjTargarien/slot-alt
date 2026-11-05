@@ -42,6 +42,37 @@ esac
 
 mkdir -p "$LOGS"
 [ -f "$LOGS/slot.log" ] && mv -f "$LOGS/slot.log" "$LOGS/slot.log.1"
+
+# Measurement: SLOT_TRACE_POWER=1 (in /run/slot.env) logs battery draw and clocks to
+# Logs/power.log every SLOT_POWER_EVERY seconds while slot runs, in the format
+# tools/rocknix/medians.py reads (the same as ROCKNIX's launch script).
+power_line() {
+	line="$(date +%T)"
+	for p in /sys/class/power_supply/*; do
+		[ -r "$p/current_avg" ] && [ -r "$p/voltage_avg" ] || continue
+		i="$(cat "$p/current_avg")"
+		v="$(cat "$p/voltage_avg")"
+		line="$line battery $((${i#-} / 1000 * (v / 1000) / 1000)) mW $(cat "$p/capacity" 2> /dev/null)% $(cat "$p/status" 2> /dev/null)"
+		break
+	done
+	for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq; do
+		[ -r "$f" ] && line="$line cpu $(($(cat "$f") / 1000)) MHz"
+	done
+	for f in /sys/class/devfreq/*gpu*/cur_freq; do
+		[ -r "$f" ] && line="$line gpu $(($(cat "$f") / 1000000)) MHz"
+	done
+	echo "$line"
+}
+if [ "${SLOT_TRACE_POWER:-0}" != 0 ]; then
+	[ -f "$LOGS/power.log" ] && mv -f "$LOGS/power.log" "$LOGS/power.log.1"
+	echo "$(date +%T) slot starting, wifi kept in games: ${SLOT_WIFI_KEEP:-0}" > "$LOGS/power.log"
+	(
+		while kill -0 $$ 2> /dev/null; do
+			power_line >> "$LOGS/power.log"
+			sleep "${SLOT_POWER_EVERY:-5}"
+		done
+	) &
+fi
 say "starting $app"
 began="$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)"
 cd "$SD"
