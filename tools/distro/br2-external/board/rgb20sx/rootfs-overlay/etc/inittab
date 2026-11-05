@@ -1,0 +1,4 @@
+# rgbslot: BusyBox init runs the boot script once, and the shutdown script on the way out.
+::sysinit:/etc/rgbslot/boot
+::shutdown:/etc/rgbslot/shutdown
+::restart:/sbin/init
