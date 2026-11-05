@@ -1,6 +1,6 @@
 # Plan: a minimal OS for slot on the RGB20SX
 
-Status: direction agreed 2026-11-05 (option C). Phase 0 has started.
+Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 
 ## Goals
 
@@ -100,6 +100,12 @@ current card, and they change what the new image must contain.
     reversed, but a left-channel test played from the left speaker.
   - Every run, on either path, starves 6144 samples once at startup, before the game's
     first sound.
+- **GPU, decided for now: the Mali blob.** Gambatte on direct ALSA with the 400 MHz floor:
+  Panfrost (Mesa 26.2.4) worked with no visible problems (shader on, no bezel) and the same
+  1104 MHz CPU, but its GPU wait averaged 4.4 ms against 3.5 ms. It drew 1.98 W against
+  1.95 W and took 1.16 s to the first frame against 0.6 to 0.74 s, probably shader
+  compiles with no warm cache yet. Panfrost stays an option for a fully open image, to
+  measure again on our own system with a warm shader cache.
 - Tools: `SLOT_ALSA_DEVICE` names slot's ALSA device. On our own system it is required,
   because card 0 is HDMI and the speaker is card 1 (`rk817ext`). `SLOT_AUDIO=alsa` in the
   launch script stops PipeWire for the session and points slot at
