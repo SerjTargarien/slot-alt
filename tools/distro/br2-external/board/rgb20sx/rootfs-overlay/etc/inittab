@@ -1,5 +1,5 @@
-# rgbslot: BusyBox init runs the boot script once, then keeps the frontend running.
-::sysinit:/etc/rgbslot/boot
-::respawn:/etc/rgbslot/frontend
-::shutdown:/etc/rgbslot/shutdown
+# slotsq: BusyBox init runs the boot script once, then keeps the frontend running.
+::sysinit:/etc/slotsq/boot
+::respawn:/etc/slotsq/frontend
+::shutdown:/etc/slotsq/shutdown
 ::restart:/sbin/init

@@ -1,13 +1,15 @@
 # Plan: a minimal OS for slot on the RGB20SX
 
-Name: "rgbslot" is a working name only. It changes with the first proper version (own
-kernel).
+Name: **slot²** ("slot squared": the square screen and the device's two card slots),
+chosen 2026-11-05 once the system had its own kernel. Where "²" can't go (hostname, file
+and directory names, the kernel suffix), it's `slotsq`. Earlier commits and logs call it
+"rgbslot", its working name.
 
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 Phase 1 done: our root boots and SSH logins work (init at 1.97 s, SSH at 6.7-9.7 s,
-54 MB RAM). Phase 1b done: our own kernel (7.2.11-rgbslot) and device tree boot and work.
-Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,
-sound, clock cap all work). rgbslot boots straight into slot: first frame 5.29 s after kernel start (init 1.59 s,
+54 MB RAM). Phase 1b done: our own kernel (7.2.11-slot²) and device tree boot and work.
+Phase 2 under way: our slot fork runs on slot², started by hand (picture, buttons, FN,
+sound, clock cap all work). slot² boots straight into slot: first frame 5.29 s after kernel start (init 1.59 s,
 slot started at 2.28 s, then 3.0 s of slot startup, against 0.6 s under ROCKNIX: the
 cold 57 MB libmali read and shader setup). How it boots, and every
 trap found on the way, is in `BRINGUP.md`.
@@ -191,7 +193,7 @@ RK3566's speed, built and pinned like the current three cores.
 
 ## Phase 2 results so far (2026-11-05)
 
-**Upstream slot v1.14.0 (`slot-v1.14.0-h700.zip`) on rgbslot, unchanged,** run through its
+**Upstream slot v1.14.0 (`slot-v1.14.0-h700.zip`) on slot², unchanged,** run through its
 own `launch_frontend.sh` with `SLOT_ROOT=/mnt/sdcard/upstream`:
 
 | Layer | Result |
@@ -209,7 +211,7 @@ What follows for the OS:
   the card's `Config/wifi.conf`, slot's own list.
 - `/etc/asound.conf` must point `default` at `rk817ext`.
 
-**Our fork on rgbslot** (`System/` copied from the ROCKNIX card, binary `06e6b5c2`), started
+**Our fork on slot²** (`System/` copied from the ROCKNIX card, binary `06e6b5c2`), started
 with `SLOT_ROOT=/mnt/sdcard SLOT_PLATFORM=rocknix SLOT_ALSA_DEVICE=plughw:CARD=rk817ext,DEV=0`
 and the GPU floor written by hand (`min_freq` 400 MHz):
 - Picture, buttons, FN (through the ADC), sound from the speaker and the clock cap all
@@ -218,7 +220,7 @@ and the GPU floor written by hand (`min_freq` 400 MHz):
   under ROCKNIX: probably the cold 57 MB libmali read from a card now running at 50 MHz.
 - One ROCKNIX leftover: slot calls `timedatectl set-ntp`, which doesn't exist here.
 
-**First battery run on rgbslot** (unplugged, battery 94%, brightness level 5 as under
+**First battery run on slot²** (unplugged, battery 94%, brightness level 5 as under
 ROCKNIX, our fork with the 400 MHz GPU floor and direct ALSA):
 - Shelf 1.79 W, Gambatte 2.02 W at 1104 MHz, 0 misses in play. ROCKNIX with the same slot
   was 1.75 W and 1.95 W (battery 65%).
@@ -227,8 +229,8 @@ ROCKNIX, our fork with the 400 MHz GPU floor and direct ALSA):
 - The gap is within gauge and charge-level noise. It may also be Wi-Fi power save, if
   ROCKNIX's iwd had it on (check `iw dev wlan0 get power_save` under ROCKNIX).
 
-**Wi-Fi costs about 0.19 W on the shelf,** 10% of the draw. rgbslot, CPU at 408 MHz,
-medians over 75 s each, `logs/power-rgbslot-wifi.log`:
+**Wi-Fi costs about 0.19 W on the shelf,** 10% of the draw. slot², CPU at 408 MHz,
+medians over 75 s each, `logs/power-slotsq-wifi.log`:
 
 | State | Median |
 |---|---|
@@ -260,7 +262,7 @@ full-resolution buffer):
 - Open: the screen tour (see HANDOFF.md, "Resume here"); stretch modes on a square panel;
   softer UI art at 1.5x.
 
-**GBA audio** sounded out of tune on rgbslot with ROCKNIX's kernel, and sounds right with
+**GBA audio** sounded out of tune on slot² with ROCKNIX's kernel, and sounds right with
 our own kernel. Cause unknown; keep an ear on it.
 
 ## Decisions (2026-11-05)
@@ -283,7 +285,7 @@ our own kernel. Cause unknown; keep an ear on it.
      take too.
    - **Maintenance:** maintaining our own fork, focused on this device and merging
      upstream releases, is accepted. It gives us control and doesn't depend on upstream.
-   - **Self-update** must point at our builds, or stay off on rgbslot, until upstream
+   - **Self-update** must point at our builds, or stay off on slot², until upstream
      carries the layer. An upstream build would otherwise replace a working one with one
      that can't drive the screen.
    - **OS shims** for unmodified builds (a `libEGL` shim and a button remapper) are not

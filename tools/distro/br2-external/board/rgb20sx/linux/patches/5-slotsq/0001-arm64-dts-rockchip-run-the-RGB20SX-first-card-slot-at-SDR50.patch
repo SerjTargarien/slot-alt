@@ -13,7 +13,7 @@ initialised. SDR50 tunes reliably.
  };
 +
 +/*
-+ * rgbslot: some cards fail SDR104 tuning in this slot ("tuning execution failed: -5"),
++ * slotsq: some cards fail SDR104 tuning in this slot ("tuning execution failed: -5"),
 + * after which the kernel never sees the card. SDR50 (100 MHz) tunes reliably.
 + */
 +&sdmmc0 {

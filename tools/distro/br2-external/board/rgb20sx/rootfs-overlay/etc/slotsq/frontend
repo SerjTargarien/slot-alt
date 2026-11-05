@@ -1,5 +1,5 @@
 #!/bin/sh
-# rgbslot frontend: runs slot from the card. BusyBox init starts this again whenever it
+# slotsq frontend: runs slot from the card. BusyBox init starts this again whenever it
 # exits. Like BaseOS, System/frontend wins if a card has one, else System/slot.
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
@@ -9,8 +9,8 @@ LOGS="$SD/Logs"
 LOADER=/lib/ld-linux-aarch64.so.1
 
 say() {
-	echo "$(cut -d' ' -f1 /proc/uptime) $*" >> "$SD/rgbslot-boot.log"
-	echo "rgbslot: $*" > /dev/tty0 2>/dev/null
+	echo "$(cut -d' ' -f1 /proc/uptime) $*" >> "$SD/slotsq-boot.log"
+	echo "slotsq: $*" > /dev/tty0 2>/dev/null
 }
 
 if [ -x "$SD/System/frontend" ] || [ -f "$SD/System/frontend" ]; then
@@ -31,7 +31,7 @@ export SLOT_PLATFORM=rocknix
 # Our own kernel reports FN through adc-keys (ROCKNIX's drops it), so slot doesn't need to
 # read FN from the ADC as well.
 case "$(uname -r)" in
-*-rgbslot) export SLOT_FN_ADC=0 ;;
+*-slotsq) export SLOT_FN_ADC=0 ;;
 esac
 
 # Development: extra variables for the next start, e.g. SLOT_TALL_PANELS=0 to compare

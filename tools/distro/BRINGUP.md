@@ -1,6 +1,6 @@
-# rgbslot bring-up notes: how to build and boot it from zero
+# slot² bring-up notes: how to build and boot it from zero
 
-Everything learned while first booting rgbslot on the Powkiddy RGB20SX (2026-11-05),
+Everything learned while first booting slot² on the Powkiddy RGB20SX (2026-11-05),
 written so the OS can be rebuilt in one go. `PLAN.md` says where the project is going.
 This file says how the pieces actually fit, and which traps cost time.
 
@@ -16,12 +16,12 @@ the dev card in slot 2:
 
 ```sh
 # once: Buildroot next to the repo, and its device-tree tools
-mkdir -p ~/rgbslot-build && cd ~/rgbslot-build
+mkdir -p ~/slotsq-build && cd ~/slotsq-build
 git clone --depth 1 --branch 2026.08.1 https://gitlab.com/buildroot.org/buildroot.git
 cd ~/slot-alt
 sh tools/distro/dev.sh harvest        # modules, firmware, libmali from ROCKNIX (75 MB)
 sh tools/distro/dev.sh build          # first build ~30 min (toolchain), then ~1-2 min
-(cd ~/rgbslot-build/buildroot && env -i HOME=$HOME PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+(cd ~/slotsq-build/buildroot && env -i HOME=$HOME PATH=/usr/sbin:/usr/bin:/sbin:/bin \
 	make O=../output host-dtc)        # fdtput for the dtb patch
 sh tools/distro/dev.sh format --yes   # erases the card in slot 2
 sh tools/distro/dev.sh install        # root to p2, Wi-Fi network copied from ROCKNIX's iwd
@@ -29,8 +29,8 @@ sh tools/distro/dev.sh bootable       # bootloader, kernel, patched dtb, initrd,
 ```
 
 Then switch off, put the dev card in slot 1 and the ROCKNIX card in slot 2, and switch
-on. Swap back to return to ROCKNIX. Once rgbslot is up, it's reachable as
-`ssh root@<its address>` (its address is in `rgbslot-boot.log` on the SLOT partition).
+on. Swap back to return to ROCKNIX. Once slot² is up, it's reachable as
+`ssh root@<its address>` (its address is in `slotsq-boot.log` on the SLOT partition).
 
 On ROCKNIX, set **"games card auto-detect" off** first (`system.automount=0`). Otherwise
 ROCKNIX mounts the dev card's first readable partition as its games storage and writes
@@ -56,7 +56,7 @@ ROCKNIX mounts the dev card's first readable partition as its games storage and 
   - MBR, disk signature `3082b99d`.
   - p1 FAT32 `SLOT` (16 MiB to end - 1 GiB), boot flag, holding the boot files and slot's
     card contents.
-  - p2 ext4 `RGBSLOT` 512 MiB (root).
+  - p2 ext4 `SLOTSQ` 512 MiB (root).
   - p3 512 MiB, empty (the second A/B root later).
   - The two cards must have different disk signatures for `root=PARTUUID=` to be
     unambiguous. ROCKNIX's card is `2956ee5a`.
@@ -115,7 +115,7 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   any panic:
   `rdinit=/usr/bin/busybox ... -- sh -c "ls -la /; sleep 60"`.
 - **Traces left on the cards, readable from ROCKNIX afterwards:**
-  - our boot log, `rgbslot-boot.log` on SLOT, written from the moment SLOT is mounted;
+  - our boot log, `slotsq-boot.log` on SLOT, written from the moment SLOT is mounted;
   - the ext4 superblock of the root: mount count at offset 1024+0x34, last mount time at
     1024+0x2C, last-mounted-on at 1024+0x88. Our init's read-write remount bumps the count.
 
@@ -137,9 +137,9 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   `sha256sums.asc`), with ROCKNIX's RK3566 config and four patch sets, in ROCKNIX's
   order: `mainline`, `mainline-rockchip`, `7.2.6`, then the device set.
 - **Placeholders:** ROCKNIX's config has two, `@INITRAMFS_SOURCE@` and
-  `@DEVICENAME@`. Ours are `""` and `rgbslot`. Without a built-in initramfs, the
+  `@DEVICENAME@`. Ours are `""` and `slotsq`. Without a built-in initramfs, the
   `/root` initrd and `rdinit=/nonexistent` aren't needed.
-- **`CONFIG_LOCALVERSION="-rgbslot"`:** modules go to `/lib/modules/7.2.11-rgbslot`,
+- **`CONFIG_LOCALVERSION="-slotsq"`:** modules go to `/lib/modules/7.2.11-slotsq`,
   beside ROCKNIX's `7.2.11`, so the same root boots either kernel.
 - **Patches left out:**
   - `0004-input-adc-keys-redirect...`, which dropped FN on RK3566;
@@ -158,11 +158,11 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   `/lib/modules/<release>/mali-bifrost/`.
 - **FN on our kernel:** with the redirect patch gone, `adc-keys` reports `BTN_MODE`,
   which slot's gamepad table maps to Menu. slot also polls the ADC for FN, so FN would
-  fire twice. On a `-rgbslot` kernel, the frontend sets `SLOT_FN_ADC=0`, and slot then
+  fire twice. On a `-slotsq` kernel, the frontend sets `SLOT_FN_ADC=0`, and slot then
   skips the ADC poll.
-- **Installing and falling back:** `dev.sh kernel` (on a running rgbslot) copies
+- **Installing and falling back:** `dev.sh kernel` (on a running slot²) copies
   `Image`, the dtb and the modules, and points `extlinux.conf` at them, keeping the old
-  file as `extlinux.conf.rocknix-kernel`. `dev.sh kernel-back` restores it, from rgbslot,
+  file as `extlinux.conf.rocknix-kernel`. `dev.sh kernel-back` restores it, from slot²,
   or from ROCKNIX with the dev card in slot 2.
 - **Release check:** the device runs ROCKNIX tag `20261101` (commit `cefc1433`,
   branch `next`, per `/etc/os-release` in its `SYSTEM`). Its kernel patches are
@@ -181,15 +181,15 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   - Both were tested (attempts 6 and 7). Ours works fully, speaker and headphones
     included, so the missing `spk_amp` node isn't needed. Ours is the default.
 - **Build output:** `Image` 27.3 MB (no initramfs), dtb 61 KB, 279 modules in
-  `/lib/modules/7.2.11-rgbslot`, including `mali-bifrost/mali_kbase.ko`.
+  `/lib/modules/7.2.11-slotsq`, including `mali-bifrost/mali_kbase.ko`.
 - **Don't** reset the kernel source with `rm` in an agent shell. Use Buildroot's
   `make O=../output linux-dirclean`.
 
 ## The root filesystem (Buildroot)
 
 - **Buildroot `2026.08.1`** (commit `7fdeadb3`): glibc 2.44, GCC 15.3, kernel headers
-  6.18. External tree `tools/distro/br2-external`, defconfig `rgbslot_rgb20sx_defconfig`.
-  Output and downloads live in `~/rgbslot-build`, outside git.
+  6.18. External tree `tools/distro/br2-external`, defconfig `slotsq_rgb20sx_defconfig`.
+  Output and downloads live in `~/slotsq-build`, outside git.
 - **Packages:** BusyBox (init, `udhcpc`, `ip`, `modprobe`, `blkid`), ALSA lib and utils,
   libdrm, `wpa_supplicant` (nl80211, AP mode, ctrl iface, CLI, WPA3), `iw`, Dropbear,
   and libstdc++ (`BR2_TOOLCHAIN_BUILDROOT_CXX`, needed by libmali and gambatte). Root
@@ -201,14 +201,14 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   - mGBA: GLIBC_2.29;
   - gambatte: libstdc++ (GLIBCXX_3.4.21);
   - gpSP: GLIBC_2.17.
-- **Init:** BusyBox init. `/etc/inittab` runs `/etc/rgbslot/boot` once and
-  `/etc/rgbslot/shutdown` on the way down. The boot script:
+- **Init:** BusyBox init. `/etc/inittab` runs `/etc/slotsq/boot` once and
+  `/etc/slotsq/shutdown` on the way down. The boot script:
   1. mounts proc, sys, devpts and the tmpfs filesystems, and remounts `/` read-write;
   2. puts ROCKNIX back as the default boot (if a one-shot backup exists);
   3. mounts SLOT at `/mnt/sdcard` and logs there;
   4. loads `mali_kbase` and `rtw88_8723ds`;
   5. waits for `wlan0` (about 3.9 s), then starts `wpa_supplicant` and `udhcpc`
-     (DHCP hostname `rgbslot`);
+     (DHCP hostname `slotsq`);
   6. starts Dropbear (key login only);
   7. on failure, logs `ip addr`, `wpa_cli status`, the modules and `dmesg`.
 - **Harvested from ROCKNIX** (`dev.sh harvest`):
@@ -220,10 +220,10 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 
 ### Booting into slot (phase 2)
 
-- **`/etc/inittab`:** `::sysinit:/etc/rgbslot/boot`, then `::respawn:/etc/rgbslot/frontend`.
+- **`/etc/inittab`:** `::sysinit:/etc/slotsq/boot`, then `::respawn:/etc/slotsq/frontend`.
   BusyBox init waits for every sysinit entry before starting respawn entries, so the boot
   script puts Wi-Fi and SSH in a background subshell and returns at about 2.24 s.
-- **`/etc/rgbslot/frontend`:** exports `SLOT_ROOT=/mnt/sdcard`, `SLOT_RUN=/run` and,
+- **`/etc/slotsq/frontend`:** exports `SLOT_ROOT=/mnt/sdcard`, `SLOT_RUN=/run` and,
   until the device layer exists, `SLOT_PLATFORM=rocknix`. It runs `System/frontend` if
   present, else `System/slot`, through the loader, logs to `Logs/slot.log`, and sleeps
   3 s if slot dies within 5 s so init doesn't spin. The card's BaseOS
@@ -261,7 +261,7 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
     of libmali while slot runs are partly warm.
   - Parked by the user's call: 11-12 s to the shelf is good enough until the OS is
     independent.
-- **Development tools on a running rgbslot:**
+- **Development tools on a running slot²:**
   - `dev.sh shot NAME` saves the screen as a PNG (slot's SIGUSR1 frame dump).
   - `dev.sh capture NAME VAR=x` restarts slot with extra variables first; the frontend
     reads them from `/run/slot.env`.
@@ -272,7 +272,7 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   `setsid sh -c "sleep 1; reboot" < /dev/null > /dev/null 2>&1 &`.
 - **Power-off:** holding power about 2 s in slot runs `poweroff`, which reaches BusyBox
   init, our shutdown script and the PMIC. It switches the device off cleanly.
-- **Pushing changes to a running rgbslot:** `tar -C overlay -cf - etc/... | ssh ... 'tar -C / -xf -'`,
+- **Pushing changes to a running slot²:** `tar -C overlay -cf - etc/... | ssh ... 'tar -C / -xf -'`,
   then `chown root:root`, because tar keeps the build user's uid.
 
 ### Traps, each of which cost a build or a boot
@@ -311,7 +311,7 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 | 3 | same, SDR104 removed | cursor only | the same `/root` panic as attempt 1, hidden by `quiet` |
 | 4 | same, plus `INITRD /rootdir.cpio`, `loglevel=8` | **booted**, `ssh ready` at 6.73 s | SSH then dropped connections: the Dropbear key folder |
 | 5 | same, Dropbear key folder fixed | **SSH login works.** Init at 1.97 s, SSH ready at 6.7-9.7 s (mostly waiting for `wlan0`), 54 MB RAM used, 5 user processes | phase 1 done |
-| 6 | **our own kernel** `7.2.11-rgbslot` with ROCKNIX's dtb (plus SDR50) | **booted**: init 1.54 s, slot 2.07 s, first frame about 5.0 s; picture, speaker, buttons, FN once per press, Wi-Fi all fine; GBA audio now sounds right | — |
+| 6 | **our own kernel** `7.2.11-slotsq` with ROCKNIX's dtb (plus SDR50) | **booted**: init 1.54 s, slot 2.07 s, first frame about 5.0 s; picture, speaker, buttons, FN once per press, Wi-Fi all fine; GBA audio now sounds right | — |
 | 7 | our own kernel **with our own dtb** | **booted**, all of the above plus headphones, volume, brightness and slot's hotkeys; CPU idle states active (`state0`, `state1`) | **the default from now on** |
 
 What the running system looked like on that boot:
@@ -322,5 +322,5 @@ What the running system looked like on that boot:
 
 Both clock settings are for phase 2 (slot's clock cap, the 400 MHz GPU floor). The device
 keeps the same DHCP address as under ROCKNIX (`192.168.1.72`). Use a separate known_hosts
-for it (`-o UserKnownHostsFile=~/.ssh/known_hosts_rgbslot`), because the host key differs
+for it (`-o UserKnownHostsFile=~/.ssh/known_hosts_slotsq`), because the host key differs
 from ROCKNIX's.

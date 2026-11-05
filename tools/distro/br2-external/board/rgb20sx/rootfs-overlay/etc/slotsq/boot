@@ -1,6 +1,6 @@
 #!/bin/sh
-# rgbslot phase 1 boot: give the next boot back to ROCKNIX, then bring up Wi-Fi and SSH.
-# Progress goes to the panel (tty0) and to rgbslot-boot.log on the SLOT partition.
+# slotsq phase 1 boot: give the next boot back to ROCKNIX, then bring up Wi-Fi and SSH.
+# Progress goes to the panel (tty0) and to slotsq-boot.log on the SLOT partition.
 
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -14,7 +14,7 @@ mount -t tmpfs -o mode=0755 tmpfs /run
 mount -t tmpfs tmpfs /tmp
 mount -o remount,rw /
 
-LOG=/run/rgbslot-boot.log
+LOG=/run/slotsq-boot.log
 
 # The partition with a given filesystem label, or $2 when none is found.
 labelled() {
@@ -24,7 +24,7 @@ labelled() {
 say() {
 	line="$(cut -d' ' -f1 /proc/uptime) $*"
 	echo "$line" >> "$LOG"
-	echo "rgbslot: $*" > /dev/tty0 2>/dev/null
+	echo "slotsq: $*" > /dev/tty0 2>/dev/null
 	sync
 }
 say "init started"
@@ -49,8 +49,8 @@ card="$(labelled SLOT /dev/mmcblk2p1)"
 if mount -t vfat -o noatime "$card" /mnt/sdcard; then
 	say "SLOT mounted from $card"
 	# Write the log to the card as it grows, so a hang still leaves a trail.
-	cp "$LOG" /mnt/sdcard/rgbslot-boot.log
-	LOG=/mnt/sdcard/rgbslot-boot.log
+	cp "$LOG" /mnt/sdcard/slotsq-boot.log
+	LOG=/mnt/sdcard/slotsq-boot.log
 else
 	say "could not mount SLOT from $card"
 fi
@@ -76,7 +76,7 @@ if [ -d /sys/class/net/wlan0 ] && [ -f /etc/wpa_supplicant.conf ]; then
 	mkdir -p /var/run/wpa_supplicant
 	ip link set wlan0 up
 	wpa_supplicant -B -i wlan0 -D nl80211 -c /etc/wpa_supplicant.conf
-	udhcpc -i wlan0 -b -x hostname:rgbslot -p /run/udhcpc.wlan0.pid > /dev/null 2>&1
+	udhcpc -i wlan0 -b -x hostname:slotsq -p /run/udhcpc.wlan0.pid > /dev/null 2>&1
 	# Power save keeps the connection and saves 0.13 W on the shelf (PLAN.md).
 	iw dev wlan0 set power_save on
 	say "Wi-Fi started, power save on"

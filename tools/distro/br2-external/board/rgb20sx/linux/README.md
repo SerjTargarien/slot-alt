@@ -1,4 +1,4 @@
-# rgbslot's kernel for the RGB20SX
+# slot²'s kernel for the RGB20SX
 
 Linux 7.2.11 from kernel.org (sha256
 `fd0fc479f983a8c05313f13e9c36330fe6651cf725396748c40d5cd93fa1e6a4`), built by Buildroot
@@ -8,9 +8,9 @@ differences:
 - **No initramfs.** `CONFIG_INITRAMFS_SOURCE=""` (ROCKNIX fills in its own), so the kernel
   mounts `root=` itself. The extra `/root` initrd and `rdinit=/nonexistent` that booting
   ROCKNIX's kernel needed go away.
-- **`CONFIG_LOCALVERSION="-rgbslot"`.** Modules live in `/lib/modules/7.2.11-rgbslot`, next
+- **`CONFIG_LOCALVERSION="-slotsq"`.** Modules live in `/lib/modules/7.2.11-slotsq`, next
   to the ROCKNIX ones in `/lib/modules/7.2.11`, so the same root boots either kernel.
-- **`CONFIG_DEFAULT_HOSTNAME="rgbslot"`** (ROCKNIX fills in the device name).
+- **`CONFIG_DEFAULT_HOSTNAME="slotsq"`** (ROCKNIX fills in the device name).
 - **Without ROCKNIX's `0004-input-adc-keys-redirect-keycode-316-to-rocknix-joypa.patch`.**
   It sends FN's `BTN_MODE` to a rocknix-joypad driver that RK3566 doesn't build, so FN
   was dropped. Without it, `adc-keys` should report FN itself. Note that slot also reads
@@ -18,7 +18,7 @@ differences:
 - **Without `0005-Bluetooth-btrtl-Add-the-support-for-RTL8733BU.patch`.** Its `btusb.c`
   hunk doesn't apply to 7.2.11 (probably already upstream), and it's for a USB Bluetooth
   chip the RGB20SX doesn't have.
-- **One patch of our own,** `5-rgbslot`: slot 1 (`sdmmc0`) runs at SDR50 instead of
+- **One patch of our own,** `5-slotsq`: slot 1 (`sdmmc0`) runs at SDR50 instead of
   SDR104, which a card failed to tune.
 
 Sources, all GPL-2.0, from ROCKNIX's `distribution` repository at commit
@@ -34,7 +34,7 @@ order, as ROCKNIX does (with fuzz, through `external.mk`):
 | `patches/2-mainline-rockchip` | `projects/ROCKNIX/packages/linux/patches/mainline-rockchip` |
 | `patches/3-7.2.6` | `projects/ROCKNIX/packages/linux/patches/7.2.6` |
 | `patches/4-rk3566` | `projects/ROCKNIX/devices/RK3566/patches/linux` |
-| `patches/5-rgbslot` | ours |
+| `patches/5-slotsq` | ours |
 
 The Mali kbase module is `package/mali-kbase`: Arm's driver from ROCKNIX's mirror
 `github.com/rocknix/mali_kbase` at `39da994bb6fc8819e5e8c1873907dd21d17e53c1`, built with

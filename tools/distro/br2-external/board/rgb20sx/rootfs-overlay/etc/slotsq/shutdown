@@ -1,5 +1,5 @@
 #!/bin/sh
-# rgbslot shutdown: stop the services and leave every filesystem clean.
+# slotsq shutdown: stop the services and leave every filesystem clean.
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 killall dropbear wpa_supplicant udhcpc 2>/dev/null
 sync
