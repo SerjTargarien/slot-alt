@@ -126,7 +126,7 @@ script, and there are also `Games/GBA|GB|GBC`, `Saves`, `States` and `Logs`.
   On Linux, run test targets by name. Those touched by this work:
 
   ```sh
-  cargo test -p slot --test clock --test rocknix --test rocknix_input --test evdev --test quick_menu
+  cargo test -p slot --test cpu_clock --test clock --test rocknix --test rocknix_input --test evdev --test quick_menu
   cargo test -p slot-gfx --test kms --test fbdev
   cargo test -p slot-power --test device
   sh card/test-rocknix.sh
