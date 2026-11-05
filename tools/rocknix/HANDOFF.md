@@ -30,6 +30,19 @@ Branch: `claude/beautiful-feynman-ffzfnx` (fork `SerjTargarien/slot-alt` of
 on a 480x480 layout canvas drawn at 1.5x, with games able to use the whole panel. The
 footer readouts are centred beside the slot's bay.
 
+**Done during lunch: our own kernel is built, not yet booted** (see BRINGUP.md, "Our own
+kernel"). It's Linux 7.2.11 with ROCKNIX's RK3566 patches and config, no initramfs, without
+the FN redirect patch, modules in `/lib/modules/7.2.11-rgbslot`, and `mali_kbase` built
+from source. slot and the frontend on the card already handle FN coming from the kernel
+(`SLOT_FN_ADC=0` on a `-rgbslot` kernel). To test it, with the user watching the screen:
+1. `sh tools/distro/dev.sh kernel rocknix-dtb`, then reboot rgbslot
+   (`setsid sh -c "sleep 1; reboot"` over SSH). Check: `uname -r` shows `7.2.11-rgbslot`;
+   picture, sound from the speaker, every button, **FN once per press**, Wi-Fi and SSH;
+   the boot time.
+2. `sh tools/distro/dev.sh kernel` (our own dtb), reboot, same checks.
+3. If it doesn't boot: `dev.sh kernel-back` (from ROCKNIX, with the dev card in slot 2
+   after a swap), or from rgbslot if it boots but misbehaves.
+
 **Next, in order:**
 1. **Screen tour.** The user opens each screen and names it, and we capture it with
    `sh tools/distro/dev.sh shot NAME` (saved to `~/rgbslot-build/frames/`, readable as

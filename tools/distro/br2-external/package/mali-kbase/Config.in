@@ -1,0 +1,13 @@
+config BR2_PACKAGE_MALI_KBASE
+	bool "mali-kbase"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Arm's out-of-tree kbase driver for Mali Bifrost GPUs (the
+	  RK3566's Mali-G52), which the Rockchip libmali userspace blob
+	  needs. Built from ROCKNIX's mirror at the commit ROCKNIX
+	  20261101 uses, with the same options (devicetree platform).
+
+	  https://developer.arm.com/downloads/-/mali-drivers/bifrost-kernel
+
+comment "mali-kbase needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL

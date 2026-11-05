@@ -15,6 +15,12 @@
 #                                         on a running rgbslot: restart slot with those
 #                                         variables, save its screen as frames/NAME.png
 #   sh tools/distro/dev.sh shot NAME      on a running rgbslot: save the screen as it is
+#   sh tools/distro/dev.sh kernel [rocknix-dtb]
+#                                         on a running rgbslot: install our own kernel and
+#                                         boot it next (ROCKNIX's stays as the fallback),
+#                                         with our dtb or ROCKNIX's
+#   sh tools/distro/dev.sh kernel-back    boot ROCKNIX's kernel again (from rgbslot, or
+#                                         from ROCKNIX with the dev card in slot 2)
 #
 # DEVICE (default root@192.168.1.72) is the device while it runs ROCKNIX, RGBSLOT
 # (default the same address) while it runs rgbslot, with its own known_hosts file.
@@ -287,6 +293,63 @@ echo "the dev card boots rgbslot from slot 1"
 EOF
 }
 
+# Puts our own kernel (output/images/Image), its dtb and its modules onto a running
+# rgbslot and makes the dev card boot it. ROCKNIX's kernel and its modules stay, and the
+# previous extlinux.conf is kept as extlinux.conf.rocknix-kernel for kernel-back.
+# With "rocknix-dtb", it boots with the dtb already on the card (ROCKNIX's, with SDR50)
+# instead of ours, which differs from it in a few nodes (see BRINGUP.md).
+kernel() {
+	fdt=/device_trees/rgbslot.dtb
+	[ "${1:-}" = rocknix-dtb ] && fdt=/device_trees/rk3566-powkiddy-rgb20sx.dtb
+	images="$BUILD/output/images"
+	modules="$BUILD/output/target/lib/modules"
+	release="$(ls "$modules" | grep -- '-rgbslot$' | head -1)"
+	[ -f "$images/Image" ] && [ -n "$release" ] || {
+		echo "no built kernel: run dev.sh build" >&2
+		exit 1
+	}
+	dtb="$images/rk3566-powkiddy-rgb20sx.dtb"
+	[ -f "$dtb" ] || {
+		echo "no $dtb" >&2
+		exit 1
+	}
+	scp -O -q -o UserKnownHostsFile="$HOME/.ssh/known_hosts_rgbslot" "$images/Image" "$RGBSLOT:/mnt/sdcard/Image.rgbslot"
+	scp -O -q -o UserKnownHostsFile="$HOME/.ssh/known_hosts_rgbslot" "$dtb" "$RGBSLOT:/mnt/sdcard/device_trees/rgbslot.dtb"
+	tar -C "$modules" -cf - "$release" | on_rgbslot "tar -C /lib/modules -xf - && chown -R root:root /lib/modules/$release"
+	on_rgbslot "RELEASE=$release FDT=$fdt sh -s" << 'KERNEL'
+set -eu
+conf=/mnt/sdcard/extlinux/extlinux.conf
+[ -f "$conf.rocknix-kernel" ] || cp "$conf" "$conf.rocknix-kernel"
+uuid="$(grep -o 'root=PARTUUID=[^ ]*' "$conf.rocknix-kernel" | head -1)"
+cat > "$conf" << CONF
+LABEL rgbslot
+  LINUX /Image.rgbslot
+  FDT $FDT
+  APPEND console=ttyS2,1500000 console=tty0 quiet $uuid rootwait rootfstype=ext4 init=/sbin/init panic=0
+CONF
+sync
+echo "next boot: our kernel $RELEASE"
+cat "$conf"
+KERNEL
+}
+
+# Boots ROCKNIX's kernel again, from the backup kernel() kept. Works on a running rgbslot,
+# or from ROCKNIX with the dev card in slot 2 (DEVICE), if our kernel didn't boot.
+kernel_back() {
+	if on_rgbslot true 2> /dev/null && on_rgbslot "[ -d /mnt/sdcard/extlinux ]"; then
+		on_rgbslot "cd /mnt/sdcard/extlinux && cp extlinux.conf.rocknix-kernel extlinux.conf && sync && cat extlinux.conf"
+		return
+	fi
+	on_device "CARD=$CARD sh -s" << 'BACK'
+set -eu
+m=/tmp/rgbslot-slot
+mkdir -p "$m"
+grep -q " $m " /proc/mounts || mount -t vfat "${CARD}p1" "$m"
+cd "$m/extlinux" && cp extlinux.conf.rocknix-kernel extlinux.conf && sync && cat extlinux.conf
+cd / && umount "$m"
+BACK
+}
+
 restore() {
 	on_device "sh -s" << 'EOF'
 set -eu
@@ -317,6 +380,8 @@ cmd="${1:-}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
 harvest | build | install | bootable | boot | restore | log) "$cmd" ;;
+kernel) kernel "$@" ;;
+kernel-back) kernel_back ;;
 capture)
 	name="$1"
 	shift
@@ -325,7 +390,7 @@ capture)
 shot) frame "$1" no ;;
 format) format "$@" ;;
 *)
-	sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
 	exit 2
 	;;
 esac

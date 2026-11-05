@@ -130,6 +130,62 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 - **With the dev card in slot 1 and SDR104 still on,** the kernel never sees the card and
   waits forever with only a cursor showing (`rootwait`).
 
+## Our own kernel (phase 1b, built 2026-11-05)
+
+`board/rgb20sx/linux/README.md` has the provenance. What it took:
+- **Source:** Linux 7.2.11 from kernel.org (sha256 checked against kernel.org's
+  `sha256sums.asc`), with ROCKNIX's RK3566 config and four patch sets, in ROCKNIX's
+  order: `mainline`, `mainline-rockchip`, `7.2.6`, then the device set.
+- **Placeholders:** ROCKNIX's config has two, `@INITRAMFS_SOURCE@` and
+  `@DEVICENAME@`. Ours are `""` and `rgbslot`. Without a built-in initramfs, the
+  `/root` initrd and `rdinit=/nonexistent` aren't needed.
+- **`CONFIG_LOCALVERSION="-rgbslot"`:** modules go to `/lib/modules/7.2.11-rgbslot`,
+  beside ROCKNIX's `7.2.11`, so the same root boots either kernel.
+- **Patches left out:**
+  - `0004-input-adc-keys-redirect...`, which dropped FN on RK3566;
+  - `0005-Bluetooth-btrtl-...`, whose `btusb.c` hunk doesn't apply to 7.2.11 and
+    which is for a chip the RGB20SX doesn't have.
+- **Fuzz:** ROCKNIX applies its patches with plain `patch` (fuzz 2, and it substitutes
+  `@TARGET_CPU@` and `@DEVICE@`, which none of these use). Buildroot's
+  `apply-patches.sh` uses `-F0`, and the 1992 MHz OPP patch only applies with fuzz,
+  since 7.2.11 moved the `&vop` block it anchors on.
+  - So `external.mk` applies the sets in a `LINUX_POST_PATCH_HOOKS` step with `-F2`,
+    and fails on any `.rej`.
+  - 47 patches apply, several with fuzz. The OPP node lands at the top level at the
+    end of `rk3566.dtsi`, as it should.
+- **`mali_kbase`** is `package/mali-kbase`, built through the driver's own Makefile
+  with ROCKNIX's options (`CONFIG_MALI_PLATFORM_NAME=devicetree`). It installs to
+  `/lib/modules/<release>/mali-bifrost/`.
+- **FN on our kernel:** with the redirect patch gone, `adc-keys` reports `BTN_MODE`,
+  which slot's gamepad table maps to Menu. slot also polls the ADC for FN, so FN would
+  fire twice. On a `-rgbslot` kernel, the frontend sets `SLOT_FN_ADC=0`, and slot then
+  skips the ADC poll.
+- **Installing and falling back:** `dev.sh kernel` (on a running rgbslot) copies
+  `Image`, the dtb and the modules, and points `extlinux.conf` at them, keeping the old
+  file as `extlinux.conf.rocknix-kernel`. `dev.sh kernel-back` restores it, from rgbslot,
+  or from ROCKNIX with the dev card in slot 2.
+- **Release check:** the device runs ROCKNIX tag `20261101` (commit `cefc1433`,
+  branch `next`, per `/etc/os-release` in its `SYSTEM`). Its kernel patches are
+  byte-identical to the `main` commit we copied (`e344c810`), and its config differs only
+  by `CONFIG_NET_PTP_CLASSIFY=y`.
+- **The dtb on the ROCKNIX card is not what this source builds,** even allowing for
+  ROCKNIX building with overlay symbols (`-@`, which also keeps pin groups that
+  `/omit-if-no-ref/` would drop: 124 KB against our 61 KB). The real differences:
+  - ROCKNIX's has a speaker-amplifier node (`audio-amplifier`, label `spk_amp`), a
+    Wi-Fi host-wake node, and joystick `abs-range` 250-800;
+  - ours has CPU idle states (`cpu-sleep`, ROCKNIX's patch 1001), more
+    `regulator-boot-on` flags, and mainline's joystick range 15-1023.
+  - Where ROCKNIX's dtb comes from wasn't traced. The card's `KERNEL` and
+    `device_trees` are dated 2026-11-05 07:57, so the user may have updated ROCKNIX
+    that morning.
+  - So the first boot of our kernel uses ROCKNIX's dtb (`dev.sh kernel rocknix-dtb`);
+    the second tests ours. If something breaks with ours (speaker, Wi-Fi), port the
+    missing node in `patches/5-rgbslot`.
+- **Build output:** `Image` 27.3 MB (no initramfs), dtb 61 KB, 279 modules in
+  `/lib/modules/7.2.11-rgbslot`, including `mali-bifrost/mali_kbase.ko`.
+- **Don't** reset the kernel source with `rm` in an agent shell. Use Buildroot's
+  `make O=../output linux-dirclean`.
+
 ## The root filesystem (Buildroot)
 
 - **Buildroot `2026.08.1`** (commit `7fdeadb3`): glibc 2.44, GCC 15.3, kernel headers

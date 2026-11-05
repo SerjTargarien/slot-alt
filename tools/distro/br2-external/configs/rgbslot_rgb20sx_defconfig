@@ -30,3 +30,15 @@ BR2_PACKAGE_WPA_SUPPLICANT_CTRL_IFACE=y
 BR2_PACKAGE_IW=y
 BR2_PACKAGE_DROPBEAR=y
 BR2_TARGET_ROOTFS_TAR=y
+# Our own kernel: Linux 7.2.11 with ROCKNIX's RK3566 patches and config (see
+# board/rgb20sx/linux/README.md), no initramfs, the device tree built from the same source.
+# The patches are applied by external.mk, the way ROCKNIX applies them.
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION=y
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="7.2.11"
+BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_RGBSLOT_PATH)/board/rgb20sx/linux/linux.config"
+BR2_LINUX_KERNEL_DTS_SUPPORT=y
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3566-powkiddy-rgb20sx"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+BR2_PACKAGE_MALI_KBASE=y
