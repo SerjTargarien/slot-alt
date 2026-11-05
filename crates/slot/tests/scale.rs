@@ -487,13 +487,20 @@ fn drawn(a: &App) -> (f32, f32) {
 
 #[test]
 fn the_game_gear_and_pocket_scale_to_integer_or_fit_on_a_square_panel() {
-    for (platform, integer, fit) in [
-        (Platform::Gg, (640.0, 576.0), (720.0, 648.0)),
-        (Platform::Ngp, (640.0, 608.0), (720.0, 684.0)),
+    for (platform, integer, fit, lines) in [
+        (Platform::Gg, (640.0, 576.0), (720.0, 648.0), 144.0),
+        (Platform::Ngp, (640.0, 608.0), (720.0, 684.0), 152.0),
     ] {
         let (_d, mut a) = playing(platform, (720, 720), SlotState::default());
         assert_eq!(a.scale_choices(platform), [Scale::Integer, Scale::Fit]);
         assert_eq!(drawn(&a), integer, "{platform:?} starts at Integer");
+        // The picture itself is what's drawn into that box, not the whole 240x160 buffer.
+        let top = (160.0 - lines) / 2.0 / 160.0;
+        assert_eq!(
+            a.source_rect(),
+            [40.0 / 240.0, top, 160.0 / 240.0, lines / 160.0],
+            "{platform:?}"
+        );
         let row = match platform {
             Platform::Gg => QuickRow::GgScale,
             _ => QuickRow::NgpScale,
@@ -515,6 +522,7 @@ fn the_game_gear_and_pocket_stretch_to_the_whole_square_panel() {
         press(&mut a, Btn::Right);
         assert!(a.picture_fills(), "{platform:?}");
         assert!(a.game_layout().panel);
+        assert_ne!(a.source_rect(), slot_gfx::WHOLE_TEXTURE, "{platform:?}");
         let saved = slot_store::read_slot_state(d.path());
         assert_eq!(
             (saved.stretched_gg, saved.stretched_ngp),

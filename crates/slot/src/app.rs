@@ -2920,7 +2920,10 @@ impl App {
 
     pub fn source_rect(&self) -> [f32; 4] {
         match self.playing_platform().hardware() {
-            Platform::Gba | Platform::Gb | Platform::Gbc => self.picture().1,
+            // The Game Gear and Pocket size the Game Boy's way (`picture`), source included.
+            Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp => {
+                self.picture().1
+            }
             Platform::Nds => self.ds_parts().0.src,
             _ => video_mode::source_rect_shown(
                 self.platform,

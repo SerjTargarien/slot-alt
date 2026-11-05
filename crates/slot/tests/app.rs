@@ -1953,29 +1953,24 @@ fn l_and_r_change_the_mode_on_a_game_gear_cart() {
     let d = tmp_root_with_gg_carts(&["Sonic Chaos", "Zzz"]);
     let mut s = session_playing(d.path());
     assert_eq!(s.app().core(), Core::Gearsystem);
-    assert_eq!(
-        s.app().source_rect(),
-        WHOLE_TEXTURE,
-        "it did not open actual size"
-    );
+    // slot²: the 160x144 picture itself is drawn, scaled like a Game Boy's.
+    let picture = [40.0 / 240.0, 8.0 / 160.0, 160.0 / 240.0, 144.0 / 160.0];
+    assert_eq!(s.app().source_rect(), picture);
+    assert!(!s.app().picture_fills(), "it opened stretched");
 
     // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
     s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::L1)], 100);
-    assert_eq!(
-        s.app().source_rect(),
-        [40.0 / 240.0, 8.0 / 160.0, 160.0 / 240.0, 144.0 / 160.0],
-        "L did not stretch the 160x144 picture to fill the screen"
+    assert!(
+        s.app().picture_fills(),
+        "L did not stretch the picture to fill the screen"
     );
+    assert_eq!(s.app().source_rect(), picture);
     assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
     s.feed([RawEvent::Up(Btn::L1)], 120);
 
     s.feed([RawEvent::Down(Btn::R1)], 200);
-    assert_eq!(
-        s.app().source_rect(),
-        WHOLE_TEXTURE,
-        "R did not give it back"
-    );
+    assert!(!s.app().picture_fills(), "R did not give it back");
     assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
     s.feed([RawEvent::Up(Btn::R1)], 220);
     s.feed([RawEvent::Up(Btn::Menu)], 230);
@@ -2540,19 +2535,17 @@ fn the_shader_shortcut_steps_only_the_neogeo_pocket_shader_in_a_pocket_game() {
 fn l_and_r_change_the_mode_on_a_neogeo_pocket_cart_and_never_reach_the_core() {
     let d = root_with_one_cart("NGP", "Metal Slug.ngp");
     let mut s = session_playing(d.path());
-    assert_eq!(s.app().source_rect(), WHOLE_TEXTURE);
+    // slot²: the 160x152 picture itself is drawn, scaled like a Game Boy's.
+    assert_ne!(s.app().source_rect(), WHOLE_TEXTURE);
+    assert!(!s.app().picture_fills());
     // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
     s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::L1)], 100);
-    assert_ne!(s.app().source_rect(), WHOLE_TEXTURE, "L did not stretch it");
+    assert!(s.app().picture_fills(), "L did not stretch it");
     assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
     s.feed([RawEvent::Up(Btn::L1)], 120);
     s.feed([RawEvent::Down(Btn::R1)], 200);
-    assert_eq!(
-        s.app().source_rect(),
-        WHOLE_TEXTURE,
-        "R did not give it back"
-    );
+    assert!(!s.app().picture_fills(), "R did not give it back");
     assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
     s.feed([RawEvent::Up(Btn::R1)], 220);
     s.feed([RawEvent::Up(Btn::Menu)], 230);
