@@ -123,6 +123,7 @@ pub struct ClockPicker {
     row: usize,
     part: Option<usize>,
     choosing: Option<usize>,
+    page: usize,
 }
 
 impl ClockPicker {
@@ -142,7 +143,13 @@ impl ClockPicker {
             row: 0,
             part: None,
             choosing: None,
+            page: CITY_PAGE,
         }
+    }
+
+    /// How many cities the zone list shows and pages by (`quick_visible` of the canvas).
+    pub fn set_page(&mut self, page: usize) {
+        self.page = page.max(1);
     }
 
     pub fn with_network_time(mut self, network_time: Option<bool>) -> Self {
@@ -163,6 +170,7 @@ impl ClockPicker {
             row: 0,
             part: None,
             choosing: None,
+            page: CITY_PAGE,
         }
     }
 
@@ -250,7 +258,7 @@ impl ClockPicker {
 
     pub fn left(&mut self) {
         match (self.choosing, self.part, self.row()) {
-            (Some(i), _, _) => self.choosing = Some(i.saturating_sub(CITY_PAGE)),
+            (Some(i), _, _) => self.choosing = Some(i.saturating_sub(self.page)),
             (None, Some(i), _) => self.part = Some(i.saturating_sub(1)),
             (None, None, ClockRow::Clock) => self.clock_24h = !self.clock_24h,
             (None, None, ClockRow::NetworkTime) => self.flip_network_time(),
@@ -260,7 +268,7 @@ impl ClockPicker {
 
     pub fn right(&mut self) {
         match (self.choosing, self.part, self.row()) {
-            (Some(i), _, _) => self.choosing = Some((i + CITY_PAGE).min(Zone::ALL.len() - 1)),
+            (Some(i), _, _) => self.choosing = Some((i + self.page).min(Zone::ALL.len() - 1)),
             (None, Some(i), _) => self.part = Some((i + 1).min(self.parts().len() - 1)),
             (None, None, ClockRow::Clock) => self.clock_24h = !self.clock_24h,
             (None, None, ClockRow::NetworkTime) => self.flip_network_time(),
@@ -306,7 +314,7 @@ impl ClockPicker {
     fn window(&self) -> (usize, usize, usize) {
         match self.choosing {
             Some(i) => {
-                let len = CITY_PAGE.min(Zone::ALL.len());
+                let len = self.page.min(Zone::ALL.len());
                 let start = i.saturating_sub(len / 2).min(Zone::ALL.len() - len);
                 (start, len, i - start)
             }

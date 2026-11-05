@@ -11,6 +11,9 @@ use slot_power::SimPlatform;
 use slot_ui::{bars_rect, key_rect, lock_rect, net_row_top, Cap, Layout, QuickRow};
 use tempfile::TempDir;
 
+/// The 480-unit band these tests lay out on.
+const BAND: slot_ui::Canvas = slot_ui::Canvas::FRAMED;
+
 fn setup() -> Option<(TempDir, Frontend, Compositor, HeadlessSurface)> {
     let surface = HeadlessSurface::new().ok()?;
     let mut compositor = Compositor::new(&surface).ok()?;
@@ -133,7 +136,12 @@ fn the_networks_list_renders() {
     let px = frame(&mut f, &mut c);
     dump(&px, "saved");
     let canvas = f.app().canvas();
-    let value = [canvas.w - 250.0, net_row_top(2, 0, 0) + 8.0, 210.0, 36.0];
+    let value = [
+        canvas.w - 250.0,
+        net_row_top(2, 0, 0, BAND) + 8.0,
+        210.0,
+        36.0,
+    ];
     assert!(
         count_in(&px, value, inked) > 50,
         "Home has no Connected value"
@@ -147,7 +155,7 @@ fn the_networks_list_renders() {
     let px = frame(&mut f, &mut c);
     dump(&px, "list");
     let canvas = f.app().canvas();
-    let top = |i| net_row_top(count, at, i);
+    let top = |i| net_row_top(count, at, i, BAND);
     assert!(pointer_at(&px, top(at)), "no pointer on the selected row");
     assert!(!pointer_at(&px, top(0)), "a pointer on an unselected row");
     let mut fills = Vec::new();
@@ -196,9 +204,9 @@ fn a_network_page_renders() {
     let px = frame(&mut f, &mut c);
     dump(&px, "page");
     let canvas = f.app().canvas();
-    assert!(pointer_at(&px, net_row_top(count, 0, 0)));
+    assert!(pointer_at(&px, net_row_top(count, 0, 0, BAND)));
     for i in [0, 1, 3] {
-        let top = net_row_top(count, 0, i);
+        let top = net_row_top(count, 0, i, BAND);
         let value = [canvas.w - 250.0, top + 8.0, 210.0, 36.0];
         assert!(count_in(&px, value, inked) > 50, "row {i} has no value");
     }
@@ -375,7 +383,7 @@ fn the_list_says_it_is_scanning_until_results_arrive_then_offers_other() {
         assert!(s.lines.is_empty(), "{panel:?}: rows before the scan");
         let px = frame(&mut f, &mut c);
         dump(&px, &format!("scanning-{}", panel.0));
-        let top = net_row_top(1, 0, 0);
+        let top = net_row_top(1, 0, 0, BAND);
         let (left, right, n) = ink_span(&px, top).expect("no scanning message");
         assert!(n > 100, "{panel:?}: message too faint");
         let mid = (left + right) as f32 / 2.0;
@@ -392,7 +400,7 @@ fn the_list_says_it_is_scanning_until_results_arrive_then_offers_other() {
         let px = frame(&mut f, &mut c);
         dump(&px, &format!("scanned-{}", panel.0));
         let count = s.lines.len();
-        let below = net_row_top(count, s.selected, count.min(5));
+        let below = net_row_top(count, s.selected, count.min(5), BAND);
         assert!(
             count >= 5 || ink_span(&px, below).is_none(),
             "{panel:?}: message still drawn"

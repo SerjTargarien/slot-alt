@@ -94,6 +94,11 @@ OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer w
 `server_ui`, `pipeline` and `quad` tests need `HeadlessSurface`, which only builds on
 macOS; `romm_ui` needs `--features romm`.
 
+**Upstream and square panels:** upstream supports the RG CubeXX (720x720) for input and
+its boot logo, but lays the UI out on the letterboxed 720x480 band there (`framed()` is
+4:3 only, and no square bezels ship). Our height-aware canvas is new work that 3:2 and
+4:3 devices don't notice, so it could be offered upstream.
+
 **Backlight scale (2026-11-05 evening):** our device tree had no `brightness-levels`, so
 the kernel built a perceptual curve (1666 steps) under slot's own curve, and level 5 was
 "dark as night". `5-slotsq/0002` gives it ROCKNIX's linear 0-255 scale (default 77);
@@ -107,7 +112,9 @@ capped top or bottom.
    PLAN.md). To measure again: `SLOT_TRACE_POWER=1` in `/run/slot.env` (the frontend
    writes `Logs/power.log`), move `slotsq-dev` aside, restart slot, then
    `python3 -I tools/rocknix/medians.py NAME` on the saved logs.
-2. **More menu rows on a tall canvas** (`QUICK_VISIBLE` is 6).
+2. ~~More menu rows~~ done: `slot_ui::quick_visible(canvas)` gives 10 rows on the
+   square panel (6 on the band) for scrolling menu pages, the network list and the
+   clock's zone list; the in-game screen panel keeps 3.
 3. Whichever comes first:
    - **Self-update from our own GitHub releases**, together with the update scenes,
      which still draw their carts in band coordinates (device layer step 3);

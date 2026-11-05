@@ -8,7 +8,7 @@ use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD};
 use crate::slot_chrome::MOUTH_H;
 use crate::quick_menu::{
     draw_menu_ground, DIM_INK, LEGEND_Y, POINTER_BLEED, POINTER_GAP, QUICK_EDGE, QUICK_LABEL_X,
-    QUICK_PITCH, QUICK_VALUE_GAP, QUICK_VISIBLE, SCROLL_INSET, SCROLL_W, TYPE_DROP,
+    QUICK_PITCH, QUICK_VALUE_GAP, SCROLL_INSET, SCROLL_W, TYPE_DROP, quick_visible,
     VALUE_MIN_SCALE,
 };
 
@@ -157,18 +157,17 @@ fn glyph_top(row_top: f32, h: f32) -> f32 {
     (row_top + TYPE_DROP + (MENU_H as f32 - h) / 2.0).round()
 }
 
-pub fn net_window(count: usize, selected: usize) -> (usize, usize) {
-    if count <= QUICK_VISIBLE {
+pub fn net_window(count: usize, selected: usize, canvas: Canvas) -> (usize, usize) {
+    let fits = quick_visible(canvas);
+    if count <= fits {
         return (0, count);
     }
-    let start = selected
-        .saturating_sub(QUICK_VISIBLE / 2)
-        .min(count - QUICK_VISIBLE);
-    (start, QUICK_VISIBLE)
+    let start = selected.saturating_sub(fits / 2).min(count - fits);
+    (start, fits)
 }
 
-pub fn net_row_top(count: usize, selected: usize, at: usize) -> f32 {
-    let (start, len) = net_window(count, selected);
+pub fn net_row_top(count: usize, selected: usize, at: usize, canvas: Canvas) -> f32 {
+    let (start, len) = net_window(count, selected, canvas);
     let rows = QUICK_PITCH * len as f32;
     (LEGEND_Y - rows) / 2.0 + QUICK_PITCH * (at as f32 - start as f32)
 }
@@ -197,9 +196,9 @@ impl NetworkList<'_> {
         let pad = MENU_PAD as f32;
         let right = self.canvas.w - QUICK_EDGE;
         let count = self.lines.len() + self.message.is_some() as usize;
-        let (start, len) = net_window(count, self.selected);
+        let (start, len) = net_window(count, self.selected, self.canvas);
         for at in start..start + len {
-            let top = net_row_top(count, self.selected, at);
+            let top = net_row_top(count, self.selected, at, self.canvas);
             let Some(line) = self.lines.get(at) else {
                 if let Some(message) = self.message {
                     let y = top + TYPE_DROP + (MENU_H as f32 - message.2 as f32) / 2.0;
@@ -266,7 +265,7 @@ impl NetworkList<'_> {
         }
         if len < count {
             let x = self.canvas.w - SCROLL_INSET - SCROLL_W;
-            let y = net_row_top(count, self.selected, start);
+            let y = net_row_top(count, self.selected, start, self.canvas);
             let h = QUICK_PITCH * len as f32;
             let thumb_h = h / count as f32;
             let along = self.selected as f32 / (count - 1) as f32;

@@ -1581,7 +1581,10 @@ impl QuickMenu<'_> {
             (false, _) => draw_menu_ground(self.canvas, self.ground, out),
             (true, panel) => {
                 let y = match panel {
-                    true => quick_row_top(self.row.page()[0], self.hidden) - PANEL_GAP + rows_dy,
+                    true => {
+                        quick_row_top(self.row.page()[0], self.hidden, self.canvas) - PANEL_GAP
+                            + rows_dy
+                    }
                     false => 0.0,
                 };
                 let bottom = self.canvas.below(self.footer_top).max(y);
@@ -1607,10 +1610,10 @@ impl QuickMenu<'_> {
             .max()
             .unwrap_or(0);
         let shown = self.row.shown(self.hidden);
-        let (start, len) = quick_window(self.row, self.hidden);
+        let (start, len) = quick_window(self.row, self.hidden, self.canvas);
         let first = out.len();
         for row in shown.into_iter().skip(start).take(len) {
-            let y = quick_row_top_at(row, self.row, self.hidden) + TYPE_DROP;
+            let y = quick_row_top_at(row, self.row, self.hidden, self.canvas) + TYPE_DROP;
             let lit = row == self.row;
             let mut label_end = QUICK_LABEL_X;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()).map(|l| &l[lit as usize]) {
@@ -1664,7 +1667,7 @@ impl QuickMenu<'_> {
                 alpha: 1.0,
             });
         }
-        if let Some(bar) = quick_scroll(self.row, self.hidden) {
+        if let Some(bar) = quick_scroll(self.row, self.hidden, self.canvas) {
             let x = self.canvas.w - SCROLL_INSET - SCROLL_W;
             let ink = DIM_INK.map(|c| f32::from(c) / 255.0);
             out.push(Draw::Rect {
@@ -1726,6 +1729,15 @@ pub fn draw_menu_ground(canvas: Canvas, ground: Option<(TexId, u32)>, out: &mut 
 
 pub const QUICK_VISIBLE: usize = 6;
 
+/// How many rows a scrolling list shows: upstream's 6 on the 480-unit band, more on a
+/// taller canvas, keeping the band's margins above the rows and below them to the legend
+/// (10 on a square panel).
+pub fn quick_visible(canvas: Canvas) -> usize {
+    let margin = (LEGEND_Y - QUICK_PITCH * QUICK_VISIBLE as f32) / 2.0;
+    let room = LEGEND_Y + canvas.extra() - 2.0 * margin;
+    ((room / QUICK_PITCH).floor() as usize).max(QUICK_VISIBLE)
+}
+
 const PANEL_VISIBLE: usize = 3;
 
 pub(crate) const SCROLL_INSET: f32 = 12.0;
@@ -1750,16 +1762,16 @@ fn scrolls(page: &[QuickRow]) -> bool {
     .contains(&page)
 }
 
-fn visible(page: &[QuickRow]) -> usize {
+fn visible(page: &[QuickRow], canvas: Canvas) -> usize {
     match page == QuickRow::PLAY_SCREEN {
         true => PANEL_VISIBLE,
-        false => QUICK_VISIBLE,
+        false => quick_visible(canvas),
     }
 }
 
-pub fn quick_window(selected: QuickRow, hidden: &[QuickRow]) -> (usize, usize) {
+pub fn quick_window(selected: QuickRow, hidden: &[QuickRow], canvas: Canvas) -> (usize, usize) {
     let count = selected.shown(hidden).len();
-    let fits = visible(selected.page());
+    let fits = visible(selected.page(), canvas);
     if !scrolls(selected.page()) || count <= fits {
         return (0, count);
     }
@@ -1768,13 +1780,17 @@ pub fn quick_window(selected: QuickRow, hidden: &[QuickRow]) -> (usize, usize) {
     (start, fits)
 }
 
-pub fn quick_scroll(selected: QuickRow, hidden: &[QuickRow]) -> Option<QuickScroll> {
+pub fn quick_scroll(
+    selected: QuickRow,
+    hidden: &[QuickRow],
+    canvas: Canvas,
+) -> Option<QuickScroll> {
     let shown = selected.shown(hidden);
-    let (start, len) = quick_window(selected, hidden);
+    let (start, len) = quick_window(selected, hidden, canvas);
     if len >= shown.len() {
         return None;
     }
-    let y = quick_row_top_at(shown[start], selected, hidden);
+    let y = quick_row_top_at(shown[start], selected, hidden, canvas);
     let h = QUICK_PITCH * len as f32;
     let thumb_h = h / shown.len() as f32;
     let along = selected.position(hidden) as f32 / (shown.len() - 1) as f32;
@@ -1786,8 +1802,13 @@ pub fn quick_scroll(selected: QuickRow, hidden: &[QuickRow]) -> Option<QuickScro
     })
 }
 
-pub fn quick_row_top_at(row: QuickRow, selected: QuickRow, hidden: &[QuickRow]) -> f32 {
-    let (start, len) = quick_window(selected, hidden);
+pub fn quick_row_top_at(
+    row: QuickRow,
+    selected: QuickRow,
+    hidden: &[QuickRow],
+    canvas: Canvas,
+) -> f32 {
+    let (start, len) = quick_window(selected, hidden, canvas);
     let held = match row.page() == QuickRow::WIFI {
         true => QuickRow::WIFI.len(),
         false => len,
@@ -1800,8 +1821,8 @@ pub fn quick_row_top_at(row: QuickRow, selected: QuickRow, hidden: &[QuickRow]) 
     top + QUICK_PITCH * (row.position(hidden) as f32 - start as f32)
 }
 
-pub fn quick_row_top(row: QuickRow, hidden: &[QuickRow]) -> f32 {
-    quick_row_top_at(row, row, hidden)
+pub fn quick_row_top(row: QuickRow, hidden: &[QuickRow], canvas: Canvas) -> f32 {
+    quick_row_top_at(row, row, hidden, canvas)
 }
 
 fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {

@@ -298,8 +298,10 @@ canvas):
 - Not yet handled: the slot-update scenes (an update cart drops onto the shelf and
   opens) still draw their carts in band coordinates. They can't show until Wi-Fi works
   on this device; fix them with the device layer.
-- Later: menus could show more rows on a taller canvas (`QUICK_VISIBLE` is 6), and the
-  wallpaper is a band-sized texture scaled up, a little soft.
+- Menus show more rows on a taller canvas: `quick_visible(canvas)` keeps the band's
+  margins above the rows and below them to the legend, so 10 on the square panel (6 on
+  the band), for scrolling pages, the network list and the clock's zone list.
+- Later: the wallpaper is a band-sized texture scaled up, a little soft.
 
 **GBA audio** sounded out of tune on slot² with ROCKNIX's kernel, and sounds right with
 our own kernel. Cause unknown; keep an ear on it.

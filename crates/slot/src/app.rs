@@ -1108,7 +1108,13 @@ impl App {
         if app.state.clock_set {
             app.start();
         } else {
-            app.phase = clock_screen(system_secs(), &app.state, app.has_saved(), false);
+            app.phase = clock_screen(
+                system_secs(),
+                &app.state,
+                app.has_saved(),
+                false,
+                app.canvas(),
+            );
         }
         app
     }
@@ -3085,7 +3091,7 @@ impl App {
         self.hud.set_headphones(self.headphones);
         let secs = power.now();
         if matches!(self.phase, Phase::SetClock { .. }) || secs < CLOCK_FLOOR {
-            self.phase = clock_screen(secs, &self.state, self.has_saved(), false);
+            self.phase = clock_screen(secs, &self.state, self.has_saved(), false, self.canvas());
         }
         self.copy_card_log(&power);
         power.set_network_time(self.state.network_time);
@@ -3772,7 +3778,13 @@ impl App {
     fn open_quick_row(&mut self, row: QuickRow) {
         match row {
             QuickRow::DateTime => {
-                self.phase = clock_screen(self.utc_secs(), &self.state, self.has_saved(), true);
+                self.phase = clock_screen(
+                    self.utc_secs(),
+                    &self.state,
+                    self.has_saved(),
+                    true,
+                    self.canvas(),
+                );
             }
             QuickRow::About => self.phase = Phase::About,
             QuickRow::FetchArt => self.open_fetch_missing_art(),
@@ -4697,6 +4709,10 @@ impl App {
 
     pub fn set_panel(&mut self, panel: (u32, u32)) {
         self.panel = panel;
+        let page = slot_ui::quick_visible(self.canvas());
+        if let Phase::SetClock { picker, .. } = &mut self.phase {
+            picker.set_page(page);
+        }
     }
 
     pub fn wallpaper_size(&self) -> (u32, u32) {
@@ -11009,10 +11025,18 @@ fn ff_next(from: u8, right: bool) -> u8 {
     }]
 }
 
-fn clock_screen(utc: i64, state: &SlotState, networked: bool, from_menu: bool) -> Phase {
+fn clock_screen(
+    utc: i64,
+    state: &SlotState,
+    networked: bool,
+    from_menu: bool,
+    canvas: Canvas,
+) -> Phase {
+    let mut picker = ClockPicker::new(utc, state.zone, state.clock_24h)
+        .with_network_time(networked.then_some(state.network_time));
+    picker.set_page(slot_ui::quick_visible(canvas));
     Phase::SetClock {
-        picker: ClockPicker::new(utc, state.zone, state.clock_24h)
-            .with_network_time(networked.then_some(state.network_time)),
+        picker,
         seed: utc - utc.rem_euclid(60),
         from_menu,
     }

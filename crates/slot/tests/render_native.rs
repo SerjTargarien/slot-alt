@@ -11,6 +11,9 @@ use slot_input::{Btn, InputSource, Millis, RawEvent};
 use slot_power::SimPlatform;
 use slot_ui::{quick_row_top, QuickRow};
 
+/// The 480-unit band these tests lay out on.
+const BAND: slot_ui::Canvas = slot_ui::Canvas::FRAMED;
+
 struct Script(VecDeque<Vec<RawEvent>>);
 
 impl InputSource for Script {
@@ -381,7 +384,7 @@ fn every_shortcut_row_keeps_its_label_clear_of_its_binding_on_a_4_by_3_panel() {
         assert_eq!(f.app().quick_menu(), Some(row));
         f.compose(&mut c);
         let px = c.read_frame();
-        let top = quick_row_top(row, &[]) as usize;
+        let top = quick_row_top(row, &[], BAND) as usize;
         let ink: Vec<usize> = (40..640)
             .filter(|&x| {
                 (top + 8..top + 44).any(|y| {
@@ -593,7 +596,7 @@ fn the_game_boy_page_lists_scale_and_stretch_on_both_panels() {
         };
         for &row in rows {
             assert!(!hidden.contains(&row), "{row:?} hidden on {panel:?}");
-            let top = quick_row_top(row, &hidden) as usize;
+            let top = quick_row_top(row, &hidden, BAND) as usize;
             let w = panel.0 as usize;
             let lit = (top + 8..top + 40)
                 .any(|y| (0..w).any(|x| px[(y * w + x) * 4..][..3].iter().all(|c| *c > 0x80)));
@@ -748,7 +751,7 @@ fn tap(f: &mut Frontend, input: &mut Script, btn: Btn) {
 }
 
 fn row_gap(frame: &[u8], row: QuickRow, hidden: &[QuickRow]) -> (usize, usize) {
-    let top = slot_ui::quick_row_top_at(row, row, hidden) as usize;
+    let top = slot_ui::quick_row_top_at(row, row, hidden, BAND) as usize;
     let at = |x: usize, y: usize| {
         let o = (y * 640 + x) * 4;
         frame[o..o + 3].iter().all(|c| *c > 0x80)
