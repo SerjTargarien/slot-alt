@@ -106,7 +106,7 @@ local only. Fold it into the main branch and push when the user asks. The device
 
 **Next session, first: button mapping** (asked by the user on 2026-11-05):
 - The new systems have more buttons than slot's default set, and the controls don't adapt
-  to them. Example: in Dicing Knight (WonderSwan) a move can't be done comfortably. The
+  to them. Example: in Dicing Knight (WonderSwan) items can't be used comfortably. The
   WonderSwan has X1-X4 and Y1-Y4 plus A, B and Start; slotPlus maps them through
   `wonderswan_for` and a horizontal/vertical layout (`session.rs`), with turbo rows named
   after X and Y.
