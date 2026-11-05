@@ -151,7 +151,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_TG16.map(QuickRow::label),
-        ["Shader", "Bezel"]
+        ["Shader", "Bezel", "Scale", "Stretch"]
     );
     assert_eq!(QuickRow::ScreenTg16.label(), "TurboGrafx-16");
     assert_eq!(

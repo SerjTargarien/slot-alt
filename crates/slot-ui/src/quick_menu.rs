@@ -69,6 +69,8 @@ pub enum QuickRow {
     ScreenTg16,
     Tg16Shader,
     Tg16Bezel,
+    Tg16Scale,
+    Tg16Stretch,
     ScreenNds,
     NdsShader,
     NdsBezel,
@@ -165,7 +167,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 153] = [
+    pub const ALL: [QuickRow; 155] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -226,6 +228,8 @@ impl QuickRow {
         QuickRow::ScreenTg16,
         QuickRow::Tg16Shader,
         QuickRow::Tg16Bezel,
+        QuickRow::Tg16Scale,
+        QuickRow::Tg16Stretch,
         QuickRow::ScreenNds,
         QuickRow::NdsShader,
         QuickRow::NdsBezel,
@@ -479,7 +483,12 @@ impl QuickRow {
         QuickRow::NgpStretch,
     ];
 
-    pub const SCREEN_TG16: [QuickRow; 2] = [QuickRow::Tg16Shader, QuickRow::Tg16Bezel];
+    pub const SCREEN_TG16: [QuickRow; 4] = [
+        QuickRow::Tg16Shader,
+        QuickRow::Tg16Bezel,
+        QuickRow::Tg16Scale,
+        QuickRow::Tg16Stretch,
+    ];
     pub const SCREEN_NDS: [QuickRow; 2] = [QuickRow::NdsShader, QuickRow::NdsBezel];
 
     pub const SCREEN_GBA: [QuickRow; 5] = [
@@ -585,7 +594,10 @@ impl QuickRow {
             | QuickRow::NgpBezel
             | QuickRow::NgpScale
             | QuickRow::NgpStretch => &QuickRow::SCREEN_NGP,
-            QuickRow::Tg16Shader | QuickRow::Tg16Bezel => &QuickRow::SCREEN_TG16,
+            QuickRow::Tg16Shader
+            | QuickRow::Tg16Bezel
+            | QuickRow::Tg16Scale
+            | QuickRow::Tg16Stretch => &QuickRow::SCREEN_TG16,
             QuickRow::NdsShader | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
@@ -881,11 +893,13 @@ impl QuickRow {
             | QuickRow::GbcScale
             | QuickRow::GgScale
             | QuickRow::NgpScale
+            | QuickRow::Tg16Scale
             | QuickRow::Scale => "Scale",
             QuickRow::GbStretch
             | QuickRow::GbcStretch
             | QuickRow::GgStretch
             | QuickRow::NgpStretch
+            | QuickRow::Tg16Stretch
             | QuickRow::Stretch => "Stretch",
             QuickRow::GbaBlending
             | QuickRow::GbcBlending

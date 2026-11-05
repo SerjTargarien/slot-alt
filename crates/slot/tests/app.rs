@@ -2640,15 +2640,16 @@ fn the_shader_shortcut_steps_only_the_turbografx_shader_in_a_hucard_game() {
 fn l_and_r_change_the_mode_on_a_hucard_and_select_and_run_reach_the_core() {
     let d = root_with_one_cart("TG16", "Bonk's Adventure.pce");
     let mut s = session_playing(d.path());
-    let actual = s.app().source_rect();
+    // slot²: stretching fills the screen with the same picture.
+    assert!(!s.app().picture_fills());
     // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
     s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::L1)], 100);
-    assert_ne!(s.app().source_rect(), actual, "L did not stretch it");
+    assert!(s.app().picture_fills(), "L did not stretch it");
     assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
     s.feed([RawEvent::Up(Btn::L1)], 120);
     s.feed([RawEvent::Down(Btn::R1)], 200);
-    assert_eq!(s.app().source_rect(), actual, "R did not give it back");
+    assert!(!s.app().picture_fills(), "R did not give it back");
     assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
     s.feed([RawEvent::Up(Btn::R1)], 220);
     s.feed([RawEvent::Up(Btn::Menu)], 230);

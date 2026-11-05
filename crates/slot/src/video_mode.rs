@@ -69,6 +69,22 @@ pub fn picture_of(platform: Platform, shown: (u32, u32)) -> (u32, u32) {
     }
 }
 
+/// slot²: a TurboGrafx-16 frame's size on screen and where it sits in the 720x240 buffer.
+/// A 512-wide high resolution frame has half-width pixels, so it takes the room of a
+/// 256-wide one: Integer and Fit size the picture by that, not by its raw width.
+pub fn tg16_picture(shown: (u32, u32)) -> ((u32, u32), [f32; 4]) {
+    let (bw, bh) = Platform::Tg16.source_size();
+    let (w, h) = picture_of(Platform::Tg16, shown);
+    let room = match w > Platform::Tg16.actual_window().0 {
+        true => (w / 2, h),
+        false => (w, h),
+    };
+    let (x, y) = (bw.saturating_sub(w) / 2, bh.saturating_sub(h) / 2);
+    let (bw, bh) = (bw as f32, bh as f32);
+    let crop = [x as f32 / bw, y as f32 / bh, w as f32 / bw, h as f32 / bh];
+    (room, crop)
+}
+
 /// The part of the buffer an "actual size" picture is drawn into. A
 /// TurboGrafx-16 picture up to 360 wide gets the 360x240 window, so it lands
 /// at 2x; a wider, high resolution one gets the whole 720x240 buffer, so its

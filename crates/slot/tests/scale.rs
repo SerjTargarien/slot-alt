@@ -17,10 +17,11 @@ fn root_for(platform: Platform) -> TempDir {
         Platform::Gba => tmp_root_with_carts(&["Game", "Zzz"]),
         Platform::Gb => tmp_root_with_gb_carts(&["Game", "Zzz"]),
         Platform::Gbc => tmp_root_with_gbc_carts(&["Game", "Zzz"]),
-        Platform::Gg | Platform::Ngp => {
+        Platform::Gg | Platform::Ngp | Platform::Tg16 => {
             let d = tmp_root_with_gb_carts(&[]);
             let (dir, ext) = match platform {
                 Platform::Gg => ("GG", "gg"),
+                Platform::Tg16 => ("TG16", "pce"),
                 _ => ("NGP", "ngc"),
             };
             for stem in ["Game", "Zzz"] {
@@ -478,11 +479,14 @@ fn a_suffixed_bezel_follows_the_scale_to_its_matching_file() {
 }
 
 /// The picture's size in pixels on a 720x720 panel. A layout that takes the whole panel
-/// keeps its rectangle in band units (720x480), so its height scales by 720/480.
+/// keeps its rectangle in band units (720x480), so its height scales by 720/480; one that
+/// fits the band is drawn in the band at 1:1.
 fn drawn(a: &App) -> (f32, f32) {
     let layout = a.game_layout();
-    assert!(layout.panel, "the picture is laid out on the whole panel");
-    (layout.rect[2], (layout.rect[3] * 720.0 / 480.0).round())
+    match layout.panel {
+        true => (layout.rect[2], (layout.rect[3] * 720.0 / 480.0).round()),
+        false => (layout.rect[2], layout.rect[3].round()),
+    }
 }
 
 #[test]
@@ -546,4 +550,52 @@ fn the_game_gear_and_pocket_draw_no_bezel_and_hide_its_rows() {
         assert!(!a.in_game_hidden().contains(&QuickRow::Scale));
         assert!(!a.in_game_hidden().contains(&QuickRow::Stretch));
     }
+}
+
+#[test]
+fn a_turbografx_picture_scales_by_the_width_its_game_draws() {
+    // (frame the core drew, Integer, Fit): a 512-wide frame has half-width pixels, so
+    // it takes the room of a 256-wide one.
+    for (frame, integer, fit) in [
+        ((256, 240), (512.0, 480.0), (720.0, 675.0)),
+        ((320, 240), (640.0, 480.0), (720.0, 540.0)),
+        ((336, 240), (672.0, 480.0), (720.0, 514.0)),
+        ((512, 240), (512.0, 480.0), (720.0, 675.0)),
+    ] {
+        let (_d, mut a) = playing(Platform::Tg16, (720, 720), SlotState::default());
+        a.set_frame_shape(frame);
+        assert_eq!(
+            a.scale_choices(Platform::Tg16),
+            [Scale::Integer, Scale::Fit]
+        );
+        assert_eq!(drawn(&a), integer, "{frame:?} at Integer");
+        let x = (720 - frame.0) as f32 / 2.0 / 720.0;
+        assert_eq!(
+            a.source_rect(),
+            [x, 0.0, frame.0 as f32 / 720.0, 1.0],
+            "{frame:?}"
+        );
+        to_in_game_row(&mut a, QuickRow::Scale);
+        press(&mut a, Btn::Right);
+        assert_eq!(a.quick_value(QuickRow::Tg16Scale), Some(QuickValue::Fit));
+        let (w, h) = drawn(&a);
+        assert_eq!((w, h.round()), fit, "{frame:?} at Fit");
+    }
+}
+
+#[test]
+fn a_turbografx_picture_stretches_to_the_whole_square_panel() {
+    let (d, mut a) = playing(Platform::Tg16, (720, 720), SlotState::default());
+    a.set_frame_shape((256, 240));
+    to_in_game_row(&mut a, QuickRow::Stretch);
+    press(&mut a, Btn::Right);
+    assert!(a.picture_fills());
+    assert!(a.game_layout().panel);
+    assert!(slot_store::read_slot_state(d.path()).stretched_tg16);
+    a.apply(Action::QuickMenu);
+    a.apply(Action::StretchOff);
+    assert!(!a.picture_fills());
+    a.set_game_bezel(Some(TexId::from_raw(77)));
+    assert_eq!(a.shown_game_bezel(), None);
+    assert!(a.hidden_rows().contains(&QuickRow::Tg16Bezel));
 }
