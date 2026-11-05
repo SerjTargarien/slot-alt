@@ -241,6 +241,28 @@ Design that follows (phase 3):
 - the radio off whenever slot doesn't need Wi-Fi (its own Wi-Fi setting off);
 - power save off during link play, where beacon-interval latency would hurt lockstep.
 
+**Screen layout on the square panel** (decided 2026-11-05: use the whole screen, with a
+full-resolution buffer):
+- slot already supported two panel shapes:
+  - 720x480 (3:2): the 720x480 "band", scaled by a whole number;
+  - 640x480 (4:3): "framed". The layout canvas keeps 480 units of height and narrows to
+    the panel's shape (640x480), it's drawn over the whole panel through a full-size
+    buffer, and games may use the band or the whole panel. It also has full-panel
+    bezels, the SP frame strip and a wallpaper crop.
+- `framed()` now also takes every panel taller than 4:3, so a square panel gets a 480x480
+  canvas drawn at 1.5x (`e5e8386`). The game picture renders at real screen pixels, so
+  shaders are pixel-coherent.
+- `SLOT_TALL_PANELS=0` brings back the old letterboxed band, for comparison.
+- Fixed so far: the footer readouts (battery, clock, Wi-Fi), centred beside the slot's
+  bay when the usual margin doesn't fit.
+- Accepted as is: the wallpaper cropped at the sides (its stickers are part of the image).
+- Open: the screen tour (see HANDOFF.md, "Resume here"); stretch modes on a square panel;
+  softer UI art at 1.5x.
+
+**Known issue: GBA audio sounds out of tune on rgbslot.** Not yet investigated. The same
+direct-ALSA path sounded right under ROCKNIX, so suspect our `/etc/asound.conf` (plug on
+`hw:CARD=rk817ext`) or the sample rate.
+
 ## Decisions (2026-11-05)
 
 1. Option C is the direction. B is the fallback if the kernel route gets stuck.

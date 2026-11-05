@@ -11,15 +11,22 @@
 #   sh tools/distro/dev.sh boot           boot rgbslot once from slot 2 (risky: a kernel hang loops)
 #   sh tools/distro/dev.sh restore        make ROCKNIX the default again, from ROCKNIX
 #   sh tools/distro/dev.sh log            print the dev card's last rgbslot boot log
+#   sh tools/distro/dev.sh capture NAME [VAR=x ...]
+#                                         on a running rgbslot: restart slot with those
+#                                         variables, save its screen as frames/NAME.png
+#   sh tools/distro/dev.sh shot NAME      on a running rgbslot: save the screen as it is
 #
-# DEVICE (default root@192.168.1.72) is the device while it runs ROCKNIX.
-# BUILD (default ~/rgbslot-build) holds Buildroot, its output and the harvest.
+# DEVICE (default root@192.168.1.72) is the device while it runs ROCKNIX, RGBSLOT
+# (default the same address) while it runs rgbslot, with its own known_hosts file.
+# BUILD (default ~/rgbslot-build) holds Buildroot, its output, the harvest and frames/.
 
 set -eu
 
 DEVICE="${DEVICE:-root@192.168.1.72}"
+RGBSLOT="${RGBSLOT:-root@192.168.1.72}"
 BUILD="${BUILD:-$HOME/rgbslot-build}"
 HARVEST="$BUILD/harvest"
+FRAMES="$BUILD/frames"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 EXTERNAL="$REPO/tools/distro/br2-external"
 CARD=/dev/mmcblk2
@@ -28,6 +35,42 @@ OVERLAY=/usr/lib/kernel-overlays/base/lib
 
 on_device() {
 	ssh "$DEVICE" "$@"
+}
+
+on_rgbslot() {
+	ssh -o BatchMode=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts_rgbslot" "$RGBSLOT" "$@"
+}
+
+# Saves rgbslot's screen as $FRAMES/NAME.png. With "yes", slot is restarted first with
+# the given VAR=value pairs, which the frontend reads from /run/slot.env. slot is found by
+# process name (pidof), never by a pattern that could match this very command.
+frame() {
+	name="$1"
+	restart="$2"
+	shift 2
+	on_rgbslot "NAME='$name' RESTART=$restart VARS='$*' sh -s" << 'FRAME'
+set -eu
+if [ "$RESTART" = yes ]; then
+	rm -f /run/slot.env
+	for kv in $VARS; do echo "export $kv" >> /run/slot.env; done
+	kill -TERM $(pidof ld-linux-aarch64.so.1) 2> /dev/null || true
+	sleep 8
+fi
+before="$(ls /mnt/sdcard/Logs/frame-*.png 2> /dev/null | wc -l)"
+kill -USR1 $(pidof ld-linux-aarch64.so.1)
+i=0
+while [ "$(ls /mnt/sdcard/Logs/frame-*.png 2> /dev/null | wc -l)" -le "$before" ] && [ $i -lt 30 ]; do
+	sleep 0.2
+	i=$((i + 1))
+done
+f="$(ls -t /mnt/sdcard/Logs/frame-*.png | head -1)"
+mkdir -p /mnt/sdcard/Logs/frames
+mv "$f" "/mnt/sdcard/Logs/frames/$NAME.png"
+rm -f /run/slot.env
+FRAME
+	mkdir -p "$FRAMES"
+	on_rgbslot "cat '/mnt/sdcard/Logs/frames/$name.png'" > "$FRAMES/$name.png"
+	echo "$FRAMES/$name.png"
 }
 
 harvest() {
@@ -274,9 +317,15 @@ cmd="${1:-}"
 [ $# -gt 0 ] && shift
 case "$cmd" in
 harvest | build | install | bootable | boot | restore | log) "$cmd" ;;
+capture)
+	name="$1"
+	shift
+	frame "$name" yes "$@"
+	;;
+shot) frame "$1" no ;;
 format) format "$@" ;;
 *)
-	sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
 	exit 2
 	;;
 esac

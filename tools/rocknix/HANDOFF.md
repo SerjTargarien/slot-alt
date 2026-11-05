@@ -8,7 +8,59 @@ Branch: `claude/beautiful-feynman-ffzfnx` (fork `SerjTargarien/slot-alt` of
 `BrandonKowalski/slot`). Upstream `main` was still exactly our fork point `f1f6ef9` on
 2026-11-05. Commits from this session are local only, not pushed.
 
-## Where things stand
+## Resume here (paused 2026-11-05 for lunch)
+
+**Device state when we stopped:**
+- The **dev card is in slot 1** and running **rgbslot**, our own OS. It boots straight
+  into slot.
+- The **ROCKNIX card is in slot 2**, unused and unmounted. It boots ROCKNIX again when
+  put back in slot 1.
+- SSH into rgbslot:
+  `ssh -o UserKnownHostsFile=~/.ssh/known_hosts_rgbslot root@192.168.1.72`.
+  It needs that separate known_hosts file, since the address is the same as ROCKNIX's
+  and the host key differs.
+- **The card's slot build is current:** `System/slot` is the HEAD build (`e5e8386`),
+  with the square layout and the frame dump. `System/slot.band` is an older build kept
+  only for reference.
+- **The card's root** has the HEAD overlay pushed by hand; the image in
+  `~/rgbslot-build/output/images/rootfs.tar` matches it.
+
+**What we were doing:** making slot use the whole 720x720 screen. The shelf is done
+(`e5e8386`): panels taller than 4:3 are now laid out "framed" like the 640x480 devices,
+on a 480x480 layout canvas drawn at 1.5x, with games able to use the whole panel. The
+footer readouts are centred beside the slot's bay.
+
+**Next, in order:**
+1. **Screen tour.** The user opens each screen and names it, and we capture it with
+   `sh tools/distro/dev.sh shot NAME` (saved to `~/rgbslot-build/frames/`, readable as
+   an image). For a before and after of one screen, use
+   `dev.sh capture NAME SLOT_TALL_PANELS=0` (the old band layout) against
+   `dev.sh capture NAME`, though that restarts slot, so it suits the shelf only.
+   - Screens to cover: GB and GBA in game, with each picture size and bezel; the
+     in-game menu (FN) and its settings; screenshots and polaroids; the clock screen;
+     the power menu; the eject animation.
+   - Expected trouble: the on-screen keyboard (`keyboard.rs` uses a fixed
+     `Canvas::of((720, 480))`) and anything else laid out for 720 units of width.
+   - Already reported by the user:
+     - GB: bezel "default" with SP scale looks great; bezel "none" with any scale looks
+       great; stretch grows the picture only horizontally.
+     - GBA: stretch grows it only vertically. AGS-102 sits the picture toward the top,
+       which is slot's intended layout for that bezel.
+   - Later, optional: UI text and art are rasterised at layout size, then drawn 1.5x
+     with linear filtering, so they're a little soft. Rasterising at 1.5x would make
+     them crisp, but that's a wider change.
+2. **GBA audio sounds out of tune on rgbslot** (reported, not investigated). The same
+   direct-ALSA path sounded right under ROCKNIX. Suspect our `/etc/asound.conf` plug
+   or the sample rate.
+3. **Wi-Fi radio off when slot doesn't need it,** and power save off during link play
+   (measured: 0.13-0.19 W, see PLAN.md).
+4. **slot's device layer** (replace `SLOT_PLATFORM=rocknix`; the `timedatectl` call),
+   then **our own kernel** (phase 1b) and **U-Boot** (no 2 s countdown). The OS gets
+   its real name with the first proper version: "rgbslot" is a working name.
+- **Parked by the user:** boot time (11-12 s power-on to shelf is fine for now; analysis
+  in BRINGUP.md).
+
+## Where things stood after the ROCKNIX work
 
 **slot runs well on the RGB20SX under ROCKNIX 20261101**, started from SSH. It boots to
 the shelf in about 0.6 s, every button including FN works, games save, and link play and

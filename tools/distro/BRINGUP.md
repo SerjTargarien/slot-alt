@@ -206,6 +206,13 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
     of libmali while slot runs are partly warm.
   - Parked by the user's call: 11-12 s to the shelf is good enough until the OS is
     independent.
+- **Development tools on a running rgbslot:**
+  - `dev.sh shot NAME` saves the screen as a PNG (slot's SIGUSR1 frame dump).
+  - `dev.sh capture NAME VAR=x` restarts slot with extra variables first; the frontend
+    reads them from `/run/slot.env`.
+  - To restart slot, `kill -TERM $(pidof ld-linux-aarch64.so.1)`, and init's respawn
+    starts it again. **Never** kill by a pattern such as `System/slot` that also appears
+    in the killing command's own text: twice that killed the SSH session itself.
 - **Rebooting over SSH:** `(sleep 1; reboot) &` dies with the SSH session. Use
   `setsid sh -c "sleep 1; reboot" < /dev/null > /dev/null 2>&1 &`.
 - **Power-off:** holding power about 2 s in slot runs `poweroff`, which reaches BusyBox
