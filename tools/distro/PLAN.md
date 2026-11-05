@@ -1,5 +1,8 @@
 # Plan: a minimal OS for slot on the RGB20SX
 
+Name: "rgbslot" is a working name only. It changes with the first proper version (own
+kernel).
+
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 Phase 1 done: our root boots and SSH logins work (init at 1.97 s, SSH at 6.7-9.7 s,
 54 MB RAM). Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,

@@ -185,9 +185,9 @@ bootable() {
 	# boots our root. Swapping the two cards then switches systems, and a failed boot
 	# can't strand the ROCKNIX card.
 	#
-	# The dtb is ROCKNIX's, less `sd-uhs-sdr104` on slot 1 (mmc@fe2b0000): the dev card
-	# failed SDR104 tuning there ("mmc1: tuning execution failed: -5") and the kernel then
-	# never found the root. Without it the card runs at high speed (50 MHz).
+	# The dtb is ROCKNIX's with slot 1 (mmc@fe2b0000) on SDR50 (100 MHz) instead of
+	# SDR104: the dev card failed SDR104 tuning there ("mmc1: tuning execution failed:
+	# -5") and the kernel then never found the root. SDR50 tunes fine.
 	fdt="$BUILD/output/host/bin"
 	[ -x "$fdt/fdtput" ] || { echo "no fdtput: run make host-dtc in $BUILD/buildroot" >&2; exit 1; }
 	dtb="$BUILD/dtb"
@@ -195,8 +195,9 @@ bootable() {
 	scp -q "$DEVICE:/flash/device_trees/rk3566-powkiddy-rgb20sx.dtb" "$dtb/rocknix.dtb"
 	cp "$dtb/rocknix.dtb" "$dtb/rgbslot.dtb"
 	"$fdt/fdtput" -d "$dtb/rgbslot.dtb" /mmc@fe2b0000 sd-uhs-sdr104
-	if "$fdt/fdtget" -p "$dtb/rgbslot.dtb" /mmc@fe2b0000 | grep -q sd-uhs; then
-		echo "slot 1 still has a UHS mode in the dtb" >&2
+	"$fdt/fdtput" "$dtb/rgbslot.dtb" /mmc@fe2b0000 sd-uhs-sdr50
+	if "$fdt/fdtget" -p "$dtb/rgbslot.dtb" /mmc@fe2b0000 | grep -q sd-uhs-sdr104; then
+		echo "slot 1 still has SDR104 in the dtb" >&2
 		exit 1
 	fi
 	scp -q "$dtb/rgbslot.dtb" "$DEVICE:/tmp/rgbslot.dtb"

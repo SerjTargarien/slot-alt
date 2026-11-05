@@ -510,6 +510,7 @@ pub struct KmsSurface {
 impl KmsSurface {
     pub fn new() -> Result<Self, GfxError> {
         use std::os::unix::fs::OpenOptionsExt;
+        let began = std::time::Instant::now();
         let card = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -520,8 +521,10 @@ impl KmsSurface {
         let gbm = Gbm::load()?;
         let egl = Egl::load()?;
         let gles = open(&["libGLESv2.so.2", "libGLESv2.so"])?;
+        let loaded = began.elapsed();
         let fd = raw(&card);
         let output = unsafe { find_output(&drm, fd)? };
+        let found = began.elapsed();
         let mode = output.mode;
         let size = (u32::from(mode.hdisplay), u32::from(mode.vdisplay));
         eprintln!(
@@ -563,11 +566,30 @@ impl KmsSurface {
         if surface.finish {
             eprintln!("slot: kms: waiting for the GPU before each flip");
         }
-        unsafe { surface.start_gl()? };
+        let steps = unsafe { surface.start_gl()? };
+        let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+        eprintln!(
+            "slot: kms: start took {:.0} ms: libraries {:.0}, output {:.0}, gbm {:.0}, egl init {:.0}, config and surface {:.0}, context {:.0}",
+            ms(began.elapsed()),
+            ms(loaded),
+            ms(found - loaded),
+            ms(steps[0]),
+            ms(steps[1]),
+            ms(steps[2]),
+            ms(steps[3])
+        );
         Ok(surface)
     }
 
-    unsafe fn start_gl(&mut self) -> Result<(), GfxError> {
+    /// Returns how long the GBM, eglInitialize, config and surface, and context steps took.
+    unsafe fn start_gl(&mut self) -> Result<[std::time::Duration; 4], GfxError> {
+        let mut mark = std::time::Instant::now();
+        let mut lap = || {
+            let now = std::time::Instant::now();
+            let took = now - mark;
+            mark = now;
+            took
+        };
         let fd = raw(&self.card);
         self.gbm_device = (self.gbm.create_device)(fd);
         if self.gbm_device.is_null() {
@@ -583,6 +605,7 @@ impl KmsSurface {
         if self.gbm_surface.is_null() {
             return Err(GfxError::Context("gbm_surface_create failed".into()));
         }
+        let gbm = lap();
         let egl = &self.egl;
         self.display = egl.display_for(self.gbm_device);
         if self.display.is_null() {
@@ -594,12 +617,14 @@ impl KmsSurface {
         if (egl.bind_api)(EGL_OPENGL_ES_API) == 0 {
             return Err(egl.fail("eglBindAPI"));
         }
+        let init = lap();
         let config = self.pick_config()?;
         self.surface =
             (egl.create_window_surface)(self.display, config, self.gbm_surface, std::ptr::null());
         if self.surface.is_null() {
             return Err(egl.fail("eglCreateWindowSurface"));
         }
+        let made = lap();
         let context_attrs = [EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE];
         self.context = (egl.create_context)(
             self.display,
@@ -613,7 +638,7 @@ impl KmsSurface {
         if (egl.make_current)(self.display, self.surface, self.surface, self.context) == 0 {
             return Err(egl.fail("eglMakeCurrent"));
         }
-        Ok(())
+        Ok([gbm, init, made, lap()])
     }
 
     unsafe fn pick_config(&self) -> Result<Ptr, GfxError> {

@@ -192,6 +192,22 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   isn't hash-checked); our own kernel of around 10 MB without an initramfs; preloading
   libmali at the start of boot, the GLES-only libmali (about 22 MB), and SDR50 on slot 1
   for slot's 3 s startup. About 6-7 s looks reachable.
+- **slot's 3 s startup is reading from the card,** measured with the one-line timing that
+  `KmsSurface::new` now logs (`slot: kms: start took ...`):
+  - cold boot: libraries 1367 ms, first frame at 3.0 s;
+  - slot restarted with everything cached: libraries 16 ms, first frame at 0.45 s.
+  - Loading libmali touches its 57 MB in scattered order, and the card is slow at random
+    reads. It's already stripped (41 MB is `.text`), and LZ4 would bring it to 35 MB.
+  - **SDR50 on slot 1** (`sd-uhs-sdr50`, 100 MHz) tunes and works on the dev card, but
+    only moved the library step from 1367 to 1293 ms. `dev.sh bootable` now sets it.
+  - A background `cat` of libmali at the start of boot didn't help, since it competed
+    with slot's own reads. A sequential read before starting slot wasn't measured.
+  - Beware: `drop_caches` can't evict pages a running process has mapped, so "cold" reads
+    of libmali while slot runs are partly warm.
+  - Parked by the user's call: 11-12 s to the shelf is good enough until the OS is
+    independent.
+- **Rebooting over SSH:** `(sleep 1; reboot) &` dies with the SSH session. Use
+  `setsid sh -c "sleep 1; reboot" < /dev/null > /dev/null 2>&1 &`.
 - **Power-off:** holding power about 2 s in slot runs `poweroff`, which reaches BusyBox
   init, our shutdown script and the PMIC. It switches the device off cleanly.
 - **Pushing changes to a running rgbslot:** `tar -C overlay -cf - etc/... | ssh ... 'tar -C / -xf -'`,
