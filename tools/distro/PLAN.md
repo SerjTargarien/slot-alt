@@ -212,6 +212,30 @@ and the GPU floor written by hand (`min_freq` 400 MHz):
   under ROCKNIX: probably the cold 57 MB libmali read from a card now running at 50 MHz.
 - One ROCKNIX leftover: slot calls `timedatectl set-ntp`, which doesn't exist here.
 
+**First battery run on rgbslot** (unplugged, battery 94%, brightness level 5 as under
+ROCKNIX, our fork with the 400 MHz GPU floor and direct ALSA):
+- Shelf 1.79 W, Gambatte 2.02 W at 1104 MHz, 0 misses in play. ROCKNIX with the same slot
+  was 1.75 W and 1.95 W (battery 65%).
+- The OS swap alone isn't a saving: on ROCKNIX the launch script had already stopped its
+  heavy services.
+- The gap is within gauge and charge-level noise. It may also be Wi-Fi power save, if
+  ROCKNIX's iwd had it on (check `iw dev wlan0 get power_save` under ROCKNIX).
+
+**Wi-Fi costs about 0.19 W on the shelf,** 10% of the draw. rgbslot, CPU at 408 MHz,
+medians over 75 s each, `logs/power-rgbslot-wifi.log`:
+
+| State | Median |
+|---|---|
+| connected, power save off (rtw88's default) | 1.770-1.781 W |
+| connected, `iw dev wlan0 set power_save on` | 1.636 W (ping still 3-7 ms) |
+| `ip link set wlan0 down` | 1.595 W |
+| `rtw88_8723ds` unloaded | 1.581 W |
+
+Design that follows (phase 3):
+- power save on whenever Wi-Fi is connected;
+- the radio off whenever slot doesn't need Wi-Fi (its own Wi-Fi setting off);
+- power save off during link play, where beacon-interval latency would hurt lockstep.
+
 ## Decisions (2026-11-05)
 
 1. Option C is the direction. B is the fallback if the kernel route gets stuck.

@@ -180,6 +180,12 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   `make host-pkgconf-dirclean`.
 - **ROCKNIX's tools:** BusyBox `cmp` has no `-i` (compare with `dd | md5sum`), and
   `parted` reads negative sizes such as `-1040MiB` as options (compute absolute MiB).
+- **No SFTP server on the device,** and modern `scp` uses SFTP: it fails with
+  `/usr/libexec/sftp-server: not found`. Use `scp -O` (the legacy protocol) or
+  `ssh host cat file > file`.
+- **Upstream slot owns Wi-Fi:** started with an empty `Config/wifi.conf`, it restarted
+  `wpa_supplicant` with that file and dropped the connection, and SSH with it. Seed the
+  card's `Config/wifi.conf` or run builds that hide Wi-Fi when SSH matters.
 - **The Wi-Fi network** comes from ROCKNIX's iwd file `/storage/.cache/iwd/<SSID>.psk`
   (`Passphrase=` or `PreSharedKey=`). It's converted into `/etc/wpa_supplicant.conf` on
   the device, so the key never leaves it.
