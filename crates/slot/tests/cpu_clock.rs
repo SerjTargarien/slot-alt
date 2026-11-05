@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use slot::clock::{parse_steps, CpuCap, Governor};
+use slot::clock::{cpu_bound, parse_steps, CpuCap, Governor};
 
 const RK3566: &str = "408000 600000 816000 1104000 1416000 1608000 1800000 \n";
 
@@ -102,6 +102,63 @@ fn gpu_wait_is_not_scaled_when_predicting_a_lower_clock() {
         run_gpu(&mut with_gpu, 180, 9.0, 5.0, false),
         vec![1_608_000]
     );
+}
+
+#[test]
+fn a_frame_is_cpu_bound_when_its_cpu_part_is_at_least_the_gpu_wait() {
+    assert!(cpu_bound(ms(10.0), ms(5.0)));
+    assert!(!cpu_bound(ms(10.0), ms(6.0)));
+    assert!(cpu_bound(ms(4.0), Duration::ZERO));
+    assert!(!cpu_bound(ms(5.0), ms(9.0)));
+}
+
+#[test]
+fn gpu_bound_misses_never_raise_the_cpu() {
+    let mut g = governor();
+    run(&mut g, 180 * 4, 2.0, false);
+    assert_eq!(g.khz(), 816_000);
+    assert_eq!(run_gpu(&mut g, 30, 11.0, 7.0, true), Vec::<u32>::new());
+    assert_eq!(g.khz(), 816_000);
+}
+
+#[test]
+fn gpu_bound_work_near_the_budget_neither_raises_nor_lowers_the_cpu() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    assert_eq!(
+        run_gpu(&mut g, 180 * 2, 11.5, 7.0, false),
+        Vec::<u32>::new()
+    );
+    assert_eq!(g.khz(), before);
+}
+
+#[test]
+fn cpu_bound_work_near_the_budget_steps_up_despite_some_gpu_wait() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    run_gpu(&mut g, 30, 11.5, 3.0, false);
+    assert!(g.khz() > before);
+}
+
+#[test]
+fn cpu_bound_misses_step_up_despite_some_gpu_wait() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    let mut ups = run_gpu(&mut g, 2, 9.0, 3.0, true);
+    ups.extend(run_gpu(&mut g, 28, 2.0, 0.5, false));
+    assert_eq!(ups.len(), 1);
+    assert!(ups[0] > before);
+}
+
+#[test]
+fn with_no_gpu_wait_every_miss_counts_as_on_baseos() {
+    let mut g = governor();
+    run(&mut g, 180 * 4, 2.0, false);
+    assert_eq!(g.khz(), 816_000);
+    assert_eq!(run_gpu(&mut g, 30, 11.0, 0.0, true), vec![1_416_000]);
 }
 
 #[test]

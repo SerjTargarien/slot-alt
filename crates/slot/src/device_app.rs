@@ -176,6 +176,10 @@ pub fn run() {
     let mut pacer = Pacer::new(surface.pace_margin());
     let mut clock = frame_clock(rocknix);
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
+    let (mut work_sum, mut work_max) = (Duration::ZERO, Duration::ZERO);
+    let (mut gpu_sum, mut gpu_max) = (Duration::ZERO, Duration::ZERO);
+    let (mut cpu_sum, mut cpu_max) = (Duration::ZERO, Duration::ZERO);
+    let (mut cpu_misses, mut gpu_misses) = (0u32, 0u32);
     loop {
         pacer.wait();
         let began = Instant::now();
@@ -227,13 +231,38 @@ pub fn run() {
             missed += u32::from(dropped);
             early += u32::from(swap_took > pacer.period / 2);
             stale += u32::from(late);
+            (work_sum, work_max) = (work_sum + work, work_max.max(work));
+            (gpu_sum, gpu_max) = (gpu_sum + gpu, gpu_max.max(gpu));
+            let cpu = work.saturating_sub(gpu);
+            (cpu_sum, cpu_max) = (cpu_sum + cpu, cpu_max.max(cpu));
+            if dropped {
+                match slot::clock::cpu_bound(work, gpu) {
+                    true => cpu_misses += 1,
+                    false => gpu_misses += 1,
+                }
+            }
             if frames == 600 {
+                let ms = |d: Duration| d.as_secs_f64() * 1e3;
+                let cap = match &clock {
+                    Some((_, governor)) => format!("{} MHz", governor.khz() / 1000),
+                    None => "off".to_string(),
+                };
                 eprintln!(
-                    "slot: pace: 600 frames, {missed} missed a latch, {early} drawn early, {stale} stale, work {:.1} ms, period {:.2} ms",
-                    pacer.work.as_secs_f64() * 1e3,
-                    pacer.period.as_secs_f64() * 1e3
+                    "slot: pace: 600 frames, {missed} missed a latch ({cpu_misses} cpu-bound, {gpu_misses} gpu-bound), {early} drawn early, {stale} stale, work {:.1} ms, period {:.2} ms, frame avg {:.1} max {:.1} ms, cpu part avg {:.1} max {:.1} ms, gpu wait avg {:.1} max {:.1} ms, cpu cap {cap}",
+                    ms(pacer.work),
+                    ms(pacer.period),
+                    ms(work_sum / 600),
+                    ms(work_max),
+                    ms(cpu_sum / 600),
+                    ms(cpu_max),
+                    ms(gpu_sum / 600),
+                    ms(gpu_max)
                 );
                 (frames, missed, early, stale) = (0, 0, 0, 0);
+                (work_sum, work_max) = (Duration::ZERO, Duration::ZERO);
+                (gpu_sum, gpu_max) = (Duration::ZERO, Duration::ZERO);
+                (cpu_sum, cpu_max) = (Duration::ZERO, Duration::ZERO);
+                (cpu_misses, gpu_misses) = (0, 0);
             }
         }
         if !drawn {

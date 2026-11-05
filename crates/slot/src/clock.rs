@@ -9,6 +9,14 @@ const LONE_MISS_ABOVE: f64 = 0.70;
 const DOWN_BELOW: f64 = 0.75;
 const MANY_MISSES: u32 = 3;
 
+/// True when the CPU part of a frame (everything but the GPU wait) is at least as
+/// long as the GPU wait. Only such frames can ask for a faster CPU. With no GPU wait,
+/// as on BaseOS, every frame counts.
+pub fn cpu_bound(work: Duration, gpu: Duration) -> bool {
+    let gpu = gpu.min(work);
+    work - gpu >= gpu
+}
+
 #[derive(Copy, Clone, Default)]
 struct Peak {
     total: Duration,
@@ -38,6 +46,7 @@ pub struct Governor {
     checked: u32,
     misses: u32,
     window: Peak,
+    cpu_bound_peak: Duration,
     calm: u32,
     calm_peak: Peak,
 }
@@ -53,6 +62,7 @@ impl Governor {
             checked: 0,
             misses: 0,
             window: Peak::default(),
+            cpu_bound_peak: Duration::ZERO,
             calm: 0,
             calm_peak: Peak::default(),
         })
@@ -69,18 +79,23 @@ impl Governor {
         missed: bool,
         budget: Duration,
     ) -> Option<u32> {
+        let cpu_bound = cpu_bound(work, gpu);
         self.checked += 1;
-        self.misses += u32::from(missed);
+        self.misses += u32::from(missed && cpu_bound);
+        if cpu_bound {
+            self.cpu_bound_peak = self.cpu_bound_peak.max(work);
+        }
         self.window.take(work, gpu);
         if self.checked < CHECK_EVERY {
             return None;
         }
         let (misses, peak) = (self.misses, std::mem::take(&mut self.window));
+        let cpu_peak = std::mem::take(&mut self.cpu_bound_peak);
         self.checked = 0;
         self.misses = 0;
         let cpu_bound_miss =
-            misses > 1 || (misses == 1 && peak.total > budget.mul_f64(LONE_MISS_ABOVE));
-        if cpu_bound_miss || peak.total > budget.mul_f64(UP_ABOVE) {
+            misses > 1 || (misses == 1 && cpu_peak > budget.mul_f64(LONE_MISS_ABOVE));
+        if cpu_bound_miss || cpu_peak > budget.mul_f64(UP_ABOVE) {
             self.calm = 0;
             self.calm_peak = Peak::default();
             let jump = if misses >= MANY_MISSES { 2 } else { 1 };
