@@ -509,14 +509,15 @@ impl Frontend {
         session
             .app_mut()
             .set_romm_jobs(crate::romm::romm_jobs(platform.root().to_path_buf(), crate::romm::http_api));
-        let rocknix = cfg!(feature = "device") && crate::rocknix::running();
-        if rocknix {
+        // An OS that runs Wi-Fi itself (ROCKNIX) keeps slot out of it (hardware.rs).
+        let no_wifi = cfg!(feature = "device") && !crate::hardware::current().wifi;
+        if no_wifi {
             session.app_mut().set_wifi_absent();
         } else {
             session.app_mut().set_wifi(wifi_worker(platform.root()));
         }
         #[cfg(feature = "device")]
-        if !rocknix {
+        if !no_wifi {
             session
                 .app_mut()
                 .set_wifi_probe(std::path::PathBuf::from("/sys/class/net/wlan0"));

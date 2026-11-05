@@ -31,6 +31,7 @@ pub mod face_builder;
 pub mod fetch_art;
 pub mod fetch_faces;
 pub mod frames;
+pub mod hardware;
 pub mod frontend;
 pub mod input;
 pub mod label_cache;

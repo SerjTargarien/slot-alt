@@ -46,7 +46,9 @@ saves land on the card, and quitting returns the device to EmulationStation.
 What step 1 adds:
 
 - **Platform detection** (`slot/src/rocknix.rs`): `OS_NAME="ROCKNIX"` in
-  `/etc/os-release`, or `SLOT_PLATFORM=rocknix`.
+  `/etc/os-release`, or `SLOT_PLATFORM=rocknix`. Since the device layer
+  (`slot/src/hardware.rs`), this selects the ROCKNIX preset; an OS with
+  `/etc/slot-device` (slot²) describes its device there instead.
 - **KMS display** (`slot-gfx/src/kms.rs`): picks the built-in panel over HDMI and its
   preferred mode, renders through GBM and EGL with GLES2, and blocks on each page flip
   so the existing frame pacing still works. It loads its libraries at runtime, so the

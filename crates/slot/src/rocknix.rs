@@ -1,20 +1,8 @@
 use std::path::Path;
-use std::sync::OnceLock;
 
-const OS_RELEASE: &str = "/etc/os-release";
 const MODEL: &str = "/sys/firmware/devicetree/base/model";
 
 pub const RGB20SX: &str = "Powkiddy RGB20SX";
-
-pub fn running() -> bool {
-    static RUNNING: OnceLock<bool> = OnceLock::new();
-    *RUNNING.get_or_init(|| {
-        running_in(
-            std::env::var("SLOT_PLATFORM").ok().as_deref(),
-            Path::new(OS_RELEASE),
-        )
-    })
-}
 
 pub fn running_in(platform: Option<&str>, os_release: &Path) -> bool {
     match platform {

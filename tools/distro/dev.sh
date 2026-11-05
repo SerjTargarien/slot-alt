@@ -287,7 +287,7 @@ overlay() {
 	target="$BUILD/output/target"
 	files="$(cd "$EXTERNAL/board/rgb20sx/rootfs-overlay" && find . -type f | sed 's|^\./||')"
 	tar -C "$target" -cf - $files etc/hostname etc/issue usr/lib/os-release etc/os-release |
-		on_slotsq "tar -C / -xf - && chown -R root:root /etc/slotsq /etc/inittab /etc/asound.conf /etc/hostname /etc/issue /usr/lib/os-release && echo pushed: $(echo $files | wc -w) overlay files"
+		on_slotsq "tar -C / -xf - && chown -R root:root /etc/slotsq /etc/slot-device /etc/inittab /etc/asound.conf /etc/hostname /etc/issue /usr/lib/os-release && echo pushed: $(echo $files | wc -w) overlay files"
 }
 
 # Puts our own kernel (output/images/Image), its dtb and its modules onto a running

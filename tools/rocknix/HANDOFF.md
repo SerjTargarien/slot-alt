@@ -36,8 +36,8 @@ settings, in-game menu, core picker, clock, About, screenshots and games. Captur
 with `sh tools/distro/dev.sh shot NAME`; `dev.sh capture NAME SLOT_TALL_PANELS=0` shows
 the old band layout for a before and after.
 
-**What slot² still lacks compared with slot on its own devices.** The `frontend` script
-sets `SLOT_PLATFORM=rocknix`, and slot treats ROCKNIX as having no usable Wi-Fi:
+**What slot² still lacks compared with slot on its own devices.** `/etc/slot-device`
+says `WIFI=0` (as ROCKNIX's preset does), so slot leaves Wi-Fi to the OS:
 - `set_wifi_absent()` (`frontend.rs`): no Wi-Fi worker, so the network menu can't join a
   network, and nothing that needs the internet runs: box-art fetch, self-update, RomM,
   the update scenes.
@@ -48,6 +48,21 @@ sets `SLOT_PLATFORM=rocknix`, and slot treats ROCKNIX as having no usable Wi-Fi:
 The fix for all of them is slot's device layer (PLAN.md decision 5), with self-update
 pointed at our builds or kept off.
 
+**Device-layer decisions (2026-11-05, evening):**
+- Order: (1) a device description file the OS ships and slot reads, replacing the
+  ROCKNIX checks; (2) slot owns Wi-Fi like upstream (the OS stops starting it); (3) time
+  sync, box art, RomM; (4) link play.
+- **SSH during games:** a development switch on the card keeps Wi-Fi on in games. Battery
+  runs switch it off and log on the device, collected afterwards.
+- **The saved network:** the user re-enters it in slot's network menu. The OS copy in
+  `/etc/wpa_supplicant.conf` goes away in step 2.
+- **Link play:** the RTL8723DS can't run two interfaces at once ("interface combinations
+  are not supported"), so it can't use upstream's `wlan1` host. Our fork hosts on `wlan0`,
+  on 2.4 GHz. A second device with vanilla slot arrives the week of 2026-11-05 for tests.
+- The image lacks BusyBox `ntpd` and `rfkill`. The RTC (rk817) and `hwclock` work.
+- **Later:** a port to the Retroid Pocket Classic (also near-square), so the device layer
+  stays data-driven.
+
 **Known test failures that predate our work** (they also fail on a clean checkout):
 `slot-store` `header_index` `keeping_every_entry_leaves_the_index_saved`, `slot`
 `header_index_boot` `boot_drops_index_entries_for_games_no_longer_on_the_card`, and
@@ -56,7 +71,9 @@ pointed at our builds or kept off.
 macOS; `romm_ui` needs `--features romm`.
 
 **Next, in order:**
-1. **slot's device layer:** replace `SLOT_PLATFORM=rocknix`, bring Wi-Fi features back
+1. **slot's device layer.** Step 1 is done: slot reads `/etc/slot-device`
+   (`crates/slot/src/hardware.rs`; keys `DISPLAY`, `BUTTONS`, `FN_ADC`, `CPU_CAP`, `WIFI`,
+   `LEFT_STICK`, `BOOT_LOGO`), falling back to the ROCKNIX preset or BaseOS. Next: bring Wi-Fi features back
    (network menu, link play, box art, NTP without `timedatectl`), and fix the update
    scenes, which still draw their carts in band coordinates.
 2. **Wi-Fi radio off when slot doesn't need it,** and power save off during link play

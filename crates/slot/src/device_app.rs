@@ -88,11 +88,12 @@ pub fn run() {
     let root = std::env::var_os("SLOT_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CARD));
-    let rocknix = slot::rocknix::running();
-    if rocknix {
-        eprintln!("slot: running on ROCKNIX, model {}", slot::rocknix::model());
-    }
-    let mut surface = match open_surface(rocknix) {
+    let hw = slot::hardware::current();
+    eprintln!(
+        "slot: device {}: {:?} display, {:?} buttons, FN ADC {:?}, CPU cap {}, Wi-Fi {}",
+        hw.name, hw.display, hw.buttons, hw.fn_adc, hw.cpu_cap, hw.wifi
+    );
+    let mut surface = match open_surface(hw.display) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("slot: {e}");
@@ -145,29 +146,30 @@ pub fn run() {
     let mut frontend = Frontend::boot_with(Box::new(platform), sink);
     slot::boot_time::mark("frontend");
     let target = slot::baseos::var("BASEOS_TARGET").unwrap_or_default();
-    frontend.set_left_stick(slot::input::evdev::has_left_stick(&target));
+    frontend.set_left_stick(
+        hw.left_stick
+            .unwrap_or_else(|| slot::input::evdev::has_left_stick(&target)),
+    );
     frontend.upload_boot_faces(&mut compositor);
     slot::boot_time::mark("faces");
     frontend.upload_bezel(&mut compositor, window);
     slot::boot_time::mark("bezel");
-    if rocknix {
+    if hw.buttons == slot::hardware::Buttons::Gamepad {
         slot::input::evdev::set_layout(slot::input::evdev::Layout::Gamepad);
     }
     let mut input = DeviceInput::open(&root);
-    let fn_adc = std::path::Path::new(slot::input::adc::RGB20SX_FN);
-    // FN reaches the kernel only as an ADC level on ROCKNIX's kernel, which drops the key.
-    // A kernel that reports it through adc-keys sets SLOT_FN_ADC=0, or FN would fire twice.
-    let fn_from_adc = std::env::var_os("SLOT_FN_ADC").is_none_or(|v| v != "0");
-    if rocknix && fn_from_adc && slot::rocknix::model() == slot::rocknix::RGB20SX && fn_adc.exists()
-    {
-        input.watch_adc(fn_adc.to_path_buf(), slot_input::Btn::Menu);
+    // Only where the kernel drops the FN key (ROCKNIX's). A kernel that reports it would
+    // see FN twice.
+    if let Some(adc) = hw.fn_adc.as_ref().filter(|p| p.exists()) {
+        input.watch_adc(adc.clone(), slot_input::Btn::Menu);
     }
     slot::boot_time::mark("input");
     let card = root.clone();
+    let boot_logo = hw.boot_logo;
     let _ = std::thread::Builder::new()
         .name("slot-bootlogo".into())
         .spawn(move || {
-            if !rocknix {
+            if boot_logo {
                 slot::bootlogo::refresh(&card);
             }
             slot::root::sweep_temps(&card);
@@ -178,7 +180,7 @@ pub fn run() {
     let mut drawn = false;
     frontend.drive_emulator();
     let mut pacer = Pacer::new(surface.pace_margin());
-    let mut clock = frame_clock(rocknix);
+    let mut clock = frame_clock(hw.cpu_cap);
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
     let (mut work_sum, mut work_max) = (Duration::ZERO, Duration::ZERO);
     let (mut gpu_sum, mut gpu_max) = (Duration::ZERO, Duration::ZERO);
@@ -311,8 +313,8 @@ fn dump_frame(compositor: &mut Compositor, window: (u32, u32), root: &std::path:
     }
 }
 
-fn frame_clock(rocknix: bool) -> Option<(slot::clock::CpuCap, slot::clock::Governor)> {
-    if !rocknix || std::env::var("SLOT_CLOCK").is_ok_and(|v| v == "max") {
+fn frame_clock(cpu_cap: bool) -> Option<(slot::clock::CpuCap, slot::clock::Governor)> {
+    if !cpu_cap || std::env::var("SLOT_CLOCK").is_ok_and(|v| v == "max") {
         return None;
     }
     let (cap, steps) = slot::clock::CpuCap::open(std::path::Path::new("/sys"))?;
@@ -325,12 +327,12 @@ fn frame_clock(rocknix: bool) -> Option<(slot::clock::CpuCap, slot::clock::Gover
     Some((cap, governor))
 }
 
-fn open_surface(rocknix: bool) -> Result<Box<dyn Surface>, GfxError> {
+fn open_surface(display: slot::hardware::Display) -> Result<Box<dyn Surface>, GfxError> {
     #[cfg(target_os = "linux")]
-    if rocknix {
+    if display == slot::hardware::Display::Kms {
         return slot_gfx::KmsSurface::new().map(|s| Box::new(s) as Box<dyn Surface>);
     }
-    let _ = rocknix;
+    let _ = display;
     FbdevSurface::new().map(|s| Box::new(s) as Box<dyn Surface>)
 }
 

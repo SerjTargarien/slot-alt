@@ -25,13 +25,11 @@ fi
 
 export SLOT_ROOT="$SD"
 export SLOT_RUN=/run
-# Until slot reads the device description from the OS, this selects its RGB20SX paths
-# (KMS display, gamepad buttons, FN through the ADC, the clock cap).
-export SLOT_PLATFORM=rocknix
-# Our own kernel reports FN through adc-keys (ROCKNIX's drops it), so slot doesn't need to
-# read FN from the ADC as well.
+# slot reads the device from /etc/slot-device. Our kernel reports FN as a key; ROCKNIX's
+# (the fallback, dev.sh kernel-back) drops it, so slot reads FN from the ADC there.
 case "$(uname -r)" in
-*-slotsq) export SLOT_FN_ADC=0 ;;
+*-slotsq) ;;
+*) export SLOT_FN_ADC=/sys/bus/iio/devices/iio:device0/in_voltage0_raw ;;
 esac
 
 # Development: extra variables for the next start, e.g. SLOT_TALL_PANELS=0 to compare

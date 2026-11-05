@@ -158,8 +158,8 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   `/lib/modules/<release>/mali-bifrost/`.
 - **FN on our kernel:** with the redirect patch gone, `adc-keys` reports `BTN_MODE`,
   which slot's gamepad table maps to Menu. slot also polls the ADC for FN, so FN would
-  fire twice. On a `-slotsq` kernel, the frontend sets `SLOT_FN_ADC=0`, and slot then
-  skips the ADC poll.
+  fire twice. `/etc/slot-device` has no `FN_ADC`, so slot skips the ADC poll; on
+  ROCKNIX's kernel (the fallback) the frontend sets `SLOT_FN_ADC` to the ADC path.
 - **Installing and falling back:** `dev.sh kernel` (on a running slot²) copies
   `Image`, the dtb and the modules, and points `extlinux.conf` at them, keeping the old
   file as `extlinux.conf.rocknix-kernel`. `dev.sh kernel-back` restores it, from slot²,
@@ -223,8 +223,8 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 - **`/etc/inittab`:** `::sysinit:/etc/slotsq/boot`, then `::respawn:/etc/slotsq/frontend`.
   BusyBox init waits for every sysinit entry before starting respawn entries, so the boot
   script puts Wi-Fi and SSH in a background subshell and returns at about 2.24 s.
-- **`/etc/slotsq/frontend`:** exports `SLOT_ROOT=/mnt/sdcard`, `SLOT_RUN=/run` and,
-  until the device layer exists, `SLOT_PLATFORM=rocknix`. It runs `System/frontend` if
+- **`/etc/slotsq/frontend`:** exports `SLOT_ROOT=/mnt/sdcard` and `SLOT_RUN=/run`
+  (slot reads the device itself from `/etc/slot-device`). It runs `System/frontend` if
   present, else `System/slot`, through the loader, logs to `Logs/slot.log`, and sleeps
   3 s if slot dies within 5 s so init doesn't spin. The card's BaseOS
   `launch_frontend.sh` is not used yet: its LED and lid helpers are unchecked on this
