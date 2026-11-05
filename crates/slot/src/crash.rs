@@ -3,6 +3,7 @@ use std::fmt::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static STOPPING: AtomicBool = AtomicBool::new(false);
+static DUMP: AtomicBool = AtomicBool::new(false);
 
 const SIGNALS: [(i32, &str); 5] = [
     (libc::SIGSEGV, "SIGSEGV"),
@@ -28,7 +29,21 @@ pub fn install() {
         action.sa_sigaction = on_stop as *const () as usize;
         libc::sigemptyset(&mut action.sa_mask);
         libc::sigaction(libc::SIGTERM, &action, std::ptr::null_mut());
+        let mut action: libc::sigaction = std::mem::zeroed();
+        action.sa_sigaction = on_dump as *const () as usize;
+        libc::sigemptyset(&mut action.sa_mask);
+        libc::sigaction(libc::SIGUSR1, &action, std::ptr::null_mut());
     }
+}
+
+/// SIGUSR1 asks for the next frame to be saved as a PNG, to check layouts on a device.
+#[cfg(not(feature = "host"))]
+extern "C" fn on_dump(_: i32) {
+    DUMP.store(true, Ordering::Relaxed);
+}
+
+pub fn take_dump_request() -> bool {
+    DUMP.swap(false, Ordering::Relaxed)
 }
 
 #[cfg(not(feature = "host"))]

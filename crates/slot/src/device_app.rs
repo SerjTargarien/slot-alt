@@ -206,6 +206,9 @@ pub fn run() {
         }
         let late = frontend.step_emulator(pacer.period, STEP_TIMEOUT);
         frontend.render(&mut compositor, window);
+        if slot::crash::take_dump_request() {
+            dump_frame(&mut compositor, window, &root);
+        }
         let settling = Instant::now();
         surface.settle();
         let swap = Instant::now();
@@ -281,6 +284,26 @@ pub fn run() {
         if let Some(left) = MIN_FRAME.checked_sub(began.elapsed()) {
             std::thread::sleep(left);
         }
+    }
+}
+
+/// Saves what's on screen as Logs/frame-<seconds>.png, on SIGUSR1.
+fn dump_frame(compositor: &mut Compositor, window: (u32, u32), root: &std::path::Path) {
+    let rgba = compositor.read_window(window);
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let path = root.join(format!("Logs/frame-{secs}.png"));
+    let saved = std::fs::File::create(&path).and_then(|file| {
+        let mut enc = png::Encoder::new(std::io::BufWriter::new(file), window.0, window.1);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut w = enc.write_header().map_err(std::io::Error::other)?;
+        w.write_image_data(&rgba).map_err(std::io::Error::other)
+    });
+    match saved {
+        Ok(()) => eprintln!("slot: frame saved to {}", path.display()),
+        Err(e) => eprintln!("slot: could not save the frame: {e}"),
     }
 }
 

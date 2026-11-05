@@ -29,6 +29,10 @@ export SLOT_RUN=/run
 # (KMS display, gamepad buttons, FN through the ADC, the clock cap).
 export SLOT_PLATFORM=rocknix
 
+# Development: extra variables for the next start, e.g. SLOT_TALL_PANELS=0 to compare
+# layouts. /run is a tmpfs, so this never survives a reboot.
+[ -f /run/slot.env ] && . /run/slot.env
+
 mkdir -p "$LOGS"
 [ -f "$LOGS/slot.log" ] && mv -f "$LOGS/slot.log" "$LOGS/slot.log.1"
 say "starting $app"
