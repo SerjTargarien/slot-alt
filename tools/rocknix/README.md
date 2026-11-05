@@ -59,6 +59,15 @@ What step 1 adds:
   `SLOT_PACE_MARGIN_US` override them. With `SLOT_TRACE_LATENCY=1`, the log reports
   every 600 flips how many skipped a vblank and why. The pacer measures the panel at about
   60.0 Hz, although the mode's timings say 60.69 Hz.
+- **CPU clock by frame budget** (`slot/src/clock.rs`): the CPU stays on the `performance`
+  governor, and slot caps `scaling_max_freq` at the lowest step that keeps frames on
+  time. It steps up at the next half-second check after a missed or late frame, or when
+  work passes 85% of the budget (two steps after several misses). It steps down one step
+  after three calm seconds, if the work scaled to the lower clock stays under 65% of the
+  budget. `SLOT_CLOCK=max` turns it off. The launch script also restores the cap, in case
+  slot dies without cleaning up. Measured on the RGB20SX with `performance` everywhere,
+  mGBA drew 2.85 to 3.0 W against about 1.8 W of fixed baseline. `schedutil` drew 2.3 to
+  2.4 W but missed up to two thirds of the vblanks.
 - **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The
   Anbernic table stays for BaseOS, since the two disagree about codes like `0x138`.
 - **FN** (`slot/src/input/adc.rs`): read from its ADC channel about 60 times a second as

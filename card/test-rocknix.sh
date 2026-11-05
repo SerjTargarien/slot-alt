@@ -48,6 +48,7 @@ sysfs() {
 	npu="$TMP/sys/class/devfreq/fde40000.npu"
 	mkdir -p "$cpu" "$gpu" "$npu"
 	echo schedutil > "$cpu/scaling_governor"
+	echo 1800000 > "$cpu/scaling_max_freq"
 	echo "ondemand userspace powersave performance schedutil" > "$cpu/scaling_available_governors"
 	echo simple_ondemand > "$gpu/governor"
 	echo "userspace powersave performance simple_ondemand" > "$gpu/available_governors"
@@ -71,6 +72,7 @@ while [ "\$i" -lt "\${FAKE_RUN:-0}" ]; do
 	sleep 0.1
 	i=\$((i + 1))
 done
+[ -n "\${FAKE_CAP:-}" ] && echo "\$FAKE_CAP" > "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq"
 exit "\${FAKE_STATUS:-0}"
 EOF
 	rm -f "$TMP/started"
@@ -181,5 +183,12 @@ grep -q "battery 2964 mW 81% Discharging cpu 1800 MHz gpu 800 MHz" "$TMP/card/Lo
 setup
 FAKE_ACTIVE="essway sway" launch || true
 [ ! -f "$TMP/card/Logs/power.log" ] || fail "no power log unless SLOT_TRACE_POWER is set"
+
+for governor in performance keep; do
+	setup
+	FAKE_ACTIVE="essway sway" FAKE_CAP=816000 FAKE_STATUS=3 SLOT_GOVERNOR=$governor launch || true
+	[ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq")" = 1800000 ] ||
+		fail "a clock cap left by a crashed slot must be lifted (SLOT_GOVERNOR=$governor)"
+done
 
 echo "rocknix launch: ok"

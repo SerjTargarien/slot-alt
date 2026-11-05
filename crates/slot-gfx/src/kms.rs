@@ -739,6 +739,9 @@ impl KmsSurface {
                 revents: 0,
             };
             let ready = unsafe { poll_fds(&mut poll, 1, FLIP_TIMEOUT_MS) };
+            if ready < 0 && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
             if ready <= 0 {
                 self.flip.pending = false;
                 return Err(GfxError::Context("kms page flip timed out".into()));

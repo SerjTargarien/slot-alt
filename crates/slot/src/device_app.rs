@@ -174,6 +174,7 @@ pub fn run() {
     let mut drawn = false;
     frontend.drive_emulator();
     let mut pacer = Pacer::new(surface.pace_margin());
+    let mut clock = frame_clock(rocknix);
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
     loop {
         pacer.wait();
@@ -212,6 +213,13 @@ pub fn run() {
         let swap_took = swap.elapsed();
         slot::latency::swapped(swap_took.as_secs_f64() * 1000.0);
         let dropped = pacer.swapped(work, swap_took > Duration::from_millis(1));
+        if let Some((cap, governor)) = &mut clock {
+            let budget = pacer.period.saturating_sub(pacer.margin);
+            if let Some(khz) = governor.frame(work, dropped || late, budget) {
+                cap.set(khz);
+                eprintln!("slot: clock: {} MHz", khz / 1000);
+            }
+        }
         if slot::latency::tracing() {
             frames += 1;
             missed += u32::from(dropped);
@@ -235,6 +243,20 @@ pub fn run() {
             std::thread::sleep(left);
         }
     }
+}
+
+fn frame_clock(rocknix: bool) -> Option<(slot::clock::CpuCap, slot::clock::Governor)> {
+    if !rocknix || std::env::var("SLOT_CLOCK").is_ok_and(|v| v == "max") {
+        return None;
+    }
+    let (cap, steps) = slot::clock::CpuCap::open(std::path::Path::new("/sys"))?;
+    let governor = slot::clock::Governor::new(steps)?;
+    cap.set(governor.khz());
+    eprintln!(
+        "slot: clock: capping the CPU to the frame budget, starting at {} MHz",
+        governor.khz() / 1000
+    );
+    Some((cap, governor))
 }
 
 fn open_surface(rocknix: bool) -> Result<Box<dyn Surface>, GfxError> {

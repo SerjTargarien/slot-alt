@@ -38,8 +38,11 @@ offers() {
 
 boost() {
 	want="${SLOT_GOVERNOR:-performance}"
-	[ "$want" = keep ] && return
 	GOVERNORS="$(mktemp)"
+	for f in "$SYSFS"/devices/system/cpu/cpufreq/policy*/scaling_max_freq; do
+		[ -w "$f" ] && echo "$f $(cat "$f")" >> "$GOVERNORS"
+	done
+	[ "$want" = keep ] && return
 	for f in "$SYSFS"/devices/system/cpu/cpufreq/policy*/scaling_governor "$SYSFS"/class/devfreq/*/governor; do
 		[ -w "$f" ] || continue
 		case "$f" in
@@ -95,7 +98,9 @@ fi
 boost
 if [ -n "$GOVERNORS" ]; then
 	while read -r f governor; do
-		echo "governor: ${f#"$SYSFS"/} was $governor, now $want"
+		case "$f" in
+		*governor) echo "governor: ${f#"$SYSFS"/} was $governor, now $want" ;;
+		esac
 	done < "$GOVERNORS"
 fi
 
