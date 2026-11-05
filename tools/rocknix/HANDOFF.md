@@ -117,6 +117,20 @@ take it whole rather than port pieces, so later merges from slotPlus stay cheap.
   The user wants to learn to build cores (`cores/*/build.sh`, pinned sources and
   patches, built natively in an arm64 box) before adding more: not done yet.
 - The merged binary is 18.0 MB (was 14.6 MB).
+- **Screen settings for the new systems (user's order, easiest first):**
+  - Done: **Game Gear and NeoGeo Pocket** scale like the Game Boy (Integer or Fit,
+    Integer by default; `scale_gg`, `scale_ngp`) and stretch on or off to the whole screen
+    (`stretched_gg`, `stretched_ngp`, shared with the in-game row and the shortcuts). No
+    bezel for them yet: slotPlus's Game Gear bezel was drawn for the old 3x picture.
+  - Rule from the user: Scale offers only **Integer and Fit**; slotPlus's fixed "actual"
+    size may stay in the code but never appears in a menu. Stretch is On/Off.
+  - Next: TurboGrafx-16 (its width changes between 256 and 512), then Lynx and
+    WonderSwan as first-class systems: Integer and Fit in both orientations, including
+    games that turn mid-play (Klonoa on the WonderSwan), then the DS (layouts that use
+    the square screen).
+  - New-system label art isn't fetched: the art server covers only GB, GBC and GBA. The
+    user makes labels by hand for now.
+- RetroAchievements' row is hidden, not greyed out, while it's switched off.
 - Not yet checked on the device: each new system's shelf, carts and bespoke slot on the
   square canvas, speed, controls, DS layouts and stylus (the right stick could drive it).
 
