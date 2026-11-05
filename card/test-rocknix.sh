@@ -51,6 +51,7 @@ sysfs() {
 	echo 1800000 > "$cpu/scaling_max_freq"
 	echo "ondemand userspace powersave performance schedutil" > "$cpu/scaling_available_governors"
 	echo simple_ondemand > "$gpu/governor"
+	echo 200000000 > "$gpu/min_freq"
 	echo "userspace powersave performance simple_ondemand" > "$gpu/available_governors"
 	echo simple_ondemand > "$npu/governor"
 	echo "userspace powersave performance simple_ondemand" > "$npu/available_governors"
@@ -64,7 +65,7 @@ setup() {
 	: > "$TMP/log"
 	cat > "$TMP/card/System/slot" << EOF
 echo "root \$SLOT_ROOT platform \$SLOT_PLATFORM"
-echo "cpu \$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor") gpu \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor") npu \$(cat "$TMP/sys/class/devfreq/fde40000.npu/governor")"
+echo "cpu \$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor") gpu \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor") npu \$(cat "$TMP/sys/class/devfreq/fde40000.npu/governor") gpu floor \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/min_freq")"
 echo started > "$TMP/started"
 trap 'echo saved; exit 0' TERM
 i=0
@@ -197,5 +198,24 @@ grep -q "cpu performance gpu performance npu simple_ondemand" "$TMP/card/Logs/sl
 	fail "SLOT_GPU_GOVERNOR should set the GPU only: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
 [ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor")" = simple_ondemand ] ||
 	fail "the GPU governor was not put back"
+
+for floor in "" 300 keep 4x0; do
+	setup
+	FAKE_ACTIVE="essway sway" SLOT_GPU_MIN_MHZ=$floor launch || fail "a clean exit should return 0"
+	case "$floor" in
+	"") want=400000000 ;;
+	300) want=300000000 ;;
+	*) want=200000000 ;;
+	esac
+	grep -q "gpu simple_ondemand npu simple_ondemand gpu floor $want" "$TMP/card/Logs/slot.log" ||
+		fail "SLOT_GPU_MIN_MHZ=$floor should give a floor of $want: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
+	[ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/min_freq")" = 200000000 ] ||
+		fail "the GPU floor was not put back (SLOT_GPU_MIN_MHZ=$floor)"
+done
+
+setup
+FAKE_ACTIVE="essway sway" FAKE_STATUS=3 launch || true
+[ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/min_freq")" = 200000000 ] ||
+	fail "the GPU floor must come back when slot fails"
 
 echo "rocknix launch: ok"

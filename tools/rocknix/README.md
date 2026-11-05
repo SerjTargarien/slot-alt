@@ -57,11 +57,15 @@ What step 1 adds:
   to 25 percent of frames reached the panel one vblank late, all of them submitted after
   their deadline. With both, it was 0 to 2 frames in 600. `SLOT_KMS_FINISH=0` and
   `SLOT_PACE_MARGIN_US` override them. With `SLOT_TRACE_LATENCY=1`, the log reports
-  every 600 flips how many skipped a vblank and why. The pacer measures the panel at about
+  every 600 flips how many skipped a vblank and why, and every 600 frames the average and
+  longest frame, its CPU part and GPU wait, how many misses were CPU-bound or GPU-bound,
+  and the current CPU cap. The pacer measures the panel at about
   60.0 Hz, although the mode's timings say 60.69 Hz.
 - **CPU clock by frame budget** (`slot/src/clock.rs`): the CPU stays on the `performance`
   governor, and slot caps `scaling_max_freq` at the lowest step that keeps frames on
-  time. Checks run every half second:
+  time. Checks run every half second. Only CPU-bound frames can raise the cap: those whose
+  CPU part (everything but the GPU wait, including waiting for the emulator thread) is at
+  least as long as their GPU wait. A slow GPU frame would not get faster on a faster CPU.
   - **Up a step** after two missed or late frames, after one while work is over 70% of
     the budget, or when work passes 85%. Two steps after several misses. A lone miss with
     the CPU nearly idle is treated as a one-off hitch and ignored.
@@ -70,8 +74,8 @@ What step 1 adds:
     prediction; time spent waiting for the GPU is not.
 
   `SLOT_CLOCK=max` turns it off. The GPU keeps its own `simple_ondemand` governor unless
-  `SLOT_GPU_GOVERNOR` is set. The launch script restores the cap if slot dies without
-  cleaning up.
+  `SLOT_GPU_GOVERNOR` is set, with a 400 MHz floor (see the launch script). The launch
+  script restores the cap if slot dies without cleaning up.
 
   Measured on the RGB20SX (battery draw while playing):
 
@@ -80,6 +84,13 @@ What step 1 adds:
   | `performance` everywhere | 2.85-3.0 W | | |
   | `schedutil` | 2.3-2.4 W, misses up to 2/3 of vblanks | ~2.4 W, misses | ~2.2 W, misses |
   | First capped version | stayed at 1800 MHz | 1104 MHz, ~2.3 W, no misses | 816-1104 MHz, 2.1-2.2 W, no misses |
+  | GPU on `simple_ondemand` (200 MHz) | 1800 MHz, 2.6-2.8 W | 1800 MHz, ~2.47 W | 1800 MHz, 2.33 W |
+  | CPU-bound rule, 400 MHz GPU floor | | | 1104 MHz, 2.03 W, no misses in play |
+
+  The last two rows are in-game medians. With the GPU at 200 MHz its wait was two thirds
+  of a Gambatte frame, which pushed the CPU to 1800 MHz under the earlier rules. With the
+  CPU-bound rule and no floor, Gambatte held 1416 MHz at 2.06 W; with the GPU on
+  `performance`, 816 MHz at 2.06 W.
 
   The fixed baseline is about 1.8 W.
 - **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The
@@ -92,8 +103,13 @@ What step 1 adds:
 - **Launch script** (`card/rocknix/rocknix.sh`):
   - stops `essway`, `sway`, `inputplumber` and `input`
   - blocks logind's power-key suspend while slot runs
-  - switches the CPU, GPU and memory-controller governors to `performance`, as ROCKNIX's
-    `runemu.sh` does for games (`SLOT_GOVERNOR=keep` opts out)
+  - puts the CPU on the `performance` governor so slot can cap its clock
+    (`SLOT_GOVERNOR` names another, `keep` opts out), and leaves the GPU on its own
+    governor unless `SLOT_GPU_GOVERNOR` names one
+  - sets a 400 MHz floor under the GPU (`SLOT_GPU_MIN_MHZ`, `keep` opts out). ROCKNIX
+    means to set the same floor on RK3566, but its quirk `060-game_settings` runs before
+    the GPU driver loads and fails. ROCKNIX's `powerstate` service resets the GPU
+    governor on every charger change but leaves `min_freq` alone, so the floor holds
   - loads ROCKNIX's environment, so audio reaches PipeWire
   - starts everything again however slot ends
   - turns Ctrl-C or a dropped SSH session into SIGTERM, so slot saves first

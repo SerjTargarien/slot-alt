@@ -6,7 +6,11 @@
 # can cap its clock to the frame budget, and runs slot. However slot ends, everything is
 # put back. Ctrl-C, or the SSH session closing, asks slot to save and quit.
 # SLOT_GOVERNOR sets the CPU governor (keep leaves it alone). The GPU and memory clocks
-# keep their own governors unless SLOT_GPU_GOVERNOR names one. SLOT_TRACE_POWER=1 logs
+# keep their own governors unless SLOT_GPU_GOVERNOR names one. The GPU clock gets a floor
+# of SLOT_GPU_MIN_MHZ (400 by default, keep leaves it alone) through min_freq, which
+# ROCKNIX's powerstate service leaves alone when it resets the GPU governor on a charger
+# change. ROCKNIX means to set the same floor on RK3566, but its quirk runs before the
+# GPU driver loads. SLOT_TRACE_POWER=1 logs
 # battery draw and clocks to Logs/power.log every SLOT_POWER_EVERY seconds (5 by default).
 
 SYS="$(cd "$(dirname "$0")" && pwd)"
@@ -61,6 +65,17 @@ boost() {
 			use_governor "$f" "$gpu"
 		done
 	fi
+	floor="${SLOT_GPU_MIN_MHZ:-400}"
+	case "$floor" in
+	"" | *[!0-9]*) return ;;
+	esac
+	for f in "$SYSFS"/class/devfreq/*gpu*/min_freq; do
+		[ -w "$f" ] || continue
+		was="$(cat "$f")"
+		echo "$f $was" >> "$GOVERNORS"
+		echo "$((floor * 1000000))" > "$f"
+		echo "gpu floor: ${f#"$SYSFS"/} was $((was / 1000000)) MHz, now $floor MHz"
+	done
 }
 
 unboost() {
