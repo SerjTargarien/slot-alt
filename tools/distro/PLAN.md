@@ -267,8 +267,9 @@ canvas):
     the full-screen one there, or the band copy shows as a second wallpaper.
   - **Stretch** (L1 on GB/GBC, R1 back) fills the whole panel on a tall canvas: the
     classic stretch fills upstream's 3:2 band, which here is a strip across the middle
-    and squeezed the picture. Classic and full-screen then look alike, so the in-game
-    menu offers one (`App::stretch_on_panel`).
+    and squeezed the picture. Classic and full-screen then look alike, so instead of a
+    style the in-game Stretch row (Settings, Screen) switches stretch on and off like
+    L1 and R1, which the user may unbind (`App::stretch_on_panel`, `stretch_switch`).
   - On 480-tall canvases every shift is 0, so upstream devices are unchanged; upstream's
     tests that build on Linux pass (slot-gfx 38, slot-ui 483, slot as listed in the
     commit).

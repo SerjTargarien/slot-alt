@@ -4,7 +4,7 @@ use common::{tmp_root_with_carts, tmp_root_with_gb_carts, tmp_root_with_gbc_cart
 use slot::app::{App, Phase};
 use slot::video_mode::VideoMode;
 use slot_gfx::{GameLayout, TexId, WHOLE_TEXTURE};
-use slot_input::Action;
+use slot_input::{Action, Btn};
 use slot_store::{write_slot_state, BezelPick, Platform, Scale, SlotState, Stretch};
 use slot_ui::{BezelArt, QuickRow, QuickValue};
 use tempfile::TempDir;
@@ -140,6 +140,48 @@ fn stretch_fills_a_square_panel_whatever_the_stretch_style() {
         assert!(a.game_layout().panel, "{stretch:?}");
         assert_eq!(a.stretch_choices(Platform::Gb), [Stretch::Classic]);
     }
+}
+
+fn press(a: &mut App, btn: Btn) {
+    a.apply(Action::GbaDown(btn));
+    a.apply(Action::GbaUp(btn));
+}
+
+fn to_in_game_row(a: &mut App, row: QuickRow) {
+    a.apply(Action::QuickMenu);
+    for step in [QuickRow::Settings, QuickRow::PlayScreen, row] {
+        for _ in 0..16 {
+            if a.in_game_menu() == Some(step) {
+                break;
+            }
+            press(a, Btn::Down);
+        }
+        assert_eq!(a.in_game_menu(), Some(step), "never reached {step:?}");
+        if step != row {
+            press(a, Btn::A);
+        }
+    }
+}
+
+#[test]
+fn on_a_square_panel_the_stretch_row_switches_stretch_like_l1_and_r1() {
+    let (_d, mut a) = playing(Platform::Gb, (720, 720), SlotState::default());
+    assert!(!a.in_game_hidden().contains(&QuickRow::Stretch));
+    assert_eq!(a.quick_value(QuickRow::Stretch), Some(QuickValue::Off));
+    to_in_game_row(&mut a, QuickRow::Stretch);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::Stretch), Some(QuickValue::On));
+    assert!(a.game_layout().panel);
+    assert_eq!(a.source_rect(), GB_CROP);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.quick_value(QuickRow::Stretch), Some(QuickValue::Off));
+    assert!(!a.picture_fills());
+}
+
+#[test]
+fn a_gba_game_on_a_square_panel_has_no_stretch_row() {
+    let (_d, a) = playing(Platform::Gba, (720, 720), SlotState::default());
+    assert!(a.in_game_hidden().contains(&QuickRow::Stretch));
 }
 
 #[test]

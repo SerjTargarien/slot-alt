@@ -1465,7 +1465,7 @@ impl App {
         if self.scale_choices(self.playing_platform()).len() < 2 {
             hidden.push(QuickRow::Scale);
         }
-        if self.stretch_choices(self.playing_platform()).len() < 2 {
+        if self.stretch_choices(self.playing_platform()).len() < 2 && !self.stretch_switch() {
             hidden.push(QuickRow::Stretch);
         }
         if self.single_cart() {
@@ -1605,6 +1605,9 @@ impl App {
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast
             | QuickRow::Scale => self.quick_value(self.playing_row(row)),
+            QuickRow::Stretch if self.stretch_switch() => {
+                Some(QuickValue::flag(self.video_mode == VideoMode::Stretch))
+            }
             QuickRow::Stretch => match self.playing_row(row) {
                 QuickRow::Stretch => None,
                 row => self.quick_value(row),
@@ -2428,6 +2431,12 @@ impl App {
             self.drawn_scale(platform),
             self.stretch_on_panel(self.resolved_stretch(platform)),
         )
+    }
+
+    /// On a tall panel there is one stretch style, so the in-game Stretch row switches
+    /// stretch on and off instead, as L1 and R1 do (handy with those keys unbound).
+    fn stretch_switch(&self) -> bool {
+        self.canvas().extra() > 0.0 && self.playing_platform().hardware() != Platform::Gba
     }
 
     /// The classic stretch fills upstream's 3:2 band. On a panel taller than 4:3 that
@@ -3932,6 +3941,14 @@ impl App {
             }
             self.blending_pending = Some(self.blending_in_play());
             self.persist();
+            return;
+        }
+        if row == QuickRow::Stretch && self.stretch_switch() {
+            let on = self.video_mode == VideoMode::Stretch;
+            self.set_picture(match on {
+                true => VideoMode::Actual,
+                false => VideoMode::Stretch,
+            });
             return;
         }
         let row = self.playing_row(row);
