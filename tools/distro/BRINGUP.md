@@ -192,3 +192,15 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 | 2 | dev card self-booting in slot 1, `quiet`, `panic=0` | two mmc errors, then a cursor | SDR104 tuning failed on slot 1 |
 | 3 | same, SDR104 removed | cursor only | the same `/root` panic as attempt 1, hidden by `quiet` |
 | 4 | same, plus `INITRD /rootdir.cpio`, `loglevel=8` | **booted**, `ssh ready` at 6.73 s | SSH then dropped connections: the Dropbear key folder |
+| 5 | same, Dropbear key folder fixed | **SSH login works.** Init at 1.97 s, SSH ready at 6.7-9.7 s (mostly waiting for `wlan0`), 54 MB RAM used, 5 user processes | phase 1 done |
+
+What the running system looked like on that boot:
+- `/dev/root` ext4 read-write, SLOT at `/mnt/sdcard`;
+- `/dev/dri/card0`, `/dev/mali0`, ALSA cards 0 (HDMI) and 1 (`rk817ext`);
+- CPU on the kernel's default `performance` governor at 1800 MHz;
+- GPU on `simple_ondemand` at 200 MHz.
+
+Both clock settings are for phase 2 (slot's clock cap, the 400 MHz GPU floor). The device
+keeps the same DHCP address as under ROCKNIX (`192.168.1.72`). Use a separate known_hosts
+for it (`-o UserKnownHostsFile=~/.ssh/known_hosts_rgbslot`), because the host key differs
+from ROCKNIX's.
