@@ -34,7 +34,7 @@ mainline device tree (`rk3566-powkiddy-rgb20sx.dts`, `rk3566-powkiddy-rk2023.dts
 | Frontend | `System/launch_frontend.sh`, started by BaseOS | `essway.service` runs EmulationStation under `sway.service` |
 | Buttons | Anbernic BSP codes: `0x136` Select, `0x137` Start, `0x138` Menu, `0x13a`/`0x13b` L2/R2, D-pad on `ABS_HAT0X/Y` | Standard Linux gamepad codes: `BTN_EAST` A, `BTN_SOUTH` B, `BTN_NORTH` X, `BTN_WEST` Y, `BTN_TL`/`TR` L1/R1, `BTN_TL2`/`TR2` (`0x138`/`0x139`) L2/R2, `BTN_SELECT` `0x13a`, `BTN_START` `0x13b`, FN = `BTN_MODE` `0x13c` on a separate `adc-keys` device, D-pad as `BTN_DPAD_*` keys `0x220`-`0x223` |
 | Input ownership | slot reads `/dev/input` directly | InputPlumber merges `gpio-keys-control`, `adc-joystick` and `adc-keys` into a virtual DualSense and hides the originals |
-| Sticks | centred on 0, deadzone 2048 | `adc-joystick`, raw 15 to 1023 |
+| Sticks | centred on 0, deadzone 2048 | `adc-joystick`, raw 250 to 800 in ROCKNIX's device tree (15 to 1023 in mainline) |
 | Audio | ALSA | ALSA with PipeWire in front (ES uses the PulseAudio API) |
 | Backlight, battery | `/sys/class/backlight`, `axp2202-battery` | `pwm-backlight`, `rk817` battery. slot already finds both generically. |
 | Rumble | `EV_FF` | PWM motor at `pwmchip1`, no `EV_FF` |
