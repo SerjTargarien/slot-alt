@@ -7033,6 +7033,10 @@ impl App {
             return;
         };
         let canvas = self.canvas();
+        // The label printer is laid out on the 480-unit band, as is the shelf row the cart
+        // flies out of; on a taller canvas both sit in its middle (the ground fills it, and
+        // the slot and the legends keep to the bottom).
+        let mid = canvas.extra() / 2.0;
         self.draw_studio_ground(0.0, out);
         let shown = view(studio, canvas.w);
         let since = self.studio_closing.unwrap_or(self.studio_opened);
@@ -7042,9 +7046,12 @@ impl App {
             self.draw_background(out);
             self.shelf().draw_row(canvas, Some(&studio.cart.stem), 0.0, 0.0, 1.0, out);
             self.draw_studio_ground((e - 1.0) * self.canvas().h, out);
+            let first = out.len();
             self.draw_studio_cart(out);
+            slot_gfx::shift(&mut out[first..], mid);
             return draw_empty_slot(canvas, self.slot_faces, out);
         }
+        let first = out.len();
         for item in &shown.items {
             match item {
                 Item::Cart => self.draw_studio_cart(out),
@@ -7065,13 +7072,16 @@ impl App {
                 }
             }
         }
+        slot_gfx::shift(&mut out[first..], mid);
         if shown.closed_bar {
             slot_ui::draw_plugged_slot(canvas, self.plugged_face, 1.0, out);
         } else {
             draw_empty_slot(canvas, self.slot_faces, out);
         }
         if let (Some(scene), Some(tex)) = (&self.studio_scene, &self.studio_tex) {
+            let first = out.len();
             self.draw_apply_cart(scene, tex, true, out);
+            slot_gfx::shift(&mut out[first..], mid);
         }
         self.draw_studio_legends(studio, out);
     }

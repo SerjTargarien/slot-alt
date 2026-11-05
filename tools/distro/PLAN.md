@@ -261,7 +261,7 @@ canvas):
     whose printer art runs off the band's lower edge);
   - `Canvas::mid(y)` and `shift(&mut draws[first..], canvas.extra() / 2.0)` move it to
     the middle (the shelf row, menu rows, keyboard, clock and network lists, toasts and
-    alarms, About sticker, prompts, the unboxing, the core picker);
+    alarms, About sticker, prompts, the unboxing, the core picker, the label printer);
   - grounds and scrims cover `canvas.h`, and `Canvas::cover` crops band-high art to any
     canvas shape. A scene with its own band-high ground (the printer's wood) draws only
     the full-screen one there, or the band copy shows as a second wallpaper.
@@ -279,7 +279,7 @@ canvas):
     tests that build on Linux pass (slot-gfx 38, slot-ui 483, slot as listed in the
     commit).
 - Checked on the device by capture or by eye: shelf, settings pages, in-game menu, core
-  picker, clock, About, screenshots, games, Gamebit. The settings overflow and footer-hint
+  picker, clock, About, screenshots, games, Gamebit, label printer. The settings overflow and footer-hint
   overlap are gone.
 - Not yet handled: the slot-update scenes (an update cart drops onto the shelf and
   opens) still draw their carts in band coordinates. They can't show until Wi-Fi works
