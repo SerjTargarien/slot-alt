@@ -155,7 +155,11 @@ pub fn run() {
     }
     let mut input = DeviceInput::open(&root);
     let fn_adc = std::path::Path::new(slot::input::adc::RGB20SX_FN);
-    if rocknix && slot::rocknix::model() == slot::rocknix::RGB20SX && fn_adc.exists() {
+    // FN reaches the kernel only as an ADC level on ROCKNIX's kernel, which drops the key.
+    // A kernel that reports it through adc-keys sets SLOT_FN_ADC=0, or FN would fire twice.
+    let fn_from_adc = std::env::var_os("SLOT_FN_ADC").is_none_or(|v| v != "0");
+    if rocknix && fn_from_adc && slot::rocknix::model() == slot::rocknix::RGB20SX && fn_adc.exists()
+    {
         input.watch_adc(fn_adc.to_path_buf(), slot_input::Btn::Menu);
     }
     slot::boot_time::mark("input");
