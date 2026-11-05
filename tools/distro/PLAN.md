@@ -257,17 +257,23 @@ canvas):
 - Upstream's coordinates stay on the 480-unit band. Elements are placed on the taller
   canvas as groups:
   - `Canvas::below(y)` moves a band y to the bottom (slot mouth, footer, legend strip,
-    keyboard legends, link-cable art);
+    keyboard legends, link-cable art, and the printer scene of Gamebit and photo prints,
+    whose printer art runs off the band's lower edge);
   - `Canvas::mid(y)` and `shift(&mut draws[first..], canvas.extra() / 2.0)` move it to
     the middle (the shelf row, menu rows, keyboard, clock and network lists, toasts and
-    alarms, About sticker, prompts, the unboxing, the printer scene, the core picker);
+    alarms, About sticker, prompts, the unboxing, the core picker);
   - grounds and scrims cover `canvas.h`, and `Canvas::cover` crops band-high art to any
-    canvas shape.
+    canvas shape. A scene with its own band-high ground (the printer's wood) draws only
+    the full-screen one there, or the band copy shows as a second wallpaper.
+  - **Stretch** (L1 on GB/GBC, R1 back) fills the whole panel on a tall canvas: the
+    classic stretch fills upstream's 3:2 band, which here is a strip across the middle
+    and squeezed the picture. Classic and full-screen then look alike, so the in-game
+    menu offers one (`App::stretch_on_panel`).
   - On 480-tall canvases every shift is 0, so upstream devices are unchanged; upstream's
     tests that build on Linux pass (slot-gfx 38, slot-ui 483, slot as listed in the
     commit).
 - Checked on the device by capture or by eye: shelf, settings pages, in-game menu, core
-  picker, clock, About, screenshots, games. The settings overflow and footer-hint
+  picker, clock, About, screenshots, games, Gamebit. The settings overflow and footer-hint
   overlap are gone.
 - Not yet handled: the slot-update scenes (an update cart drops onto the shelf and
   opens) still draw their carts in band coordinates. They can't show until Wi-Fi works

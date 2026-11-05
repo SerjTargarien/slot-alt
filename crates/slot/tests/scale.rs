@@ -125,6 +125,33 @@ fn stretch_full_screen_crops_the_border_and_hides_bezels() {
 }
 
 #[test]
+fn stretch_fills_a_square_panel_whatever_the_stretch_style() {
+    for stretch in [Stretch::Classic, Stretch::FullScreen] {
+        let (_d, mut a) = playing(
+            Platform::Gb,
+            (720, 720),
+            SlotState {
+                stretch_gb: stretch,
+                ..SlotState::default()
+            },
+        );
+        a.set_video_mode(VideoMode::Stretch);
+        assert_eq!(a.source_rect(), GB_CROP, "{stretch:?}");
+        assert!(a.game_layout().panel, "{stretch:?}");
+        assert_eq!(a.stretch_choices(Platform::Gb), [Stretch::Classic]);
+    }
+}
+
+#[test]
+fn a_3_by_2_panel_keeps_both_stretch_styles() {
+    let (_d, a) = playing(Platform::Gb, (720, 480), SlotState::default());
+    assert_eq!(
+        a.stretch_choices(Platform::Gb),
+        [Stretch::Classic, Stretch::FullScreen]
+    );
+}
+
+#[test]
 fn a_gba_cart_ignores_a_stale_stretch() {
     let (_d, mut a) = playing(Platform::Gba, (640, 480), SlotState::default());
     a.set_game_bezel(Some(TexId::from_raw(77)));

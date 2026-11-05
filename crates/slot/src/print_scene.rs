@@ -507,7 +507,8 @@ fn paper_draw(tex: TexId, p: &Paper, shift: f32, flap: bool) -> Draw {
 
 pub fn print_draws(f: &PrintFrame, tex: &PrintTextures, canvas: Canvas, out: &mut Vec<Draw>) {
     let from = out.len();
-    // On a taller canvas the wood fills the screen and the scene sits in its middle.
+    // On a taller canvas the wood fills the screen and the scene sits at its bottom: the
+    // printer art runs off the band's lower edge, so it has to meet the screen's.
     if canvas.extra() > 0.0 {
         out.push(Draw::Part {
             x: 0.0,
@@ -521,7 +522,7 @@ pub fn print_draws(f: &PrintFrame, tex: &PrintTextures, canvas: Canvas, out: &mu
     }
     let scene = out.len();
     scene_draws(f, tex, canvas, out);
-    shift_down(&mut out[scene..], canvas.extra() / 2.0);
+    shift_down(&mut out[scene..], canvas.extra());
     shift_down(&mut out[from..], -f.slide * canvas.h);
 }
 
@@ -536,7 +537,10 @@ fn scene_draws(f: &PrintFrame, tex: &PrintTextures, canvas: Canvas, out: &mut Ve
         tex,
         alpha: 1.0,
     };
-    out.push(layer(tex.wood, 0.0));
+    // A taller canvas already has the wood under the whole screen (print_draws).
+    if canvas.extra() == 0.0 {
+        out.push(layer(tex.wood, 0.0));
+    }
     if f.slide > 0.0 {
         return;
     }
@@ -562,5 +566,88 @@ fn scene_draws(f: &PrintFrame, tex: &PrintTextures, canvas: Canvas, out: &mut Ve
     }
     if paper_flap_shows(paper.fold) {
         out.push(paper_draw(tex.paper, paper, shift, true));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tex() -> PrintTextures {
+        let t = TexId::from_raw;
+        PrintTextures {
+            wood: t(1),
+            printer: t(2),
+            front: t(3),
+            paper: t(4),
+            lamp: (t(5), 8),
+        }
+    }
+
+    fn frame(slide: f32) -> PrintFrame {
+        PrintFrame {
+            slide,
+            printer_y: 0.0,
+            lamp_on: true,
+            paper: None,
+            paper_in_front: false,
+        }
+    }
+
+    fn woods(canvas: Canvas, slide: f32) -> Vec<Draw> {
+        let mut out = Vec::new();
+        print_draws(&frame(slide), &tex(), canvas, &mut out);
+        let wood = tex().wood;
+        out.into_iter()
+            .filter(|d| matches!(d, Draw::Tex { tex, .. } | Draw::Part { tex, .. } if *tex == wood))
+            .collect()
+    }
+
+    #[test]
+    fn a_square_screen_gets_one_wood_over_the_whole_screen() {
+        for slide in [0.0, 0.5] {
+            let wood = woods(Canvas::of((720, 720)), slide);
+            assert_eq!(wood.len(), 1, "{wood:?}");
+            assert!(matches!(
+                wood[0],
+                Draw::Part {
+                    w: 720.0,
+                    h: 720.0,
+                    ..
+                }
+            ));
+        }
+    }
+
+    #[test]
+    fn the_printer_meets_the_bottom_of_a_square_screen() {
+        let mut out = Vec::new();
+        print_draws(&frame(0.0), &tex(), Canvas::of((720, 720)), &mut out);
+        let printer = out
+            .iter()
+            .find_map(|d| match d {
+                Draw::Tex { tex, y, h, .. } if *tex == tex_printer() => Some(y + h),
+                _ => None,
+            })
+            .expect("no printer");
+        assert_eq!(printer, 720.0);
+    }
+
+    fn tex_printer() -> TexId {
+        tex().printer
+    }
+
+    #[test]
+    fn the_band_keeps_its_one_wood_layer() {
+        let wood = woods(Canvas::FRAMED, 0.0);
+        assert_eq!(wood.len(), 1, "{wood:?}");
+        assert!(matches!(
+            wood[0],
+            Draw::Tex {
+                w: 720.0,
+                h: 480.0,
+                ..
+            }
+        ));
     }
 }

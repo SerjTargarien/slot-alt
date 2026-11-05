@@ -2426,8 +2426,18 @@ impl App {
             platform,
             self.video_mode,
             self.drawn_scale(platform),
-            self.resolved_stretch(platform),
+            self.stretch_on_panel(self.resolved_stretch(platform)),
         )
+    }
+
+    /// The classic stretch fills upstream's 3:2 band. On a panel taller than 4:3 that
+    /// band is a strip across the middle, which squeezes the picture, so there it fills
+    /// the panel like the full-screen stretch (and the menu, seeing both alike, offers one).
+    fn stretch_on_panel(&self, stretch: Stretch) -> Stretch {
+        match self.canvas().extra() > 0.0 {
+            true => Stretch::FullScreen,
+            false => stretch,
+        }
     }
 
     fn scale_of(&self, platform: Platform) -> Scale {
@@ -2466,7 +2476,8 @@ impl App {
         scale: Scale,
         stretch: Stretch,
     ) -> (bool, [i32; 4]) {
-        let (sizing, source) = video_mode::picture_for(platform, mode, scale, stretch);
+        let (sizing, source) =
+            video_mode::picture_for(platform, mode, scale, self.stretch_on_panel(stretch));
         let layout = self.layout_of(platform, sizing, source);
         let (_, crop) =
             video_mode::picture_for(platform, VideoMode::Actual, Scale::Integer, stretch);
