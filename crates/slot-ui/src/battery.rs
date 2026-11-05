@@ -17,6 +17,9 @@ const GAP: f32 = 7.0;
 const BOLT_W: f32 = 14.0;
 const BOLT_H: f32 = 14.0;
 const BOLT_GAP: f32 = 5.0;
+/// The space kept for the charging bolt at the start of the gauge row, blank when not
+/// charging.
+pub const BOLT_LEAD: f32 = BOLT_W + BOLT_GAP;
 const _: () = assert!(BOLT_GAP > 0.0);
 pub const GAUGE_ROW_W: f32 = BOLT_W + BOLT_GAP + GAUGE_W + NUB_W + GAP;
 

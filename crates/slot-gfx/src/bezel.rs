@@ -1,7 +1,20 @@
 use crate::surface::{OUT_H, OUT_W};
 
+/// Whether the panel is laid out "framed": a canvas as tall as the 3:2 band but only as
+/// wide as the panel's shape allows, drawn over the whole panel, with games free to use
+/// the whole panel. That's every panel at least as tall as 4:3, so 640x480 and square
+/// ones such as the RGB20SX's 720x720. SLOT_TALL_PANELS=0 keeps panels taller than 4:3 on
+/// the plain band instead, letterboxed, to compare the two.
 pub fn framed(panel: (u32, u32)) -> bool {
-    panel.0 > 0 && panel.0 * 3 == panel.1 * 4
+    match panel.0 * 3 == panel.1 * 4 {
+        true => panel.0 > 0,
+        false => panel.0 > 0 && panel.0 * 3 < panel.1 * 4 && tall_panels(),
+    }
+}
+
+fn tall_panels() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("SLOT_TALL_PANELS").is_none_or(|v| v != "0"))
 }
 
 pub fn screen_rect(panel: (u32, u32)) -> (i32, i32, i32, i32) {

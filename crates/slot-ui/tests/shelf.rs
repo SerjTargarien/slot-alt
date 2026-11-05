@@ -498,6 +498,58 @@ fn the_band_prints_the_charge_at_one_margin_and_the_clock_at_the_other() {
 }
 
 #[test]
+fn on_a_square_canvas_the_readouts_sit_centred_beside_the_bay() {
+    let canvas = Canvas { w: 480.0, h: 480.0 };
+    let mut out = Vec::new();
+    draw_footer(
+        canvas,
+        Some(Battery {
+            percent: 86,
+            charge: Charge::Discharging,
+        }),
+        Printed { face: None, w: 45 },
+        None,
+        Printed { face: None, w: 73 },
+        [255, 255, 255],
+        &mut out,
+    );
+    let xs: Vec<(f32, f32)> = out
+        .iter()
+        .filter_map(|d| match *d {
+            Draw::Rect { x, w, .. } | Draw::Tex { x, w, .. } => Some((x, x + w)),
+            _ => None,
+        })
+        .collect();
+    let (bay_left, bay_right) = (104.0, 376.0);
+    for (a, b) in &xs {
+        assert!(
+            (*a >= 0.0 && *b <= bay_left) || (*a >= bay_right && *b <= canvas.w),
+            "something is printed from {a} to {b}, across the bay or off the canvas"
+        );
+    }
+    let leftmost = xs.iter().map(|(a, _)| *a).fold(f32::MAX, f32::min);
+    let left_end = xs
+        .iter()
+        .filter(|(_, b)| *b <= bay_left)
+        .map(|(_, b)| *b)
+        .fold(0.0, f32::max);
+    assert!(
+        (leftmost - (bay_left - left_end)).abs() <= 1.0,
+        "the charge is not centred beside the bay: {leftmost}..{left_end}"
+    );
+    let rightmost = xs.iter().map(|(_, b)| *b).fold(0.0, f32::max);
+    let right_start = xs
+        .iter()
+        .filter(|(a, _)| *a >= bay_right)
+        .map(|(a, _)| *a)
+        .fold(f32::MAX, f32::min);
+    assert!(
+        ((canvas.w - rightmost) - (right_start - bay_right)).abs() <= 1.0,
+        "the clock is not centred beside the bay: {right_start}..{rightmost}"
+    );
+}
+
+#[test]
 fn the_footer_does_not_move_the_gauge_when_the_charge_state_changes() {
     let mut idle = Vec::new();
     draw_footer(

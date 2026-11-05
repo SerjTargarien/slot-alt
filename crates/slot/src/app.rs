@@ -5265,7 +5265,7 @@ impl App {
                     out,
                 );
                 if self.wifi_up() {
-                    slot_ui::draw_wifi_icon(self.battery_percent, self.wifi_face(), out);
+                    slot_ui::draw_wifi_icon(self.canvas(), self.battery_percent, self.wifi_face(), out);
                 }
                 if let Some(picker) = self.core_picker_shown() {
                     let lift = lift_of(picker.openness(self.now()));
@@ -5510,7 +5510,7 @@ impl App {
             out,
         );
         if self.wifi_up() {
-            slot_ui::draw_wifi_icon(self.battery_percent, self.wifi_face(), out);
+            slot_ui::draw_wifi_icon(self.canvas(), self.battery_percent, self.wifi_face(), out);
         }
         shift_down(&mut out[start..], self.menu_footer_offset());
     }

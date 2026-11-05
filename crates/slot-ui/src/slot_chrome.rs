@@ -32,7 +32,7 @@ fn mouth_x(canvas: Canvas) -> f32 {
     canvas.centred(MOUTH_W)
 }
 
-fn bay_x(canvas: Canvas) -> f32 {
+pub(crate) fn bay_x(canvas: Canvas) -> f32 {
     canvas.centred(BAY_W)
 }
 
