@@ -69,13 +69,24 @@ pub fn picture_of(platform: Platform, shown: (u32, u32)) -> (u32, u32) {
     }
 }
 
-/// slot²: a TurboGrafx-16 frame's size on screen and where it sits in the 720x240 buffer.
-/// A 512-wide high resolution frame has half-width pixels, so it takes the room of a
-/// 256-wide one: Integer and Fit size the picture by that, not by its raw width.
-pub fn tg16_picture(shown: (u32, u32)) -> ((u32, u32), [f32; 4]) {
-    let (bw, bh) = Platform::Tg16.source_size();
-    let (w, h) = picture_of(Platform::Tg16, shown);
-    let room = match w > Platform::Tg16.actual_window().0 {
+/// slot²: the platforms whose picture follows the frame the core last drew: a
+/// TurboGrafx-16 game changes its width, and a WonderSwan or Lynx game turns on its side
+/// (the host turns the frame, so it arrives taller than wide), even mid-game.
+pub fn follows_frame(platform: Platform) -> bool {
+    matches!(platform, Platform::Tg16 | Platform::Ws | Platform::Lynx)
+}
+
+/// slot²: such a frame's size on screen and where it sits, centred, in its buffer. A
+/// 512-wide TurboGrafx-16 frame has half-width pixels, so it takes the room of a 256-wide
+/// one: Integer and Fit size the picture by that, not by its raw width.
+pub fn drawn_picture(platform: Platform, shown: (u32, u32)) -> ((u32, u32), [f32; 4]) {
+    let (bw, bh) = platform.source_size();
+    let (w, h) = match platform {
+        Platform::Tg16 => picture_of(platform, shown),
+        _ if shown.0 >= 64 && shown.1 >= 64 => (shown.0.min(bw), shown.1.min(bh)),
+        _ => platform.picture(),
+    };
+    let room = match platform == Platform::Tg16 && w > platform.actual_window().0 {
         true => (w / 2, h),
         false => (w, h),
     };

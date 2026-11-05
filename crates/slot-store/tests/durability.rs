@@ -293,6 +293,10 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             stretched_ngp: false,
             scale_tg16: Scale::Integer,
             stretched_tg16: false,
+            scale_ws: Scale::Integer,
+            scale_lynx: Scale::Integer,
+            stretched_ws: false,
+            stretched_lynx: false,
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -786,6 +790,8 @@ fn scale_and_stretch_round_trip_and_fall_back() {
         stretched_ngp: true,
         scale_tg16: Scale::Fit,
         stretched_tg16: true,
+        scale_ws: Scale::Fit,
+        stretched_lynx: true,
         ..SlotState::default()
     };
     write_slot_state(d.path(), &s).unwrap();
@@ -806,6 +812,10 @@ fn scale_and_stretch_round_trip_and_fall_back() {
         "stretched_ngp=1",
         "scale_tg16=fit",
         "stretched_tg16=1",
+        "scale_ws=fit",
+        "scale_lynx=integer",
+        "stretched_ws=0",
+        "stretched_lynx=1",
     ] {
         assert!(text.lines().any(|l| l == line), "{line} missing");
     }

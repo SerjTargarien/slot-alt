@@ -1692,6 +1692,7 @@ fn the_wonderswan_and_the_lynx_each_have_a_screen_page_with_their_own_shader() {
 }
 
 #[test]
+#[ignore = "slot²: WonderSwan games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn a_wonderswan_bezel_cycles_through_the_cards_own_pngs_and_none() {
     let (d, mut a, _) = on_carousel();
     let dir = d.path().join("Bezels").join("WS");

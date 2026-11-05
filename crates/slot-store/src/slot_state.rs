@@ -427,6 +427,11 @@ pub struct SlotState {
     /// slot²: the TurboGrafx-16 too (Integer or Fit, stretch on or off).
     pub scale_tg16: Scale,
     pub stretched_tg16: bool,
+    /// slot²: the WonderSwan and Lynx too, in either orientation.
+    pub scale_ws: Scale,
+    pub scale_lynx: Scale,
+    pub stretched_ws: bool,
+    pub stretched_lynx: bool,
     pub blending_gba: Blending,
     pub blending_gb: Blending,
     pub blending_gbc: Blending,
@@ -651,6 +656,10 @@ impl Default for SlotState {
             stretched_ngp: false,
             scale_tg16: Scale::Integer,
             stretched_tg16: false,
+            scale_ws: Scale::Integer,
+            scale_lynx: Scale::Integer,
+            stretched_ws: false,
+            stretched_lynx: false,
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -787,6 +796,10 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("stretched_ngp={}\n", s.stretched_ngp as u8));
     text.push_str(&format!("scale_tg16={}\n", s.scale_tg16.name()));
     text.push_str(&format!("stretched_tg16={}\n", s.stretched_tg16 as u8));
+    text.push_str(&format!("scale_ws={}\n", s.scale_ws.name()));
+    text.push_str(&format!("scale_lynx={}\n", s.scale_lynx.name()));
+    text.push_str(&format!("stretched_ws={}\n", s.stretched_ws as u8));
+    text.push_str(&format!("stretched_lynx={}\n", s.stretched_lynx as u8));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -875,6 +888,10 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut stretched_ngp = None;
     let mut scale_tg16 = None;
     let mut stretched_tg16 = None;
+    let mut scale_ws = None;
+    let mut scale_lynx = None;
+    let mut stretched_ws = None;
+    let mut stretched_lynx = None;
     let mut blending_gba = None;
     let mut blending_gb = None;
     let mut blending_gbc = None;
@@ -947,6 +964,10 @@ fn parse(text: &str) -> Option<SlotState> {
             "stretched_ngp" => stretched_ngp = flag(value),
             "scale_tg16" => scale_tg16 = Scale::parse(value),
             "stretched_tg16" => stretched_tg16 = flag(value),
+            "scale_ws" => scale_ws = Scale::parse(value),
+            "scale_lynx" => scale_lynx = Scale::parse(value),
+            "stretched_ws" => stretched_ws = flag(value),
+            "stretched_lynx" => stretched_lynx = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
             "blending_gb" => blending_gb = Blending::parse(value),
             "blending_gbc" => blending_gbc = Blending::parse(value),
@@ -1056,6 +1077,10 @@ fn parse(text: &str) -> Option<SlotState> {
         stretched_ngp: stretched_ngp.unwrap_or(fallback.stretched_ngp),
         scale_tg16: scale_tg16.unwrap_or(fallback.scale_tg16),
         stretched_tg16: stretched_tg16.unwrap_or(fallback.stretched_tg16),
+        scale_ws: scale_ws.unwrap_or(fallback.scale_ws),
+        scale_lynx: scale_lynx.unwrap_or(fallback.scale_lynx),
+        stretched_ws: stretched_ws.unwrap_or(fallback.stretched_ws),
+        stretched_lynx: stretched_lynx.unwrap_or(fallback.stretched_lynx),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),
         blending_gb: blending_gb.unwrap_or(fallback.blending_gb),
         blending_gbc: blending_gbc.unwrap_or(fallback.blending_gbc),

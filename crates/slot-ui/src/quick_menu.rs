@@ -56,6 +56,10 @@ pub enum QuickRow {
     LynxShader,
     WsBezel,
     LynxBezel,
+    WsScale,
+    LynxScale,
+    WsStretch,
+    LynxStretch,
     ScreenGg,
     GgShader,
     GgBezel,
@@ -167,7 +171,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 155] = [
+    pub const ALL: [QuickRow; 159] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -215,6 +219,10 @@ impl QuickRow {
         QuickRow::LynxShader,
         QuickRow::WsBezel,
         QuickRow::LynxBezel,
+        QuickRow::WsScale,
+        QuickRow::LynxScale,
+        QuickRow::WsStretch,
+        QuickRow::LynxStretch,
         QuickRow::ScreenGg,
         QuickRow::GgShader,
         QuickRow::GgBezel,
@@ -465,9 +473,19 @@ impl QuickRow {
     /// The WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 cores
     /// have no colour
     /// correction to set, so their pages hold a shader and a bezel.
-    pub const SCREEN_WS: [QuickRow; 2] = [QuickRow::WsShader, QuickRow::WsBezel];
+    pub const SCREEN_WS: [QuickRow; 4] = [
+        QuickRow::WsShader,
+        QuickRow::WsBezel,
+        QuickRow::WsScale,
+        QuickRow::WsStretch,
+    ];
 
-    pub const SCREEN_LYNX: [QuickRow; 2] = [QuickRow::LynxShader, QuickRow::LynxBezel];
+    pub const SCREEN_LYNX: [QuickRow; 4] = [
+        QuickRow::LynxShader,
+        QuickRow::LynxBezel,
+        QuickRow::LynxScale,
+        QuickRow::LynxStretch,
+    ];
 
     pub const SCREEN_GG: [QuickRow; 4] = [
         QuickRow::GgShader,
@@ -585,8 +603,13 @@ impl QuickRow {
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast => &QuickRow::PLAY_SCREEN,
-            QuickRow::WsShader | QuickRow::WsBezel => &QuickRow::SCREEN_WS,
-            QuickRow::LynxShader | QuickRow::LynxBezel => &QuickRow::SCREEN_LYNX,
+            QuickRow::WsShader | QuickRow::WsBezel | QuickRow::WsScale | QuickRow::WsStretch => {
+                &QuickRow::SCREEN_WS
+            }
+            QuickRow::LynxShader
+            | QuickRow::LynxBezel
+            | QuickRow::LynxScale
+            | QuickRow::LynxStretch => &QuickRow::SCREEN_LYNX,
             QuickRow::GgShader | QuickRow::GgBezel | QuickRow::GgScale | QuickRow::GgStretch => {
                 &QuickRow::SCREEN_GG
             }
@@ -894,12 +917,16 @@ impl QuickRow {
             | QuickRow::GgScale
             | QuickRow::NgpScale
             | QuickRow::Tg16Scale
+            | QuickRow::WsScale
+            | QuickRow::LynxScale
             | QuickRow::Scale => "Scale",
             QuickRow::GbStretch
             | QuickRow::GbcStretch
             | QuickRow::GgStretch
             | QuickRow::NgpStretch
             | QuickRow::Tg16Stretch
+            | QuickRow::WsStretch
+            | QuickRow::LynxStretch
             | QuickRow::Stretch => "Stretch",
             QuickRow::GbaBlending
             | QuickRow::GbcBlending

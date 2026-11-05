@@ -17,11 +17,13 @@ fn root_for(platform: Platform) -> TempDir {
         Platform::Gba => tmp_root_with_carts(&["Game", "Zzz"]),
         Platform::Gb => tmp_root_with_gb_carts(&["Game", "Zzz"]),
         Platform::Gbc => tmp_root_with_gbc_carts(&["Game", "Zzz"]),
-        Platform::Gg | Platform::Ngp | Platform::Tg16 => {
+        Platform::Gg | Platform::Ngp | Platform::Tg16 | Platform::Ws | Platform::Lynx => {
             let d = tmp_root_with_gb_carts(&[]);
             let (dir, ext) = match platform {
                 Platform::Gg => ("GG", "gg"),
                 Platform::Tg16 => ("TG16", "pce"),
+                Platform::Ws => ("WS", "wsc"),
+                Platform::Lynx => ("Lynx", "lnx"),
                 _ => ("NGP", "ngc"),
             };
             for stem in ["Game", "Zzz"] {
@@ -598,4 +600,71 @@ fn a_turbografx_picture_stretches_to_the_whole_square_panel() {
     a.set_game_bezel(Some(TexId::from_raw(77)));
     assert_eq!(a.shown_game_bezel(), None);
     assert!(a.hidden_rows().contains(&QuickRow::Tg16Bezel));
+}
+
+#[test]
+fn a_wonderswan_or_lynx_game_scales_in_either_orientation_and_follows_a_turn() {
+    // (platform, its buffer, frames as drawn: each with its Integer and Fit size)
+    for (platform, (bw, bh), frames) in [
+        (
+            Platform::Ws,
+            (360.0, 240.0),
+            [
+                ((224, 144), (672.0, 432.0), (720.0, 463.0)),
+                ((144, 224), (432.0, 672.0), (463.0, 720.0)),
+            ],
+        ),
+        (
+            Platform::Lynx,
+            (240.0, 160.0),
+            [
+                ((160, 102), (640.0, 408.0), (720.0, 459.0)),
+                ((102, 160), (408.0, 640.0), (459.0, 720.0)),
+            ],
+        ),
+    ] {
+        let (_d, mut a) = playing(platform, (720, 720), SlotState::default());
+        assert_eq!(a.scale_choices(platform), [Scale::Integer, Scale::Fit]);
+        // One game turning mid-play: the picture follows each frame's shape.
+        for (frame, integer, _) in frames {
+            a.set_frame_shape(frame);
+            assert_eq!(drawn(&a), integer, "{platform:?} {frame:?} at Integer");
+            let (w, h) = (frame.0 as f32, frame.1 as f32);
+            let x = ((bw - w) / 2.0).floor() / bw;
+            let y = ((bh - h) / 2.0).floor() / bh;
+            assert_eq!(
+                a.source_rect(),
+                [x, y, w / bw, h / bh],
+                "{platform:?} {frame:?}"
+            );
+        }
+        to_in_game_row(&mut a, QuickRow::Scale);
+        press(&mut a, Btn::Right);
+        for (frame, _, fit) in frames {
+            a.set_frame_shape(frame);
+            let (w, h) = drawn(&a);
+            assert_eq!((w.round(), h.round()), fit, "{platform:?} {frame:?} at Fit");
+        }
+    }
+}
+
+#[test]
+fn a_wonderswan_or_lynx_game_stretches_to_the_whole_square_panel() {
+    for platform in [Platform::Ws, Platform::Lynx] {
+        let (d, mut a) = playing(platform, (720, 720), SlotState::default());
+        to_in_game_row(&mut a, QuickRow::Stretch);
+        press(&mut a, Btn::Right);
+        assert!(a.picture_fills(), "{platform:?}");
+        assert!(a.game_layout().panel);
+        let saved = slot_store::read_slot_state(d.path());
+        assert_eq!(
+            (saved.stretched_ws, saved.stretched_lynx),
+            (platform == Platform::Ws, platform == Platform::Lynx)
+        );
+        a.apply(Action::QuickMenu);
+        a.apply(Action::StretchOff);
+        assert!(!a.picture_fills(), "{platform:?}: Stretch Off");
+        a.set_game_bezel(Some(TexId::from_raw(77)));
+        assert_eq!(a.shown_game_bezel(), None);
+    }
 }
