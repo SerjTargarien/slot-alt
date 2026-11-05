@@ -182,6 +182,18 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 - **Timeline:** slot starts at 2.28 s and shows its first frame at 5.29 s. The 3 s of
   slot startup (surface 1.56 s, compositor 0.85 s) compare with about 0.6 s under
   ROCKNIX, where libmali was already in the page cache.
+- **Power-on to shelf by stopwatch: 11-12 s** (twice). Kernel start to first frame is
+  about 5.2 s, so about 6 s pass before the kernel starts:
+  - ROCKNIX's U-Boot (2026.01, `bootcmd=bootflow scan -lb`, `boot_targets=mmc1 mmc0 ...`)
+    has **`bootdelay=2`**, a 2 s countdown for a key that never comes;
+  - it then loads the 30 MB `KERNEL` file, most of which is ROCKNIX's unused initramfs.
+
+  Ways to cut it: our own U-Boot with `bootdelay=0` (or a patched copy, if its FIT image
+  isn't hash-checked); our own kernel of around 10 MB without an initramfs; preloading
+  libmali at the start of boot, the GLES-only libmali (about 22 MB), and SDR50 on slot 1
+  for slot's 3 s startup. About 6-7 s looks reachable.
+- **Power-off:** holding power about 2 s in slot runs `poweroff`, which reaches BusyBox
+  init, our shutdown script and the PMIC. It switches the device off cleanly.
 - **Pushing changes to a running rgbslot:** `tar -C overlay -cf - etc/... | ssh ... 'tar -C / -xf -'`,
   then `chown root:root`, because tar keeps the build user's uid.
 
