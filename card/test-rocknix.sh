@@ -139,8 +139,8 @@ done
 
 setup
 FAKE_ACTIVE="essway sway" launch || fail "a clean exit should return 0"
-grep -q "cpu performance gpu performance npu simple_ondemand" "$TMP/card/Logs/slot.log" ||
-	fail "slot should run with the CPU and GPU on performance, other devfreq untouched: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
+grep -q "cpu performance gpu simple_ondemand npu simple_ondemand" "$TMP/card/Logs/slot.log" ||
+	fail "slot should run with the CPU on performance and the GPU on its own governor: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
 [ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")" = schedutil ] ||
 	fail "the CPU governor was not put back"
 [ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor")" = simple_ondemand ] ||
@@ -190,5 +190,12 @@ for governor in performance keep; do
 	[ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq")" = 1800000 ] ||
 		fail "a clock cap left by a crashed slot must be lifted (SLOT_GOVERNOR=$governor)"
 done
+
+setup
+FAKE_ACTIVE="essway sway" SLOT_GPU_GOVERNOR=performance launch || fail "a clean exit should return 0"
+grep -q "cpu performance gpu performance npu simple_ondemand" "$TMP/card/Logs/slot.log" ||
+	fail "SLOT_GPU_GOVERNOR should set the GPU only: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
+[ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor")" = simple_ondemand ] ||
+	fail "the GPU governor was not put back"
 
 echo "rocknix launch: ok"

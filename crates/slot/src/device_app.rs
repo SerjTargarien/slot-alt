@@ -202,8 +202,10 @@ pub fn run() {
         }
         let late = frontend.step_emulator(pacer.period, STEP_TIMEOUT);
         frontend.render(&mut compositor, window);
+        let settling = Instant::now();
         surface.settle();
         let swap = Instant::now();
+        let gpu = swap - settling;
         let work = swap - began;
         if let Err(e) = surface.swap() {
             eprintln!("slot: {e}");
@@ -215,7 +217,7 @@ pub fn run() {
         let dropped = pacer.swapped(work, swap_took > Duration::from_millis(1));
         if let Some((cap, governor)) = &mut clock {
             let budget = pacer.period.saturating_sub(pacer.margin);
-            if let Some(khz) = governor.frame(work, dropped || late, budget) {
+            if let Some(khz) = governor.frame(work, gpu, dropped || late, budget) {
                 cap.set(khz);
                 eprintln!("slot: clock: {} MHz", khz / 1000);
             }

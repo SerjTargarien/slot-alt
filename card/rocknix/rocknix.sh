@@ -2,12 +2,12 @@
 # Runs slot on ROCKNIX in place of EmulationStation, then hands the device back.
 #
 # It stops EmulationStation, sway, InputPlumber and ROCKNIX's hotkey daemon, keeps logind
-# from suspending on the power button, switches the CPU, GPU and memory clocks to the
-# performance governor as ROCKNIX does for games, and runs slot. However slot ends,
-# everything is put back. Ctrl-C, or the SSH session closing, asks slot to save and quit.
-# SLOT_GOVERNOR=keep leaves the governors alone, and SLOT_GOVERNOR=<name> uses that
-# governor wherever it is offered. SLOT_TRACE_POWER=1 logs battery draw and clocks to
-# Logs/power.log every SLOT_POWER_EVERY seconds (5 by default).
+# from suspending on the power button, puts the CPU on the performance governor so slot
+# can cap its clock to the frame budget, and runs slot. However slot ends, everything is
+# put back. Ctrl-C, or the SSH session closing, asks slot to save and quit.
+# SLOT_GOVERNOR sets the CPU governor (keep leaves it alone). The GPU and memory clocks
+# keep their own governors unless SLOT_GPU_GOVERNOR names one. SLOT_TRACE_POWER=1 logs
+# battery draw and clocks to Logs/power.log every SLOT_POWER_EVERY seconds (5 by default).
 
 SYS="$(cd "$(dirname "$0")" && pwd)"
 SD="${SLOT_ROOT:-$(dirname "$SYS")}"
@@ -36,23 +36,31 @@ offers() {
 	grep -qw "$2" "$list" 2> /dev/null
 }
 
+use_governor() {
+	[ -w "$1" ] && offers "$1" "$2" || return 0
+	was="$(cat "$1")"
+	echo "$1 $was" >> "$GOVERNORS"
+	echo "$2" > "$1"
+	echo "governor: ${1#"$SYSFS"/} was $was, now $2"
+}
+
 boost() {
-	want="${SLOT_GOVERNOR:-performance}"
 	GOVERNORS="$(mktemp)"
 	for f in "$SYSFS"/devices/system/cpu/cpufreq/policy*/scaling_max_freq; do
 		[ -w "$f" ] && echo "$f $(cat "$f")" >> "$GOVERNORS"
 	done
-	[ "$want" = keep ] && return
-	for f in "$SYSFS"/devices/system/cpu/cpufreq/policy*/scaling_governor "$SYSFS"/class/devfreq/*/governor; do
-		[ -w "$f" ] || continue
-		case "$f" in
-		*/devfreq/*gpu*/governor | */devfreq/*dmc*/governor | */scaling_governor) ;;
-		*) continue ;;
-		esac
-		offers "$f" "$want" || continue
-		echo "$f $(cat "$f")" >> "$GOVERNORS"
-		echo "$want" > "$f"
-	done
+	cpu="${SLOT_GOVERNOR:-performance}"
+	if [ "$cpu" != keep ]; then
+		for f in "$SYSFS"/devices/system/cpu/cpufreq/policy*/scaling_governor; do
+			use_governor "$f" "$cpu"
+		done
+	fi
+	gpu="${SLOT_GPU_GOVERNOR:-}"
+	if [ -n "$gpu" ] && [ "$gpu" != keep ]; then
+		for f in "$SYSFS"/class/devfreq/*gpu*/governor "$SYSFS"/class/devfreq/*dmc*/governor; do
+			use_governor "$f" "$gpu"
+		done
+	fi
 }
 
 unboost() {
@@ -96,13 +104,6 @@ if command -v systemd-inhibit > /dev/null 2>&1; then
 fi
 
 boost
-if [ -n "$GOVERNORS" ]; then
-	while read -r f governor; do
-		case "$f" in
-		*governor) echo "governor: ${f#"$SYSFS"/} was $governor, now $want" ;;
-		esac
-	done < "$GOVERNORS"
-fi
 
 power_line() {
 	line="$(date +%T)"

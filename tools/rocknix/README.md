@@ -61,13 +61,27 @@ What step 1 adds:
   60.0 Hz, although the mode's timings say 60.69 Hz.
 - **CPU clock by frame budget** (`slot/src/clock.rs`): the CPU stays on the `performance`
   governor, and slot caps `scaling_max_freq` at the lowest step that keeps frames on
-  time. It steps up at the next half-second check after a missed or late frame, or when
-  work passes 85% of the budget (two steps after several misses). It steps down one step
-  after three calm seconds, if the work scaled to the lower clock stays under 65% of the
-  budget. `SLOT_CLOCK=max` turns it off. The launch script also restores the cap, in case
-  slot dies without cleaning up. Measured on the RGB20SX with `performance` everywhere,
-  mGBA drew 2.85 to 3.0 W against about 1.8 W of fixed baseline. `schedutil` drew 2.3 to
-  2.4 W but missed up to two thirds of the vblanks.
+  time. Checks run every half second:
+  - **Up a step** after two missed or late frames, after one while work is over 70% of
+    the budget, or when work passes 85%. Two steps after several misses. A lone miss with
+    the CPU nearly idle is treated as a one-off hitch and ignored.
+  - **Down a step** after three calm seconds, if the predicted work at the lower clock
+    stays under 75% of the budget. Only the CPU part of the work is scaled for that
+    prediction; time spent waiting for the GPU is not.
+
+  `SLOT_CLOCK=max` turns it off. The GPU keeps its own `simple_ondemand` governor unless
+  `SLOT_GPU_GOVERNOR` is set. The launch script restores the cap if slot dies without
+  cleaning up.
+
+  Measured on the RGB20SX (battery draw while playing):
+
+  | Setup | mGBA | gpSP | Gambatte |
+  |---|---|---|---|
+  | `performance` everywhere | 2.85-3.0 W | | |
+  | `schedutil` | 2.3-2.4 W, misses up to 2/3 of vblanks | ~2.4 W, misses | ~2.2 W, misses |
+  | First capped version | stayed at 1800 MHz | 1104 MHz, ~2.3 W, no misses | 816-1104 MHz, 2.1-2.2 W, no misses |
+
+  The fixed baseline is about 1.8 W.
 - **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The
   Anbernic table stays for BaseOS, since the two disagree about codes like `0x138`.
 - **FN** (`slot/src/input/adc.rs`): read from its ADC channel about 60 times a second as

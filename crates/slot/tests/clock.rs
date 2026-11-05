@@ -12,9 +12,17 @@ fn governor() -> Governor {
     Governor::new(parse_steps(RK3566)).unwrap()
 }
 
+fn ms(v: f64) -> Duration {
+    Duration::from_secs_f64(v / 1000.0)
+}
+
 fn run(g: &mut Governor, frames: u32, work_ms: f64, missed: bool) -> Vec<u32> {
+    run_gpu(g, frames, work_ms, 0.0, missed)
+}
+
+fn run_gpu(g: &mut Governor, frames: u32, work_ms: f64, gpu_ms: f64, missed: bool) -> Vec<u32> {
     (0..frames)
-        .filter_map(|_| g.frame(Duration::from_secs_f64(work_ms / 1000.0), missed, budget()))
+        .filter_map(|_| g.frame(ms(work_ms), ms(gpu_ms), missed, budget()))
         .collect()
 }
 
@@ -44,20 +52,56 @@ fn work_that_grows_as_the_clock_drops_settles_where_it_still_fits() {
     let mut g = governor();
     for _ in 0..180 * 20 {
         let work_ms = 4.0 * 1_800_000.0 / f64::from(g.khz());
-        g.frame(Duration::from_secs_f64(work_ms / 1000.0), false, budget());
+        g.frame(ms(work_ms), Duration::ZERO, false, budget());
     }
-    assert_eq!(g.khz(), 1_104_000);
+    assert_eq!(g.khz(), 816_000);
 }
 
 #[test]
-fn a_missed_frame_steps_up_at_the_next_check() {
+fn a_lone_miss_with_headroom_is_a_hitch_and_changes_nothing() {
     let mut g = governor();
     run(&mut g, 180 * 3, 2.0, false);
     let before = g.khz();
-    let mut ups = run(&mut g, 1, 2.0, true);
+    let mut changes = run(&mut g, 1, 2.0, true);
+    changes.extend(run(&mut g, 29, 2.0, false));
+    assert_eq!(changes, Vec::<u32>::new());
+    assert_eq!(g.khz(), before);
+}
+
+#[test]
+fn a_lone_miss_while_the_cpu_is_busy_steps_up() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    let mut ups = run(&mut g, 1, 9.5, true);
     ups.extend(run(&mut g, 29, 2.0, false));
     assert_eq!(ups.len(), 1);
     assert!(ups[0] > before);
+}
+
+#[test]
+fn two_misses_step_up_whatever_the_work() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    let mut ups = run(&mut g, 2, 2.0, true);
+    ups.extend(run(&mut g, 28, 2.0, false));
+    assert_eq!(ups.len(), 1);
+    assert!(ups[0] > before);
+}
+
+#[test]
+fn gpu_wait_is_not_scaled_when_predicting_a_lower_clock() {
+    let mut cpu_only = governor();
+    assert_eq!(
+        run_gpu(&mut cpu_only, 180, 9.0, 0.0, false),
+        Vec::<u32>::new()
+    );
+    let mut with_gpu = governor();
+    assert_eq!(
+        run_gpu(&mut with_gpu, 180, 9.0, 5.0, false),
+        vec![1_608_000]
+    );
 }
 
 #[test]
@@ -85,6 +129,7 @@ fn a_step_up_holds_off_the_next_step_down_for_three_seconds() {
     run(&mut g, 180 * 3, 2.0, false);
     run(&mut g, 30, 2.0, true);
     let after_up = g.khz();
+    assert!(after_up > 1_104_000);
     assert_eq!(run(&mut g, 150, 2.0, false), Vec::<u32>::new());
     assert_eq!(g.khz(), after_up);
 }

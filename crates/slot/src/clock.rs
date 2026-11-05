@@ -5,17 +5,41 @@ use std::time::Duration;
 const CHECK_EVERY: u32 = 30;
 const CALM_FRAMES: u32 = 180;
 const UP_ABOVE: f64 = 0.85;
-const DOWN_BELOW: f64 = 0.65;
+const LONE_MISS_ABOVE: f64 = 0.70;
+const DOWN_BELOW: f64 = 0.75;
 const MANY_MISSES: u32 = 3;
+
+#[derive(Copy, Clone, Default)]
+struct Peak {
+    total: Duration,
+    gpu: Duration,
+}
+
+impl Peak {
+    fn take(&mut self, work: Duration, gpu: Duration) {
+        self.total = self.total.max(work);
+        self.gpu = self.gpu.max(gpu.min(work));
+    }
+
+    fn merge(&mut self, other: Peak) {
+        self.total = self.total.max(other.total);
+        self.gpu = self.gpu.max(other.gpu);
+    }
+
+    fn at(&self, ratio: f64) -> Duration {
+        let cpu = self.total.saturating_sub(self.gpu);
+        cpu.mul_f64(ratio) + self.gpu
+    }
+}
 
 pub struct Governor {
     steps: Vec<u32>,
     index: usize,
     checked: u32,
     misses: u32,
-    window_max: Duration,
+    window: Peak,
     calm: u32,
-    calm_max: Duration,
+    calm_peak: Peak,
 }
 
 impl Governor {
@@ -28,9 +52,9 @@ impl Governor {
             index,
             checked: 0,
             misses: 0,
-            window_max: Duration::ZERO,
+            window: Peak::default(),
             calm: 0,
-            calm_max: Duration::ZERO,
+            calm_peak: Peak::default(),
         })
     }
 
@@ -38,41 +62,40 @@ impl Governor {
         self.steps[self.index]
     }
 
-    pub fn reset_to_top(&mut self) -> Option<u32> {
-        self.calm = 0;
-        self.calm_max = Duration::ZERO;
-        self.set(self.steps.len() - 1)
-    }
-
-    pub fn frame(&mut self, work: Duration, missed: bool, budget: Duration) -> Option<u32> {
+    pub fn frame(
+        &mut self,
+        work: Duration,
+        gpu: Duration,
+        missed: bool,
+        budget: Duration,
+    ) -> Option<u32> {
         self.checked += 1;
         self.misses += u32::from(missed);
-        self.window_max = self.window_max.max(work);
+        self.window.take(work, gpu);
         if self.checked < CHECK_EVERY {
             return None;
         }
-        let (misses, peak) = (self.misses, self.window_max);
+        let (misses, peak) = (self.misses, std::mem::take(&mut self.window));
         self.checked = 0;
         self.misses = 0;
-        self.window_max = Duration::ZERO;
-        if misses > 0 || peak > budget.mul_f64(UP_ABOVE) {
+        let cpu_bound_miss =
+            misses > 1 || (misses == 1 && peak.total > budget.mul_f64(LONE_MISS_ABOVE));
+        if cpu_bound_miss || peak.total > budget.mul_f64(UP_ABOVE) {
             self.calm = 0;
-            self.calm_max = Duration::ZERO;
+            self.calm_peak = Peak::default();
             let jump = if misses >= MANY_MISSES { 2 } else { 1 };
             return self.set((self.index + jump).min(self.steps.len() - 1));
         }
         self.calm += CHECK_EVERY;
-        self.calm_max = self.calm_max.max(peak);
+        self.calm_peak.merge(peak);
         if self.calm < CALM_FRAMES || self.index == 0 {
             return None;
         }
-        let lower = self.steps[self.index - 1];
-        let scaled = self
-            .calm_max
-            .mul_f64(f64::from(self.khz()) / f64::from(lower));
+        let ratio = f64::from(self.khz()) / f64::from(self.steps[self.index - 1]);
+        let predicted = self.calm_peak.at(ratio);
         self.calm = 0;
-        self.calm_max = Duration::ZERO;
-        match scaled < budget.mul_f64(DOWN_BELOW) {
+        self.calm_peak = Peak::default();
+        match predicted < budget.mul_f64(DOWN_BELOW) {
             true => self.set(self.index - 1),
             false => None,
         }
