@@ -36,17 +36,36 @@ settings, in-game menu, core picker, clock, About, screenshots and games. Captur
 with `sh tools/distro/dev.sh shot NAME`; `dev.sh capture NAME SLOT_TALL_PANELS=0` shows
 the old band layout for a before and after.
 
-**What slot² still lacks compared with slot on its own devices.** `/etc/slot-device`
-says `WIFI=0` (as ROCKNIX's preset does), so slot leaves Wi-Fi to the OS:
-- `set_wifi_absent()` (`frontend.rs`): no Wi-Fi worker, so the network menu can't join a
-  network, and nothing that needs the internet runs: box-art fetch, self-update, RomM,
-  the update scenes.
-- Link play: the in-game link menu shows the "no Wi-Fi" toast (`open_game_menu`).
-- The clock can't sync: `set_ntp` calls `timedatectl`, which slot² doesn't have.
-  Setting the time by hand uses `date` and `hwclock`.
-- The boot logo refresh is skipped (`device_app.rs`).
-The fix for all of them is slot's device layer (PLAN.md decision 5), with self-update
-pointed at our builds or kept off.
+**Wi-Fi is slot's now (device layer step 2, 2026-11-05 evening).** `/etc/slot-device`
+says `WIFI=1`. The OS boot script only starts SSH. slot starts `wpa_supplicant` on the
+card's `Config/wifi.conf` through `System/slotlink.sh`, holds it on the shelf and in menus,
+and lets it go in games. The user's network was entered again in slot's network menu; the
+OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer writes one.
+- **SSH during games:** a `slotsq-dev` file at the card's root makes the frontend export
+  `SLOT_WIFI_KEEP=1`, and slot keeps Wi-Fi held in games too (sleep still releases it).
+  It is there now. **Remove it for battery runs**, and log on the device.
+- **Leaving a game** used to send `slotlink.sh link down` even with no link session.
+  That also stops slot's own Wi-Fi (`link_clear` calls `wifi_stop`) while slot still
+  believed it held it, so Wi-Fi stayed down until a reboot. Upstream never notices (it
+  holds no Wi-Fi in games). Now only a session gets `link down`; otherwise just `cool`.
+  **Step 4 must handle the same thing after a link session** with `SLOT_WIFI_KEEP`:
+  `end_link` should let the Wi-Fi worker hold Wi-Fi again once `link down` has run.
+- **Until slot joins a network there is no SSH.** If slot's Wi-Fi breaks, swap to the
+  ROCKNIX card and read the dev card's `Logs/slot.log` from there.
+- **Power save:** `/usr/share/udhcpc/default.script.d/power-save` turns it on whenever
+  udhcpc gets a lease. Checked: on, in a game.
+- **Network time:** slot calls `timedatectl` (`slot-power` `set_ntp`). slot² ships a
+  stand-in, `/usr/bin/timedatectl`, that answers `show -p NTP --value` and `set-ntp`
+  with BusyBox `ntpd` (`/run/ntpd.pid`); `/etc/slotsq/ntp-synced` writes the RTC after
+  each sync. Checked by hand: it corrected a 5-minute drift. slot's "network time"
+  setting is off on this card.
+- **BusyBox** gained `ntpd` and `rfkill` (`board/rgb20sx/busybox.fragment`). A changed
+  fragment needs `make busybox-dirclean` before `dev.sh build`.
+- **Not checked yet:** box-art fetch and RomM over slot's Wi-Fi; the radio really
+  powering off in games without `slotsq-dev` (the battery run will show it). The boot
+  logo refresh stays off (`BOOT_LOGO=0`).
+- **Self-update is off** (`SELF_UPDATE=0`): no "Check for updates" row, since an
+  upstream build can't drive this display (decision 5 below).
 
 **Device-layer decisions (2026-11-05, evening):**
 - Order: (1) a device description file the OS ships and slot reads, replacing the
@@ -71,14 +90,15 @@ pointed at our builds or kept off.
 macOS; `romm_ui` needs `--features romm`.
 
 **Next, in order:**
-1. **slot's device layer.** Step 1 is done: slot reads `/etc/slot-device`
+1. **slot's device layer.** Steps 1 and 2 are done: slot reads `/etc/slot-device`
    (`crates/slot/src/hardware.rs`; keys `DISPLAY`, `BUTTONS`, `FN_ADC`, `CPU_CAP`, `WIFI`,
-   `LEFT_STICK`, `BOOT_LOGO`), falling back to the ROCKNIX preset or BaseOS. Next: bring Wi-Fi features back
-   (network menu, link play, box art, NTP without `timedatectl`), and fix the update
-   scenes, which still draw their carts in band coordinates.
-2. **Wi-Fi radio off when slot doesn't need it,** and power save off during link play
-   (measured: 0.13-0.19 W, see PLAN.md). Then link play cross-device on 2.4 GHz.
-3. **A battery run on our kernel** (CPU idle states may differ from ROCKNIX's).
+   `LEFT_STICK`, `BOOT_LOGO`), falling back to the ROCKNIX preset or BaseOS, and it runs
+   Wi-Fi. Step 3: check box art and RomM, point self-update at our builds some day, and fix the update scenes, which still draw their carts in band
+   coordinates.
+2. **A battery run on our kernel without `slotsq-dev`** (CPU idle states may differ from
+   ROCKNIX's; the radio should now be off in games, worth 0.13-0.19 W, PLAN.md).
+3. **Link play (step 4)** when the second device (vanilla slot) arrives: host on `wlan0`
+   on 2.4 GHz, power save off during play.
 4. **Our own U-Boot** (no 2 s countdown).
 5. Later: more menu rows on a tall canvas (`QUICK_VISIBLE` is 6), a crisper wallpaper,
    then systems from slotPlus.

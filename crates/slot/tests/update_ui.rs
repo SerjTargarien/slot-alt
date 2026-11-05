@@ -149,6 +149,17 @@ fn check_for_updates_opens_the_ota_scene() {
 }
 
 #[test]
+fn a_device_without_self_update_hides_the_row_and_never_checks() {
+    let (_d, mut a, jobs) = on_updates();
+    a.set_self_update(false);
+    assert!(!a.update_offered());
+    assert!(a.hidden_rows().contains(&QuickRow::CheckUpdates));
+    press(&mut a, Btn::A);
+    assert!(jobs.asked().is_empty());
+    assert!(!a.update_shown());
+}
+
+#[test]
 fn y_checks_and_a_newer_release_offers_install() {
     let (_d, mut a, jobs) = on_updates();
     assert!(a.update_offered());

@@ -32,6 +32,10 @@ case "$(uname -r)" in
 *) export SLOT_FN_ADC=/sys/bus/iio/devices/iio:device0/in_voltage0_raw ;;
 esac
 
+# Development: with a slotsq-dev file on the card, slot keeps Wi-Fi up in games too, so
+# SSH stays reachable. Remove it for battery runs.
+[ -f "$SD/slotsq-dev" ] && export SLOT_WIFI_KEEP=1
+
 # Development: extra variables for the next start, e.g. SLOT_TALL_PANELS=0 to compare
 # layouts. /run is a tmpfs, so this never survives a reboot.
 [ -f /run/slot.env ] && . /run/slot.env

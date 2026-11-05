@@ -165,29 +165,11 @@ grep -q " $root " /proc/mounts || mount -t ext4 "${CARD}p2" "$root"
 find "$root" -mindepth 1 -maxdepth 1 ! -name lost+found -exec rm -rf {} +
 EOF
 	on_device "tar -C /tmp/slotsq-root -xf -" < "$tarball"
-	# The Wi-Fi network is copied from ROCKNIX's iwd on the device itself, so its key
-	# never leaves the device and never reaches git or the image.
+	# slot keeps the Wi-Fi network in Config/wifi.conf on the SLOT partition, which this
+	# doesn't touch, so a reinstall keeps it.
 	on_device "sh -s" << 'EOF'
 set -eu
 root=/tmp/slotsq-root
-psk="$(ls /storage/.cache/iwd/*.psk 2>/dev/null | head -1)"
-if [ -n "$psk" ]; then
-	ssid="$(basename "$psk" .psk)"
-	pass="$(sed -n 's/^Passphrase=//p' "$psk")"
-	key="$(sed -n 's/^PreSharedKey=//p' "$psk")"
-	umask 077
-	{
-		echo "ctrl_interface=/var/run/wpa_supplicant"
-		echo "update_config=1"
-		echo "network={"
-		echo "	ssid=\"$ssid\""
-		if [ -n "$pass" ]; then echo "	psk=\"$pass\""; else echo "	psk=$key"; fi
-		echo "}"
-	} > "$root/etc/wpa_supplicant.conf"
-	echo "Wi-Fi network $ssid copied"
-else
-	echo "no saved iwd network, slotsq will have no Wi-Fi"
-fi
 [ -x "$root/sbin/init" ] || [ -L "$root/sbin/init" ] || { echo "no /sbin/init in the root"; exit 1; }
 [ -e "$root/lib/ld-linux-aarch64.so.1" ] || { echo "no dynamic loader in the root"; exit 1; }
 du -sh "$root"
@@ -285,9 +267,11 @@ EOF
 # take effect at the next boot.
 overlay() {
 	target="$BUILD/output/target"
-	files="$(cd "$EXTERNAL/board/rgb20sx/rootfs-overlay" && find . -type f | sed 's|^\./||')"
+	# One line: the list goes into the remote command, where a newline would run each
+	# path as a command.
+	files="$(cd "$EXTERNAL/board/rgb20sx/rootfs-overlay" && find . -type f | sed 's|^\./||' | tr '\n' ' ')"
 	tar -C "$target" -cf - $files etc/hostname etc/issue usr/lib/os-release etc/os-release |
-		on_slotsq "tar -C / -xf - && chown -R root:root /etc/slotsq /etc/slot-device /etc/inittab /etc/asound.conf /etc/hostname /etc/issue /usr/lib/os-release && echo pushed: $(echo $files | wc -w) overlay files"
+		on_slotsq "tar -C / -xf - && cd / && chown root:root $files etc/hostname etc/issue usr/lib/os-release && echo pushed: $(echo $files | wc -w) overlay files"
 }
 
 # Puts our own kernel (output/images/Image), its dtb and its modules onto a running

@@ -401,6 +401,35 @@ fn a_shut_lid_cools_the_radio() {
 }
 
 #[test]
+fn leaving_a_game_without_a_session_leaves_wifi_alone() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    let log = RadioLog::default();
+    a.set_radio_jobs(Box::new(log.clone()));
+    a.apply(Action::Eject);
+    let jobs = log.jobs();
+    assert!(
+        !jobs.contains(&RadioJob::Down),
+        "link down would stop the Wi-Fi slot keeps up in games: {jobs:?}"
+    );
+    assert!(jobs.contains(&RadioJob::Cool));
+}
+
+#[test]
+fn leaving_a_game_ends_its_session_and_network() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    let log = RadioLog::default();
+    a.set_radio_jobs(Box::new(log.clone()));
+    a.begin_link(0);
+    a.apply(Action::Eject);
+    assert!(!a.link_active());
+    let jobs = log.jobs();
+    assert_eq!(jobs.first(), Some(&RadioJob::Down), "{jobs:?}");
+    assert_eq!(jobs.iter().filter(|j| **j == RadioJob::Down).count(), 1);
+}
+
+#[test]
 fn a_shut_lid_over_a_session_takes_its_network_down_too() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");

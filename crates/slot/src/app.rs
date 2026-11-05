@@ -655,6 +655,8 @@ pub struct App {
     pair_faces: Option<PairFaces>,
     fetch_art: Option<FetchArt>,
     wifi_held: bool,
+    wifi_keep: bool,
+    self_update: bool,
     wifi_boot_blocked: bool,
     wifi_probe: Option<(PathBuf, Millis)>,
     core_stale: bool,
@@ -841,6 +843,8 @@ impl App {
             pair_faces: None,
             fetch_art: None,
             wifi_held: false,
+            wifi_keep: false,
+            self_update: true,
             wifi_boot_blocked: false,
             wifi_probe: None,
             core_stale: false,
@@ -2113,6 +2117,9 @@ impl App {
         }
         if self.wifi_probe.is_some() {
             hidden.extend([QuickRow::Network, QuickRow::Wifi]);
+        }
+        if !self.self_update {
+            hidden.push(QuickRow::CheckUpdates);
         }
         if self.state.wifi_off {
             hidden.push(QuickRow::Networks);
@@ -6220,7 +6227,12 @@ impl App {
             Phase::Playing { cart } | Phase::Inserting { cart, .. } => std::mem::take(cart),
             _ => return,
         };
-        self.end_link();
+        // `link down` also stops slot's own Wi-Fi (slotlink.sh link_clear), so only a
+        // session needs it. Upstream holds no Wi-Fi in a game, but SLOT_WIFI_KEEP does.
+        match self.link_active() {
+            true => self.end_link(),
+            false => self.radio.ask(RadioJob::Cool),
+        }
         self.close_game_menu();
         self.flush_eject(&cart);
         self.pending = None;
@@ -6642,7 +6654,7 @@ impl App {
     }
 
     fn wifi_wanted(&self) -> bool {
-        matches!(
+        let screen = matches!(
             self.phase,
             Phase::Shelf
                 | Phase::QuickMenu { .. }
@@ -6653,7 +6665,8 @@ impl App {
                 | Phase::NetworkPage { .. }
                 | Phase::RommPair
                 | Phase::Unwrap { .. }
-        ) && self.seated_cart().is_none()
+        ) && self.seated_cart().is_none();
+        (screen || self.wifi_keep)
             && !self.link_active()
             && !self.shutting_down()
             && !self.state.wifi_off
@@ -6696,6 +6709,17 @@ impl App {
         if self.wifi_wanted() {
             self.hold_wifi();
         }
+    }
+
+    /// Off where an upstream build couldn't run (hardware.rs `SELF_UPDATE`): no "Check for
+    /// updates" row, and no check.
+    pub fn set_self_update(&mut self, on: bool) {
+        self.self_update = on;
+    }
+
+    /// Development: keep Wi-Fi held in games too, so SSH stays up (`SLOT_WIFI_KEEP=1`).
+    pub fn set_wifi_keep(&mut self, keep: bool) {
+        self.wifi_keep = keep;
     }
 
     pub fn set_wifi_probe(&mut self, wlan0: PathBuf) {
@@ -8214,7 +8238,7 @@ impl App {
     }
 
     pub fn update_offered(&self) -> bool {
-        !self.update_busy && !self.art_busy() && !self.link_active()
+        self.self_update && !self.update_busy && !self.art_busy() && !self.link_active()
     }
 
     fn has_saved(&self) -> bool {

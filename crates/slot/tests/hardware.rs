@@ -10,6 +10,7 @@ CPU_CAP=1
 WIFI=0
 LEFT_STICK=1
 BOOT_LOGO=0
+SELF_UPDATE=0
 ";
 
 #[test]
@@ -23,6 +24,7 @@ fn a_description_file_sets_every_field() {
     assert!(!hw.wifi);
     assert_eq!(hw.left_stick, Some(true));
     assert!(!hw.boot_logo);
+    assert!(!hw.self_update);
 }
 
 #[test]
@@ -47,6 +49,7 @@ fn rocknix_reads_fn_from_the_adc_only_on_the_rgb20sx() {
     );
     assert!(rgb.cpu_cap);
     assert!(!rgb.wifi);
+    assert!(!rgb.self_update);
     assert_eq!(Hardware::rocknix("Anbernic RG353V").fn_adc, None);
 }
 

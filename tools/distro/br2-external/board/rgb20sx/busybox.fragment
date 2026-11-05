@@ -1,0 +1,6 @@
+# Added to Buildroot's BusyBox config: network time (slot's timedatectl, see
+# rootfs-overlay/usr/bin/timedatectl) and rfkill (slotlink.sh turns the radio off with it).
+CONFIG_NTPD=y
+# CONFIG_FEATURE_NTPD_SERVER is not set
+# CONFIG_FEATURE_NTPD_CONF is not set
+CONFIG_RFKILL=y

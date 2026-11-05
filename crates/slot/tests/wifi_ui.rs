@@ -125,6 +125,30 @@ fn a_game_releases_it() {
 }
 
 #[test]
+fn the_development_switch_keeps_it_in_a_game() {
+    let _g = serial();
+    let (_d, mut a, log) = on_shelf();
+    a.set_wifi_keep(true);
+    settle(&mut a);
+    a.apply(Action::Insert);
+    frames(&mut a, 2);
+    settle(&mut a);
+    assert_eq!(count(&log, "stop"), 0);
+    assert!(a.wifi().held);
+}
+
+#[test]
+fn the_development_switch_still_lets_sleep_release_it() {
+    let _g = serial();
+    let (_d, mut a, log) = on_shelf();
+    a.set_wifi_keep(true);
+    settle(&mut a);
+    a.apply(Action::LidClose);
+    frames(&mut a, 2);
+    assert_eq!(count(&log, "stop"), 1);
+}
+
+#[test]
 fn sleep_releases_it_and_waking_holds_it_again() {
     let _g = serial();
     let (_d, mut a, log) = on_shelf();

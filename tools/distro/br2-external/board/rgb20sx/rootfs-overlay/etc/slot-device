@@ -9,6 +9,8 @@ BUTTONS=gamepad
 # which drops it.
 FN_ADC=
 CPU_CAP=1
-# slot leaves Wi-Fi to the OS until the device layer's step 2 (tools/rocknix/HANDOFF.md).
-WIFI=0
+# slot runs Wi-Fi (card/System/slotlink.sh, Config/wifi.conf); the OS doesn't start it.
+WIFI=1
 BOOT_LOGO=0
+# An upstream slot build can't drive this display yet, so no "Check for updates".
+SELF_UPDATE=0

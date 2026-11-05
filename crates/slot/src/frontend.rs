@@ -517,6 +517,14 @@ impl Frontend {
             session.app_mut().set_wifi(wifi_worker(platform.root()));
         }
         #[cfg(feature = "device")]
+        session
+            .app_mut()
+            .set_self_update(crate::hardware::current().self_update);
+        #[cfg(feature = "device")]
+        session
+            .app_mut()
+            .set_wifi_keep(std::env::var("SLOT_WIFI_KEEP").is_ok_and(|v| v == "1"));
+        #[cfg(feature = "device")]
         if !no_wifi {
             session
                 .app_mut()

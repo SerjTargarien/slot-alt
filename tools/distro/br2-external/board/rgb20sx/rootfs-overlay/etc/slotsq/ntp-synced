@@ -1,0 +1,6 @@
+#!/bin/sh
+# BusyBox ntpd runs this after it sets the clock ($1 is step, stratum, periodic or
+# unsync). Keep the RTC in step, so the time is right before the network is.
+case "$1" in
+step | stratum | periodic) hwclock -w -u ;;
+esac

@@ -40,6 +40,9 @@ pub struct Hardware {
     pub left_stick: Option<bool>,
     /// slot refreshes BaseOS's boot logo from the card.
     pub boot_logo: bool,
+    /// slot may offer upstream's updates. Off where an upstream build couldn't drive the
+    /// device.
+    pub self_update: bool,
 }
 
 impl Hardware {
@@ -54,6 +57,7 @@ impl Hardware {
             wifi: true,
             left_stick: None,
             boot_logo: true,
+            self_update: true,
         }
     }
 
@@ -70,6 +74,7 @@ impl Hardware {
             wifi: false,
             left_stick: None,
             boot_logo: false,
+            self_update: false,
         }
     }
 
@@ -97,6 +102,7 @@ impl Hardware {
             wifi: flag("WIFI", base.wifi),
             left_stick: get("LEFT_STICK").map(|_| flag("LEFT_STICK", false)),
             boot_logo: flag("BOOT_LOGO", base.boot_logo),
+            self_update: flag("SELF_UPDATE", base.self_update),
         }
     }
 

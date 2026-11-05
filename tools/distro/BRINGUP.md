@@ -298,9 +298,10 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
 - **Upstream slot owns Wi-Fi:** started with an empty `Config/wifi.conf`, it restarted
   `wpa_supplicant` with that file and dropped the connection, and SSH with it. Seed the
   card's `Config/wifi.conf` or run builds that hide Wi-Fi when SSH matters.
-- **The Wi-Fi network** comes from ROCKNIX's iwd file `/storage/.cache/iwd/<SSID>.psk`
-  (`Passphrase=` or `PreSharedKey=`). It's converted into `/etc/wpa_supplicant.conf` on
-  the device, so the key never leaves it.
+- **The Wi-Fi network** came from ROCKNIX's iwd file `/storage/.cache/iwd/<SSID>.psk`
+  (`Passphrase=` or `PreSharedKey=`), converted into `/etc/wpa_supplicant.conf` on the
+  device, until slot took over Wi-Fi (device layer step 2). Now it is entered once in
+  slot's network menu and lives in the card's `Config/wifi.conf`.
 
 ## Attempts, in order
 
