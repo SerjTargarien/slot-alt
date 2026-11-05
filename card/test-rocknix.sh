@@ -64,7 +64,7 @@ setup() {
 	cp "$SCRIPT" "$TMP/card/System/rocknix.sh"
 	: > "$TMP/log"
 	cat > "$TMP/card/System/slot" << EOF
-echo "root \$SLOT_ROOT platform \$SLOT_PLATFORM"
+echo "root \$SLOT_ROOT platform \$SLOT_PLATFORM alsa \${SLOT_ALSA_DEVICE:-none}"
 echo "cpu \$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor") gpu \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor") npu \$(cat "$TMP/sys/class/devfreq/fde40000.npu/governor") gpu floor \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/min_freq")"
 echo started > "$TMP/started"
 trap 'echo saved; exit 0' TERM
@@ -217,5 +217,17 @@ setup
 FAKE_ACTIVE="essway sway" FAKE_STATUS=3 launch || true
 [ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/min_freq")" = 200000000 ] ||
 	fail "the GPU floor must come back when slot fails"
+
+setup
+FAKE_ACTIVE="essway sway pipewire wireplumber pipewire-pulse" SLOT_AUDIO=alsa launch || fail "a clean exit should return 0"
+want="stop essway,stop sway,stop pipewire-pulse,stop wireplumber,stop pipewire,start pipewire,start wireplumber,start pipewire-pulse,start sway,start essway"
+[ "$(calls)" = "$want" ] || fail "SLOT_AUDIO=alsa should stop PipeWire for the session and bring it back: $(calls)"
+grep -q "alsa plughw:CARD=rk817ext,DEV=0" "$TMP/card/Logs/slot.log" ||
+	fail "SLOT_AUDIO=alsa should point slot at the speaker card: $(grep '^root' "$TMP/card/Logs/slot.log")"
+
+setup
+FAKE_ACTIVE="essway sway pipewire" launch || fail "a clean exit should return 0"
+[ "$(calls)" = "stop essway,stop sway,start sway,start essway" ] || fail "PipeWire is left alone by default: $(calls)"
+grep -q "alsa none" "$TMP/card/Logs/slot.log" || fail "no ALSA device unless asked"
 
 echo "rocknix launch: ok"

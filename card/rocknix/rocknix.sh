@@ -21,6 +21,13 @@ PROFILE="${SLOT_PROFILE:-/etc/profile}"
 SYSFS="${SLOT_SYSFS:-/sys}"
 STOP_ORDER="essway sway inputplumber input"
 START_ORDER="inputplumber input sway essway"
+# SLOT_AUDIO=alsa stops PipeWire for the session and sends slot straight to the speaker
+# card, to compare direct ALSA with PipeWire.
+if [ "${SLOT_AUDIO:-}" = alsa ]; then
+	STOP_ORDER="$STOP_ORDER pipewire-pulse wireplumber pipewire"
+	START_ORDER="pipewire wireplumber pipewire-pulse $START_ORDER"
+	export SLOT_ALSA_DEVICE="${SLOT_ALSA_DEVICE:-plughw:CARD=rk817ext,DEV=0}"
+fi
 
 STOPPED=""
 SLOT_PID=""

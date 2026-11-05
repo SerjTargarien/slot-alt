@@ -81,7 +81,10 @@ impl Alsa {
 
     fn open_pcm(&self, rate: u32) -> Result<*mut c_void, AudioError> {
         let mut last = AudioError::NoDevice;
-        for name in DEVICES {
+        let chosen = std::env::var("SLOT_ALSA_DEVICE")
+            .ok()
+            .filter(|d| !d.is_empty());
+        for name in chosen.iter().map(String::as_str).chain(DEVICES) {
             let Ok(cname) = CString::new(name) else {
                 continue;
             };
