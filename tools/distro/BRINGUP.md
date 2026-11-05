@@ -163,6 +163,28 @@ built in, as JEBRISH (`github.com/davidthings/spokelinux`) does with
   - in `/usr/lib`: `libmali.so.1.10.0` (g29p1 GBM), `libmali-hook.so.1.10.0`, and the
     wrappers `libEGL.so.1`, `libGLESv2.so.2`, `libgbm.so.1` with their symlinks.
 
+### Booting into slot (phase 2)
+
+- **`/etc/inittab`:** `::sysinit:/etc/rgbslot/boot`, then `::respawn:/etc/rgbslot/frontend`.
+  BusyBox init waits for every sysinit entry before starting respawn entries, so the boot
+  script puts Wi-Fi and SSH in a background subshell and returns at about 2.24 s.
+- **`/etc/rgbslot/frontend`:** exports `SLOT_ROOT=/mnt/sdcard`, `SLOT_RUN=/run` and,
+  until the device layer exists, `SLOT_PLATFORM=rocknix`. It runs `System/frontend` if
+  present, else `System/slot`, through the loader, logs to `Logs/slot.log`, and sleeps
+  3 s if slot dies within 5 s so init doesn't spin. The card's BaseOS
+  `launch_frontend.sh` is not used yet: its LED and lid helpers are unchecked on this
+  hardware.
+- **`/etc/asound.conf`:** `default` is a plug on `hw:CARD=rk817ext,DEV=0`, so
+  `SLOT_ALSA_DEVICE` isn't needed.
+- **In the boot script:** the 400 MHz GPU floor (`min_freq`) right after `mali_kbase`;
+  `iw dev wlan0 set power_save on` after `udhcpc`.
+- **Kernel command line:** `quiet` instead of `loglevel=8` saved 0.4 s to init (1.59 s).
+- **Timeline:** slot starts at 2.28 s and shows its first frame at 5.29 s. The 3 s of
+  slot startup (surface 1.56 s, compositor 0.85 s) compare with about 0.6 s under
+  ROCKNIX, where libmali was already in the page cache.
+- **Pushing changes to a running rgbslot:** `tar -C overlay -cf - etc/... | ssh ... 'tar -C / -xf -'`,
+  then `chown root:root`, because tar keeps the build user's uid.
+
 ### Traps, each of which cost a build or a boot
 
 - **WSL's `PATH` contains Windows folders with spaces,** and Buildroot refuses to run.

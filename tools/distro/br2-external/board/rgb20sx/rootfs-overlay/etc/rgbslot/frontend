@@ -1,0 +1,43 @@
+#!/bin/sh
+# rgbslot frontend: runs slot from the card. BusyBox init starts this again whenever it
+# exits. Like BaseOS, System/frontend wins if a card has one, else System/slot.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SD=/mnt/sdcard
+LOGS="$SD/Logs"
+LOADER=/lib/ld-linux-aarch64.so.1
+
+say() {
+	echo "$(cut -d' ' -f1 /proc/uptime) $*" >> "$SD/rgbslot-boot.log"
+	echo "rgbslot: $*" > /dev/tty0 2>/dev/null
+}
+
+if [ -x "$SD/System/frontend" ] || [ -f "$SD/System/frontend" ]; then
+	app="$SD/System/frontend"
+elif [ -f "$SD/System/slot" ]; then
+	app="$SD/System/slot"
+else
+	say "no System/slot on the card"
+	sleep 5
+	exit 1
+fi
+
+export SLOT_ROOT="$SD"
+export SLOT_RUN=/run
+# Until slot reads the device description from the OS, this selects its RGB20SX paths
+# (KMS display, gamepad buttons, FN through the ADC, the clock cap).
+export SLOT_PLATFORM=rocknix
+
+mkdir -p "$LOGS"
+[ -f "$LOGS/slot.log" ] && mv -f "$LOGS/slot.log" "$LOGS/slot.log.1"
+say "starting $app"
+began="$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)"
+cd "$SD"
+"$LOADER" "$app" > "$LOGS/slot.log" 2>&1 < /dev/null
+status=$?
+say "slot exited with status $status"
+now="$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)"
+# Don't spin if it dies at once.
+[ $((now - began)) -lt 5 ] && sleep 3
+exit "$status"

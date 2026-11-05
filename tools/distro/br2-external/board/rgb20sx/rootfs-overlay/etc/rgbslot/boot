@@ -59,6 +59,14 @@ for m in mali_kbase rtw88_8723ds; do
 	modprobe "$m" && say "loaded $m" || say "could not load $m"
 done
 
+# The GPU's own governor keeps it at 200 MHz under slot's short bursts, and the long GPU
+# wait then pushes the CPU up. A 400 MHz floor measured cheapest (tools/distro/PLAN.md).
+gpu=/sys/class/devfreq/fde60000.gpu
+[ -w "$gpu/min_freq" ] && echo 400000000 > "$gpu/min_freq" && say "GPU floor 400 MHz"
+
+# Network and SSH come up in the background: init waits for this script before it
+# starts the frontend, and slot doesn't need the network to start.
+(
 i=0
 while [ ! -d /sys/class/net/wlan0 ] && [ "$i" -lt 50 ]; do
 	sleep 0.1
@@ -69,7 +77,9 @@ if [ -d /sys/class/net/wlan0 ] && [ -f /etc/wpa_supplicant.conf ]; then
 	ip link set wlan0 up
 	wpa_supplicant -B -i wlan0 -D nl80211 -c /etc/wpa_supplicant.conf
 	udhcpc -i wlan0 -b -x hostname:rgbslot -p /run/udhcpc.wlan0.pid > /dev/null 2>&1
-	say "Wi-Fi started"
+	# Power save keeps the connection and saves 0.13 W on the shelf (PLAN.md).
+	iw dev wlan0 set power_save on
+	say "Wi-Fi started, power save on"
 else
 	say "no wlan0 or no /etc/wpa_supplicant.conf"
 fi
@@ -99,4 +109,5 @@ if [ -z "$addr" ]; then
 	} >> "$LOG" 2>&1
 	sync
 fi
-
+) &
+say "boot script done"

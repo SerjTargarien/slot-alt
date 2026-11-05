@@ -3,7 +3,9 @@
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 Phase 1 done: our root boots and SSH logins work (init at 1.97 s, SSH at 6.7-9.7 s,
 54 MB RAM). Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,
-sound, clock cap all work). Next: start it at boot. How it boots, and every
+sound, clock cap all work). rgbslot boots straight into slot: first frame 5.29 s after kernel start (init 1.59 s,
+slot started at 2.28 s, then 3.0 s of slot startup, against 0.6 s under ROCKNIX: the
+cold 57 MB libmali read and shader setup). How it boots, and every
 trap found on the way, is in `BRINGUP.md`.
 
 ## Goals

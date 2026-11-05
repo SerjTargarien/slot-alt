@@ -231,7 +231,7 @@ LABEL rgbslot
   LINUX /KERNEL
   FDT /device_trees/rk3566-powkiddy-rgb20sx.dtb
   INITRD /rootdir.cpio
-  APPEND console=ttyS2,1500000 console=tty0 loglevel=8 rdinit=/nonexistent root=PARTUUID=$uuid rootwait rootfstype=ext4 init=/sbin/init panic=0
+  APPEND console=ttyS2,1500000 console=tty0 quiet rdinit=/nonexistent root=PARTUUID=$uuid rootwait rootfstype=ext4 init=/sbin/init panic=0
 CONF
 sync
 umount "$slot"
