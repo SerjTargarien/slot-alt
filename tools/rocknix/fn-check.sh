@@ -136,7 +136,7 @@ check() {
 	done
 	dmesg 2>/dev/null | grep -iE 'adc-keys|saradc' | tail -n 5
 	command -v python3 > /dev/null && HAVE_PY=1 || HAVE_PY=""
-	echo "python3: ${HAVE_PY:+yes}${HAVE_PY:-no}"
+	echo "python3: $([ -n "$HAVE_PY" ] && echo yes || echo no)"
 	[ -n "$NODE" ] || { restore; return; }
 
 	section "part 1: InputPlumber stopped, sway running"
