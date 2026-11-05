@@ -27,8 +27,13 @@ The fixed baseline is about 1.8 W, so what's left to win is mostly in the baseli
 which only our own OS can cut. mGBA's CPU part alone is about 6 ms on average and up to
 10 ms at 1800 MHz, so 1800 MHz is its floor.
 
-**Current focus: our own minimal OS** (`tools/distro/PLAN.md`). Phase 0 is done: direct
-ALSA and the Mali blob. Next is phase 1, booting our own root from the second card slot.
+**Current focus: our own minimal OS, rgbslot** (`tools/distro/PLAN.md`). Phase 0 is done:
+direct ALSA and the Mali blob. Phase 1: our own Buildroot root boots from the dev card
+(SSH ready 6.73 s after kernel start). `tools/distro/BRINGUP.md` has the full recipe and
+every trap found on the way. Read it before touching the boot setup. Work with
+`tools/distro/dev.sh`. Systems are switched by **swapping the two cards** (the dev card in
+slot 1 boots rgbslot; the ROCKNIX card in slot 1 boots ROCKNIX). ROCKNIX's games card
+auto-detect is off (`system.automount=0`) so it leaves the dev card alone.
 
 ## What this session found and changed
 

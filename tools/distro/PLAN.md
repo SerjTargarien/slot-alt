@@ -1,6 +1,8 @@
 # Plan: a minimal OS for slot on the RGB20SX
 
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
+Phase 1: our root boots (SSH ready 6.73 s after kernel start). How it boots, and every
+trap found on the way, is in `BRINGUP.md`.
 
 ## Goals
 
@@ -117,7 +119,10 @@ current card, and they change what the new image must contain.
   (or USB gadget networking).
 - Try ROCKNIX's kernel with `rdinit=/none` first, and build the kernel only if that fails.
 - Exit: SSH into our own system. Kernel-to-shell time measured.
-- **Dev setup (proposed):** the dev card stays in the second slot (`mmcblk2`) and the
+- **Dev setup used: card swaps** (see `BRINGUP.md`). The dev card boots on its own
+  from slot 1. The one-shot entry described next looped the device on a kernel panic
+  and is kept only as a record.
+- **Dev setup first proposed (superseded):** the dev card stays in the second slot (`mmcblk2`) and the
   ROCKNIX card stays in the first, so no card swapping is needed.
   - **Boot entry:** a second entry in TF1's `extlinux.conf` reuses ROCKNIX's own `KERNEL`
     and dtb. Its command line is ROCKNIX's, plus
@@ -185,6 +190,43 @@ RK3566's speed, built and pinned like the current three cores.
    `/mnt/sdcard`, `wpa_cli`, ALSA) where it fits cleanly, under our own name, so the device
    feels like slot on a different device. Where BaseOS assumptions don't fit, a small
    platform layer in slot rather than a mix of three systems.
+
+5. **How slot fits (2026-11-05):** an unmodified slot or slotPlus `System/` folder can't
+   fully run here. The OS can provide launch, cores, ALSA, Wi-Fi and the link frequency
+   (`AGS_LINK_FREQ=2437`) exactly as BaseOS does. Display (the Mali GBM build, no fbdev
+   winsys) and buttons (gamepad codes, FN only through the ADC) need slot's help.
+   - **Direction:** a small device layer in slot, driven by data from the OS release file
+     (display backend, input layout, FN sensor, link frequency, panel size), replacing the
+     `rocknix::running()` checks. It is kept as an isolated patch set that slotPlus can
+     take too.
+   - **Maintenance:** maintaining our own fork, focused on this device and merging
+     upstream releases, is accepted. It gives us control and doesn't depend on upstream.
+   - **Self-update** must point at our builds, or stay off on rgbslot, until upstream
+     carries the layer. An upstream build would otherwise replace a working one with one
+     that can't drive the screen.
+   - **OS shims** for unmodified builds (a `libEGL` shim and a button remapper) are not
+     planned.
+   - **Phase 2 starts with an experiment:** an official upstream `System/` folder on the
+     dev card, to see exactly what breaks.
+6. **Our own kernel before anything is published (phase 1b).** Today's test boots
+   ROCKNIX's `KERNEL` to reach SSH fastest. Then we take, step by step: our own kernel
+   (mainline 7.2.x plus only the ROCKNIX RK3566 patches the RGB20SX needs, without their
+   FN redirect patch), `mali_kbase` from Arm's GPL source, firmware and regdb from
+   Buildroot's packages, libmali from Rockchip's repo (or plain symlinks if slot is fine
+   with them), and later our own U-Boot. Then no ROCKNIX binary remains, only their
+   patches, credited.
+
+## What phase 1 borrows from ROCKNIX 20261101
+
+| What | Where | Licence | Replaced by |
+|---|---|---|---|
+| U-Boot plus Rockchip DDR/BL31 blobs | ROCKNIX card boot area, in place | GPL-2.0 plus Rockchip binaries | our mainline U-Boot (phase 5) |
+| `/flash/KERNEL` 7.2.11, with ROCKNIX's initramfs (skipped by `rdinit`) | ROCKNIX card, in place | GPL-2.0 | our kernel (phase 1b) |
+| `rk3566-powkiddy-rgb20sx.dtb` | ROCKNIX card, in place | GPL-2.0/MIT | built with our kernel |
+| 288 modules, including `mali_kbase.ko` r54p2 | copied into the root | GPL-2.0 | our kernel, and kbase from Arm's source |
+| `rtw88/rtw8723d_fw.bin`, `regulatory.db` | copied | redistributable (linux-firmware, wireless-regdb) | Buildroot packages |
+| `libmali.so` g29p1 GBM | copied | Arm Mali EULA `LES-PRE-20769` | Rockchip's libmali repo (read the EULA before publishing) |
+| `libmali-hook` and the `libEGL`/`libGLESv2`/`libgbm` wrappers | copied | Rockchip libmali wrapper code, patched by ROCKNIX | built ourselves, or symlinks |
 
 ## Risks
 
