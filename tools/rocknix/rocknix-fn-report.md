@@ -13,17 +13,18 @@ everything under "GitHub issue". Fill in the two `<...>` placeholders.
 > I think there are two causes:
 > 1. `01-rgb20sx.yaml` uses the `anbernic_gen1` capability map, which now maps `BTN_BACK`
 >    only. The RGB20SX's `adc-keys` emits `BTN_MODE`.
-> 2. The `adc-keys` device itself never reports a press on this board, even with
->    InputPlumber and sway stopped. Yet saradc ch0 reads 15 when FN is held (1023 released).
+> 2. The kernel drops the key. `0004-input-adc-keys-redirect-keycode-316-to-rocknix-joypa.patch`
+>    sends keycode 316 (`BTN_MODE`) to `joypad_input_g`, which only rocknix-joypad sets.
+>    rocknix-joypad isn't built for RK3566, so the pointer is NULL and the press is
+>    discarded. saradc ch0 reads 15 when FN is held (1023 released), so the hardware is fine.
 >
-> It's the same `press-threshold-microvolt = <1750>` that `0029-anbernic-fix-adc-key.patch`
-> raised to 41000 on the RGxx3. Happy to test a fix. Should I open an issue?
+> Happy to test a fix. Should I open an issue?
 
 ---
 
 ## GitHub issue
 
-**Title:** [BUG] Powkiddy RGB20SX: FN button does nothing (adc-keys never reports a press, and BTN_MODE is missing from the InputPlumber map)
+**Title:** [BUG] Powkiddy RGB20SX: FN button does nothing (adc-keys patch drops BTN_MODE on RK3566, and the InputPlumber map lacks it)
 
 ### Have you first reported the issue on the rocknix discord and checked rocknix.org for a solution?
 
@@ -45,6 +46,20 @@ There seem to be two separate problems:
    even when read directly with InputPlumber, EmulationStation and sway all stopped. The
    kernel's key state (`EVIOCGKEY`) stays released while FN is held. The ADC sees the
    button fine.
+
+### Root cause of the kernel side
+
+`projects/ROCKNIX/packages/linux/patches/mainline/0004-input-adc-keys-redirect-keycode-316-to-rocknix-joypa.patch`
+is applied for every device. In `adc_keys_poll()` it replaces `input_report_key()` for
+keycode 316 (`BTN_MODE`) with `rk_send_key_f_key_up()` and `rk_send_key_f_key_down()`.
+Both return early when `joypad_input_g` is NULL, and only the rocknix-joypad driver sets
+it. `packages/linux/package.mk` adds the rocknix-joypad patches only for
+`RK3326|RK3399|S922X|H700`, so on RK3566 the pointer stays NULL and every FN press and
+release is silently dropped. (Checked at distribution commit `e344c810`.)
+
+Possible fixes: fall back to `input_report_key()` when `joypad_input_g` is NULL, or
+apply the patch only where rocknix-joypad exists. Either way the InputPlumber map also
+needs `BTN_MODE` for this board.
 
 ### How to reproduce
 
@@ -84,11 +99,9 @@ Measurements on my unit:
 - `BTN_MODE` became `BTN_BACK`
 - `press-threshold-microvolt` went from `<1750>` to `<41000>`
 
-The RGB20SX dts still has the old values. Making the same change in
-`rk3566-powkiddy-rgb20sx.dts` might fix both problems at once, with FN becoming F1
-through `anbernic_gen1`. I haven't been able to test that, so I can't say whether the
-threshold explains the kernel side. A separate RGB20SX capability map that includes
-`BTN_MODE` would fix the first problem, but not the second.
+The RGB20SX dts still has the old values. Changing its keycode to `BTN_BACK` the same way
+would also sidestep the redirect above, since the patch only intercepts 316, and FN
+would become F1 through `anbernic_gen1`. I haven't been able to test that.
 
 I can test a build or patch on my unit. I investigated this with the help of an AI
 assistant (Claude). The measurements come from scripts run on the device, and I'm happy

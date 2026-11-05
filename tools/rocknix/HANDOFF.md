@@ -1,144 +1,172 @@
-# Handover: slot on ROCKNIX, Powkiddy RGB20SX
+# Handover: slot on the Powkiddy RGB20SX
 
-Work so far happened in a cloud session that could not reach the device. Every change
-went through GitHub Actions and a manual download. This document lets a local session
-pick up and iterate directly against the device.
+Last updated 2026-11-05, end of the first local session. Read this first, then
+`tools/distro/PLAN.md` (where the project is going) and `tools/rocknix/README.md`
+(measured device facts and what the ROCKNIX port does).
 
 Branch: `claude/beautiful-feynman-ffzfnx` (fork `SerjTargarien/slot-alt` of
-`BrandonKowalski/slot`). Read `tools/rocknix/README.md` first: it has the measured device
-facts and what step 1 added.
+`BrandonKowalski/slot`). Upstream `main` was still exactly our fork point `f1f6ef9` on
+2026-11-05. Commits from this session are local only, not pushed.
 
 ## Where things stand
 
-**slot runs on the RGB20SX under ROCKNIX 20261101**, started from SSH. It boots to the
-shelf in about 0.6 s, all buttons work including FN (read from its ADC, see below),
-games save, and the in-game menu works. Frame pacing is solved: 0 to 2 missed vblanks in
-600 frames in mGBA.
+**slot runs well on the RGB20SX under ROCKNIX 20261101**, started from SSH. It boots to
+the shelf in about 0.6 s, every button including FN works, games save, and link play and
+Wi-Fi features are hidden. Frame pacing is solved.
 
-**Current focus: battery life.** The RGB20SX battery is small, and beating stock ROCKNIX
-on battery is a goal for the fork. The CPU stays on the `performance` governor, and
-`slot/src/clock.rs` caps `scaling_max_freq` to the frame budget.
-
-**Next test pending**, for commit `419dc49` (built by CI run 42010074593, same code as
-this branch). Rerun mGBA, gpSP and Gambatte with power and latency tracing, and compare
-with the table below. Expect:
-
-- mGBA to leave 1800 MHz, probably settling at 1608
-- the menu to settle lower than before
-- the GPU to sit mostly at 200 to 400 MHz now that it is back on `simple_ondemand`
-- no new missed frames
-
-Battery draw so far (W, while playing; about 1.8 W is fixed baseline):
+**Battery work is done for the ROCKNIX layer.** In-game medians (`tools/rocknix/medians.py`):
 
 | Setup | mGBA | gpSP | Gambatte | Menu |
 |---|---|---|---|---|
-| `performance` CPU + GPU | 2.85-3.0 | | | 2.2-2.3 |
-| `schedutil` (stutters badly) | 2.3-2.4 | ~2.4 | ~2.2 | 1.9-2.0 |
-| clock cap v1 (`149263d`) | 2.75-2.8 (stuck at 1800) | ~2.3 at 1104 MHz | 2.1-2.2 at 816-1104 | stuck at 1416-1608 |
+| `performance` CPU + GPU | 2.85-3.0 W | | | 2.2-2.3 W |
+| clock cap v2 (`419dc49`), GPU on `simple_ondemand` | 2.66 W at 1800 | 2.49 W at 1800 | 2.33 W at 1800 | 1.8 W at 408 |
+| CPU-bound rule + 400 MHz GPU floor (today's default) | 2.66 W at 1800 | 2.13 W at 1104 | 2.03 W at 1104 | 1.8 W at 408 |
+| same, direct ALSA instead of PipeWire | | | 1.95 W at 1104 | ~1.75 W |
+
+The fixed baseline is about 1.8 W, so what's left to win is mostly in the baseline,
+which only our own OS can cut. mGBA's CPU part alone is about 6 ms on average and up to
+10 ms at 1800 MHz, so 1800 MHz is its floor.
+
+**Current focus: our own minimal OS** (`tools/distro/PLAN.md`). Phase 0 is done: direct
+ALSA and the Mali blob. Next is phase 1, booting our own root from the second card slot.
+
+## What this session found and changed
+
+Commits, oldest first:
+
+- `083f6cd` restores upstream's `tests/clock.rs` (35 clock-screen tests that `149263d` had
+  overwritten) and moves our CPU-cap tests to `tests/cpu_clock.rs`.
+- `9a8f963` makes only CPU-bound frames raise the CPU cap. A frame is CPU-bound when its
+  CPU part (everything but the GPU wait, including the wait for the emulator thread) is
+  at least as long as its GPU wait. The 600-frame pace line now logs frame, CPU part and
+  GPU wait (average and max), misses split into CPU-bound and GPU-bound, and the cap.
+- `1e8418a` gives the GPU a 400 MHz floor through `min_freq` (`SLOT_GPU_MIN_MHZ`, `keep`
+  turns it off).
+- `4698d92` jumps the cap to the top step while a game launches (inserting, core, save and
+  state loading) and leaves frames out while a game is put away (its save takes one
+  80-130 ms frame).
+- `d7a7725` adds `SLOT_ALSA_DEVICE` and the launch script's `SLOT_AUDIO=alsa`.
+- `a1834bf` and `cfd4eb6` hold the OS plan and phase 0's results.
+
+Findings:
+
+- **The GPU idled at 200 MHz** on `simple_ondemand`, which averages load over 100 ms, so
+  slot's short burst each frame looked idle. The GPU wait then took two thirds of a
+  Gambatte frame, and the old rules pushed the CPU to 1800 MHz. The CPU-bound rule plus
+  the floor fixed it (gpSP 2.49 to 2.13 W, Gambatte 2.33 to 2.03 W).
+- **ROCKNIX's own 400 MHz GPU floor never applies on RK3566.** Quirk `060-game_settings`
+  runs at about 14.5 s, before `003-gpudriver` loads `mali_kbase` at about 16.1 s, so its
+  `min_freq` write fails on every boot.
+- **ROCKNIX's `powerstate` service resets the GPU governor on every charger change** but
+  never touches `min_freq`. That's why the floor beats a `performance` governor.
+- **There is no DMC devfreq on RK3566**, so `SLOT_GPU_GOVERNOR` only changes the GPU.
+- **FN root cause:** ROCKNIX's kernel patch `0004-input-adc-keys-redirect-keycode-316...`
+  sends `BTN_MODE` to a rocknix-joypad pointer that is NULL on RK3566, so the kernel drops
+  it. `tools/rocknix/rocknix-fn-report.md` is updated with this, still unposted.
+- **Audio:** direct ALSA is 80 mW cheaper than PipeWire and had no underruns after the
+  start. The headphone jack switches in hardware (verified by ear). The speaker channels
+  are in the right order, despite a device-tree comment saying they are reversed. Every
+  run starves 6144 samples once at startup. The audio blip the user heard once in mGBA
+  was not found, and is left for the minimal OS.
+- **GPU drivers:** Panfrost (Mesa 26.2.4) runs slot fine but its GPU wait is longer (4.4
+  against 3.5 ms) and the first frame is slower (1.16 s). We keep the Mali blob for now.
+- **Launch and quit** still miss a few vblanks, all in single 25-130 ms frames spent
+  loading or saving on the main thread. Clock speed can't fix those.
+- **Link play across devices:** slot hosts on 5745 MHz, but the RGB20SX's RTL8723DS is
+  2.4 GHz only. An RG SP can join an RGB20SX host (its fallback scans every channel), but
+  the reverse needs the RG SP to host on 2.4 GHz.
+- **Boot:** ROCKNIX takes 29 s (2.4 s kernel, 26.8 s userspace, of which `userconfig`
+  9.2 s and `rocknix-autostart` 14.7 s). U-Boot loads `/flash/KERNEL` (kernel plus a
+  built-in initramfs that always starts systemd) and the RGB20SX dtb, and the root is the
+  `/flash/SYSTEM` squashfs. There is no kexec.
+- **Second card slot:** `mmcblk2` (`fe2c0000.mmc`). It currently holds an old 64 GB Miyoo
+  Onion card, mounted by ROCKNIX as its games folder. The user said nothing on it is
+  worth saving, so it will become the dev card for phase 1. Say so before writing to it.
+- A Sony DualSense was paired over Bluetooth during the session. It shows up as an input
+  device.
 
 ## Dev loop
 
-Run everything from a Linux shell. On Windows, use WSL2 Ubuntu with the repo cloned
-inside the WSL home directory: building on `/mnt/c` is very slow.
-
-One-time setup inside WSL:
-
-```sh
-sudo apt-get update
-sudo apt-get install -y build-essential pkg-config gcc-aarch64-linux-gnu libudev-dev libasound2-dev openssh-client
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-. "$HOME/.cargo/env"
-rustup target add aarch64-unknown-linux-gnu    # the repo pins Rust 1.96 in rust-toolchain.toml
-git clone https://github.com/SerjTargarien/slot-alt && cd slot-alt
-git switch claude/beautiful-feynman-ffzfnx
-```
-
-SSH to the device is `root@192.168.1.72`, password `rocknix` unless changed. To skip the
-password, set up a key once: run `ssh-keygen`, then `ssh-copy-id root@192.168.1.72`. It
-lands in `/storage/.ssh/authorized_keys`, which persists.
-
-Then:
+The WSL2 Ubuntu machine is set up: `gcc-aarch64-linux-gnu`, Rust 1.96.1 with the
+aarch64 target, and an SSH key (`~/.ssh/id_ed25519`) installed on the device. In each
+command, run `. "$HOME/.cargo/env"` first, since it isn't in `~/.bashrc`.
 
 ```sh
-sh tools/rocknix/dev.sh build      # about 1.5 min clean, seconds after small changes
+sh tools/rocknix/dev.sh build      # cross build, ~35 s clean, ~15 s after changes
 sh tools/rocknix/dev.sh deploy     # copies System/slot and System/rocknix.sh
-sh tools/rocknix/dev.sh run        # SLOT_TRACE_LATENCY=1 SLOT_TRACE_POWER=1; extra VAR=x pass through
-sh tools/rocknix/dev.sh logs mgba  # -> logs/slot-mgba.log, logs/power-mgba.log (gitignored)
+sh tools/rocknix/dev.sh logs NAME  # -> logs/slot-NAME.log, logs/power-NAME.log (gitignored)
+python3 -I tools/rocknix/medians.py NAME [NAME...]   # in-game medians for saved runs
 ```
 
-`run` needs a real terminal for Ctrl-C (`ssh -t`). The user drives the device during a
-run, and says when to quit, or quits with Ctrl-C.
+Running a measured session from an agent shell, which has no terminal for `ssh -t`:
 
-The cross build links with `aarch64-linux-gnu-gcc` (`.cargo/config.toml`). It needs
-glibc 2.39, and the device has 2.44. The cores (`mgba_libretro.so`, `gpsp_libretro.so`,
-`gambatte_libretro.so`) are already on the device from the CI artifact, and rarely need
-rebuilding. If they do, `task dist:rocknix` or the `rocknix` workflow builds them in an
-arm64 container.
-
-The device tree is at `/storage/slot`: `System/` holds the binary, cores and the launch
-script, and there are also `Games/GBA|GB|GBC`, `Saves`, `States` and `Logs`.
-
-## Device facts that bite
-
-- **FN is not reported by the kernel.** The `adc-keys` driver never registers a press on
-  this unit (kernel 7.2.11). slot polls `/sys/bus/iio/devices/iio:device0/in_voltage0_raw`
-  instead (about 1023 released, 15 held). A ROCKNIX bug report is drafted in
-  `tools/rocknix/rocknix-fn-report.md`; the user posts it.
-- **ROCKNIX services fight slot.** `rocknix.sh` stops them and restores them on exit:
-  `essway`, `sway`, `inputplumber` and `input` (`input_sense`, the hotkey daemon). It also
-  inhibits logind's `HandlePowerKey=suspend`.
-- **Display is KMS with libmali GBM** (`slot-gfx/src/kms.rs`). It waits for the GPU
-  (`glFinish`) before each flip and draws 4 ms before the vblank. Without both, frames
-  were submitted late and missed vblanks. The panel really runs at about 60.0 Hz,
-  although its mode timings say 60.69.
-- **Audio goes through PipeWire** (`plug:default`). It works, but direct ALSA is a
-  possible later latency win.
-- **Sticks** report 19 to 1032 in practice, not the declared 250 to 800.
-- **Wi-Fi** is RTL8723DS on 2.4 GHz, managed by NetworkManager and iwd. slot's Wi-Fi,
-  link play, web server and RomM are hidden on ROCKNIX for now.
-
-## Open work, roughly in order
-
-1. Verify clock cap v2 (above). Tune `slot/src/clock.rs` thresholds against measured power
-   and misses if needed.
-2. Turn off the Wi-Fi radio during sessions (`rfkill` or `nmcli radio wifi off`), once
-   SSH is not needed during play.
-3. Autostart slot at boot in place of EmulationStation, with a safe way back.
-4. Device-tree overlays via ROCKNIX's `dtb_overlay`:
-   - dArkOS-level lower voltages for 408-1104 MHz (825 mV against mainline's 850-900)
-   - the FN threshold
-   - possibly rumble
-
-   Each is optional and measured with the power log.
-5. A layout for the square 720x720 panel. The 720x480 UI is letterboxed now.
-6. Left stick as D-pad, rumble on the PWM motor, sleep.
-7. Wi-Fi through NetworkManager, link play on 2.4 GHz, web server, RomM.
-8. Later decision: stay a frontend on ROCKNIX, or build a minimal base that reuses
-   ROCKNIX's kernel, modules, firmware and Mali driver, as BaseOS does on the H700, for
-   fast boot and less overhead. Measure ROCKNIX boot with `systemd-analyze` first.
+- Start it in the background:
+  `ssh -o ServerAliveInterval=15 root@192.168.1.72 "SLOT_TRACE_LATENCY=1 SLOT_TRACE_POWER=1 bash /storage/slot/System/rocknix.sh"`.
+  Add `SLOT_TRACE=1` for audio lines, `SLOT_AUDIO=alsa`, or `SLOT_GPU_GOVERNOR=...` as
+  needed.
+- The user plays: about 20 s on the shelf, then the game for about 3 minutes, then quits
+  through the in-game menu. If a session is stopped mid-game, slot resumes straight into
+  that game next time.
+- Stop it with
+  `ssh root@192.168.1.72 'pkill -TERM -f "bash /storage/slot/System/[r]ocknix.sh"'`.
+  The `[r]` keeps the pattern from matching the pkill's own SSH command, which killed its
+  own session the first time.
+- Never deploy `rocknix.sh` while a run is going. Overwriting a script that bash is
+  executing can break the run.
+- Games on the device: Castlevania Aria of Sorrow (GBA; its core, mGBA or gpSP, is chosen
+  in slot's menu), Cave Noire (GB), Monster Rancher Explorer (GBC).
+- `gpudriver panfrost` or `gpudriver libmali`, then a reboot, switches ROCKNIX's GPU
+  driver. It's back on `libmali`.
 
 ## Conventions and gotchas
 
-- **Do not run `cargo fmt --all`.** Upstream is not rustfmt-clean, and it reformats about
-  90 files. Run `rustfmt --edition 2021 <file>` on new files only, and keep edits to
-  existing files in the surrounding style.
-- Tests that use `HeadlessSurface` only build on macOS, which is upstream's dev machine.
-  On Linux, run test targets by name. Those touched by this work:
+- **Commits:** plain descriptive messages, with no `Co-Authored-By` or `Claude-Session`
+  trailers. The user will add attribution if the code goes public.
+- **Commit identity:** WSL has no git identity. Commit as the user with
+  `GIT_AUTHOR_NAME="Serj Targarien" GIT_AUTHOR_EMAIL=xergy10@gmail.com` and the matching
+  `GIT_COMMITTER_*` variables. Push only when asked.
+- **Formatting:** do not run `cargo fmt --all`, since upstream isn't rustfmt-clean
+  (`session.rs` and `frontend.rs` already differ). Run `rustfmt --edition 2021 --check` on
+  the files you touch, and compare against `git show HEAD:file | rustfmt --emit stdout`
+  when unsure.
+- **Tests:** those using `HeadlessSurface` only build on macOS. On Linux, run:
 
   ```sh
-  cargo test -p slot --test cpu_clock --test clock --test rocknix --test rocknix_input --test evdev --test quick_menu
+  cargo test -p slot --test cpu_clock --test clock --test rocknix --test rocknix_input --test evdev --test quick_menu --test in_game_menu
   cargo test -p slot-gfx --test kms --test fbdev
   cargo test -p slot-power --test device
   sh card/test-rocknix.sh
   cargo clippy -p slot --no-default-features --features device -- -D warnings
   ```
 
-  The host build needs `libudev-dev` and `libasound2-dev`.
-- Some upstream test files fail clippy on Rust 1.96. They are not ours.
-- Every ROCKNIX-specific path is gated on `slot::rocknix::running()`. The BaseOS/H700 path
-  must keep working unchanged: fbdev display, Anbernic button table, 1.5 ms margin.
-- Commit messages are plain and descriptive, without type prefixes, matching the
-  repo's history. Push only when the user asks.
-- The user is on Windows, comfortable with SSH and git, and prefers measured decisions.
-  Ask before changing anything on the device beyond `/storage/slot` and running the
-  launch script.
+- **ROCKNIX paths:** every ROCKNIX-specific path is gated on `slot::rocknix::running()`.
+  The BaseOS/H700 path must keep working unchanged.
+- **The user:** on Windows (WSL2), comfortable with SSH and git, prefers measured
+  decisions, and wants to be consulted before any decision with a cost or that's hard to
+  undo. Ask before changing anything on the device beyond `/storage/slot` and running the
+  launch script. A Windows-side clone at `C:\Users\xergy\Documents\GitHub\slot-alt`
+  shows every file as modified, but those are only line endings. Older CI artifacts are in
+  `C:\Users\xergy\Downloads\slot-rocknix-*.zip`.
+
+## Upstream and related projects
+
+- **Upstream slot** has no CPU or GPU clock management. Issue #162 identified the 12 ms
+  emulation deadline as the battery problem and suggested setting the clock from missed
+  deadlines, which is what `clock.rs` does. The maintainer doesn't plan to support other
+  devices (#146, #173). Our earlier PR #197 to upstream was closed unmerged and is still
+  public.
+- **BaseOS** (`pvaibhav/BaseOS`): upstream's H700 base, and the model for our OS. Vendor
+  kernel 4.9 and blobs reused unchanged, BusyBox init, plain ALSA, `wpa_supplicant`,
+  unsigned A/B `.bosupd` updates. No license file.
+- **slot-rg353v** (`mriverodorta/slot-rg353v`, GPL-3.0): an RK3566 slot image built with
+  ROCKNIX's build system and systemd. About 4.3 s to the shelf on eMMC.
+- **slotPlus** (`nelynes/slotPlus`): a slot fork adding WonderSwan, Lynx, Game Gear,
+  NeoGeo Pocket, TurboGrafx-16 and DS. A few of those come after our OS works (plan phase
+  4b).
+- **ROCKNIX source** was checked at `e344c8109029ccd1bb9019680c1cd3d5357d56da`. Useful
+  paths are under `projects/ROCKNIX/`:
+  - `packages/sysutils/busybox/scripts/init` (the initramfs)
+  - `packages/kernel-drivers/device-tree-overlays` (`dtb_overlay`, including
+    `rk3566-undervolt-cpu-l1..l3`)
+  - `packages/sysutils/powerstate`
+  - `devices/RK3566/linux/linux.aarch64.conf`

@@ -117,6 +117,27 @@ current card, and they change what the new image must contain.
   (or USB gadget networking).
 - Try ROCKNIX's kernel with `rdinit=/none` first, and build the kernel only if that fails.
 - Exit: SSH into our own system. Kernel-to-shell time measured.
+- **Dev setup (proposed):** the dev card stays in the second slot (`mmcblk2`) and the
+  ROCKNIX card stays in the first, so no card swapping is needed.
+  - **Boot entry:** a second entry in TF1's `extlinux.conf` reuses ROCKNIX's own `KERNEL`
+    and dtb. Its command line is ROCKNIX's, plus
+    `rdinit=/nonexistent root=/dev/mmcblk2p2 rootwait init=/sbin/init`.
+  - **If `rdinit` is honoured,** the kernel skips ROCKNIX's initramfs and starts our init
+    from the dev card.
+  - **If it isn't,** ROCKNIX's initramfs still finds `boot=` and `disk=` and boots ROCKNIX
+    as usual, so the experiment can't strand the device.
+  - **One-shot switch:** a script on ROCKNIX makes the dev entry the default and reboots.
+    Our init's first act is to put ROCKNIX back as the default, so the next power cycle
+    always returns to ROCKNIX.
+  - **Remaining risk:** if the kernel can't mount our root, it panics before our init runs
+    and keeps rebooting into the dev entry. Before every switch, the script mounts the
+    dev root from ROCKNIX and checks `/sbin/init`. Recovery is one line in
+    `extlinux/extlinux.conf` on TF1's FAT partition, editable from Windows, and a backup
+    sits next to it.
+  - **Alternative with no change to TF1:** make the dev card self-contained (ROCKNIX's
+    U-Boot copied to it) and swap the two cards to boot it.
+  - **Dev card layout:** p1 FAT32 `SLOT`, the card contents slot sees (`/mnt/sdcard`,
+    BaseOS style); p2 ext4 for the root (512 MiB); p3 later for the second A/B root.
 
 **2. Boot straight into slot.**
 - Add the GPU stack chosen in phase 0, ALSA, the cores, and a `frontend-session` that
