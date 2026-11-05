@@ -369,10 +369,110 @@ pub fn libraries_resolve() -> Result<(), GfxError> {
     Ok(())
 }
 
-unsafe extern "C" fn flipped(_fd: c_int, _seq: c_uint, _sec: c_uint, _usec: c_uint, data: Ptr) {
-    if !data.is_null() {
-        *(data as *mut bool) = false;
+const STATS_EVERY: u32 = 600;
+
+#[derive(Default)]
+pub struct FlipStats {
+    refresh_us: u64,
+    flips: u32,
+    skipped: u32,
+    late: u32,
+    swap_sum_us: u64,
+    swap_max_us: u64,
+    lead_sum_us: u64,
+    lead_max_us: u64,
+    last_vblank_us: Option<u64>,
+}
+
+impl FlipStats {
+    pub fn new(refresh_hz: f64) -> Self {
+        FlipStats {
+            refresh_us: (1_000_000.0 / refresh_hz.max(1.0)) as u64,
+            ..FlipStats::default()
+        }
     }
+
+    pub fn record(&mut self, swap_us: u64, submit_us: u64, vblank_us: u64) -> Option<String> {
+        if let Some(last) = self.last_vblank_us.replace(vblank_us) {
+            if vblank_us.saturating_sub(last) > self.refresh_us * 3 / 2 {
+                self.skipped += 1;
+                if submit_us > last + self.refresh_us {
+                    self.late += 1;
+                }
+            }
+        } else {
+            return None;
+        }
+        let lead = vblank_us.saturating_sub(submit_us);
+        self.flips += 1;
+        self.swap_sum_us += swap_us;
+        self.swap_max_us = self.swap_max_us.max(swap_us);
+        self.lead_sum_us += lead;
+        self.lead_max_us = self.lead_max_us.max(lead);
+        (self.flips == STATS_EVERY).then(|| self.report())
+    }
+
+    fn report(&mut self) -> String {
+        let n = u64::from(self.flips.max(1));
+        let ms = |us: u64| us as f64 / 1000.0;
+        let line = format!(
+            "slot: kms: {} flips, {} skipped a vblank ({} submitted after the vblank they were meant for, {} submitted in time), \
+             eglSwapBuffers avg {:.2} max {:.2} ms, submit to scanout avg {:.2} max {:.2} ms",
+            self.flips,
+            self.skipped,
+            self.late,
+            self.skipped - self.late,
+            ms(self.swap_sum_us / n),
+            ms(self.swap_max_us),
+            ms(self.lead_sum_us / n),
+            ms(self.lead_max_us),
+        );
+        let (refresh_us, last) = (self.refresh_us, self.last_vblank_us);
+        *self = FlipStats {
+            refresh_us,
+            last_vblank_us: last,
+            ..FlipStats::default()
+        };
+        line
+    }
+}
+
+#[repr(C)]
+struct FlipState {
+    pending: bool,
+    sec: c_uint,
+    usec: c_uint,
+}
+
+unsafe extern "C" fn flipped(_fd: c_int, _seq: c_uint, sec: c_uint, usec: c_uint, data: Ptr) {
+    if !data.is_null() {
+        let state = &mut *(data as *mut FlipState);
+        state.pending = false;
+        state.sec = sec;
+        state.usec = usec;
+    }
+}
+
+#[repr(C)]
+struct Timespec {
+    sec: i64,
+    nsec: i64,
+}
+
+const CLOCK_MONOTONIC: c_int = 1;
+
+extern "C" {
+    fn clock_gettime(clock: c_int, ts: *mut Timespec) -> c_int;
+}
+
+fn now_us() -> u64 {
+    let mut ts = Timespec { sec: 0, nsec: 0 };
+    unsafe { clock_gettime(CLOCK_MONOTONIC, &mut ts) };
+    ts.sec as u64 * 1_000_000 + ts.nsec as u64 / 1000
+}
+
+fn env_on(name: &str) -> bool {
+    std::env::var_os(name).is_some_and(|v| v != "0")
 }
 
 struct Output {
@@ -398,8 +498,11 @@ pub struct KmsSurface {
     on_screen: Option<Ptr>,
     framebuffers: Vec<(Ptr, u32)>,
     crtc_set: bool,
-    flip_pending: Box<bool>,
+    flip: Box<FlipState>,
     flip_failed: bool,
+    finish: bool,
+    stats: Option<FlipStats>,
+    swap_us: u64,
 }
 
 impl KmsSurface {
@@ -445,9 +548,19 @@ impl KmsSurface {
             on_screen: None,
             framebuffers: Vec::new(),
             crtc_set: false,
-            flip_pending: Box::new(false),
+            flip: Box::new(FlipState {
+                pending: false,
+                sec: 0,
+                usec: 0,
+            }),
             flip_failed: false,
+            finish: env_on("SLOT_KMS_FINISH"),
+            stats: env_on("SLOT_TRACE_LATENCY").then(|| FlipStats::new(mode.refresh_hz())),
+            swap_us: 0,
         };
+        if surface.finish {
+            eprintln!("slot: kms: waiting for the GPU before each flip");
+        }
         unsafe { surface.start_gl()? };
         Ok(surface)
     }
@@ -594,13 +707,14 @@ impl KmsSurface {
 
     fn flip(&mut self, fb: u32) -> Result<(), GfxError> {
         let fd = raw(&self.card);
-        *self.flip_pending = true;
-        let data = &mut *self.flip_pending as *mut bool as Ptr;
+        self.flip.pending = true;
+        let data = &mut *self.flip as *mut FlipState as Ptr;
+        let submitted = now_us();
         let rc = unsafe {
             (self.drm.page_flip)(fd, self.output.crtc, fb, DRM_MODE_PAGE_FLIP_EVENT, data)
         };
         if rc != 0 {
-            *self.flip_pending = false;
+            self.flip.pending = false;
             if !std::mem::replace(&mut self.flip_failed, true) {
                 eprintln!(
                     "slot: kms page flip refused ({}), setting the crtc each frame",
@@ -616,7 +730,7 @@ impl KmsSurface {
             page_flip_handler2: None,
             sequence_handler: None,
         };
-        while *self.flip_pending {
+        while self.flip.pending {
             let mut poll = PollFd {
                 fd,
                 events: POLLIN,
@@ -624,10 +738,16 @@ impl KmsSurface {
             };
             let ready = unsafe { poll_fds(&mut poll, 1, FLIP_TIMEOUT_MS) };
             if ready <= 0 {
-                *self.flip_pending = false;
+                self.flip.pending = false;
                 return Err(GfxError::Context("kms page flip timed out".into()));
             }
             unsafe { (self.drm.handle_event)(fd, &mut ctx) };
+        }
+        let vblank = u64::from(self.flip.sec) * 1_000_000 + u64::from(self.flip.usec);
+        if let Some(stats) = &mut self.stats {
+            if let Some(line) = stats.record(self.swap_us, submitted, vblank) {
+                eprintln!("{line}");
+            }
         }
         Ok(())
     }
@@ -748,10 +868,18 @@ impl Surface for KmsSurface {
         self.size
     }
 
+    fn settle(&mut self) {
+        if self.finish {
+            unsafe { ::gl::Finish() };
+        }
+    }
+
     fn swap(&mut self) -> Result<(), GfxError> {
+        let began = now_us();
         if unsafe { (self.egl.swap_buffers)(self.display, self.surface) } == 0 {
             return Err(self.egl.fail("eglSwapBuffers"));
         }
+        self.swap_us = now_us().saturating_sub(began);
         let bo = unsafe { (self.gbm.lock_front_buffer)(self.gbm_surface) };
         if bo.is_null() {
             return Err(GfxError::Context(

@@ -19,6 +19,7 @@ const LOG_SYNC: Duration = Duration::from_secs(1);
 
 struct Pacer {
     last_return: Option<Instant>,
+    margin: Duration,
     period: Duration,
     work: Duration,
     works: [Duration; WORK_WINDOW],
@@ -29,8 +30,16 @@ const WORK_WINDOW: usize = 32;
 
 impl Pacer {
     fn new() -> Self {
+        let margin = std::env::var("SLOT_PACE_MARGIN_US")
+            .ok()
+            .and_then(|v| v.trim().parse().ok())
+            .map_or(MARGIN, Duration::from_micros);
+        if margin != MARGIN {
+            eprintln!("slot: pace margin {} us", margin.as_micros());
+        }
         Pacer {
             last_return: None,
+            margin,
             period: Duration::from_micros(16_760),
             work: Duration::from_millis(4),
             works: [Duration::from_millis(4); WORK_WINDOW],
@@ -42,7 +51,7 @@ impl Pacer {
         let Some(last) = self.last_return else {
             return;
         };
-        let delay = self.period.saturating_sub(self.work + MARGIN);
+        let delay = self.period.saturating_sub(self.work + self.margin);
         if let Some(left) = (last + delay).checked_duration_since(Instant::now()) {
             std::thread::sleep(left);
         }
@@ -190,6 +199,7 @@ pub fn run() {
         }
         let late = frontend.step_emulator(pacer.period, STEP_TIMEOUT);
         frontend.render(&mut compositor, window);
+        surface.settle();
         let swap = Instant::now();
         let work = swap - began;
         if let Err(e) = surface.swap() {

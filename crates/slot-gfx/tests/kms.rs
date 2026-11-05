@@ -108,3 +108,60 @@ fn every_library_function_the_backend_calls_resolves() {
         Err(e) => panic!("{e}"),
     }
 }
+
+mod flip_stats {
+    use slot_gfx::kms::FlipStats;
+
+    const REFRESH_HZ: f64 = 60.69;
+    const FRAME: u64 = 16_477;
+
+    fn run(stats: &mut FlipStats, start: u64, frames: u64) -> (u64, Option<String>) {
+        let mut vblank = start;
+        let mut last = None;
+        for _ in 0..frames {
+            vblank += FRAME;
+            last = stats.record(800, vblank - 2_000, vblank).or(last);
+        }
+        (vblank, last)
+    }
+
+    #[test]
+    fn on_time_flips_skip_nothing_and_report_every_600() {
+        let mut stats = FlipStats::new(REFRESH_HZ);
+        assert_eq!(stats.record(800, 0, 1_000_000), None);
+        let (_, line) = run(&mut stats, 1_000_000, 600);
+        let line = line.expect("a report after 600 flips");
+        assert!(line.contains("600 flips, 0 skipped a vblank"), "{line}");
+        assert!(line.contains("submit to scanout avg 2.00"), "{line}");
+        assert!(line.contains("eglSwapBuffers avg 0.80"), "{line}");
+    }
+
+    #[test]
+    fn a_frame_submitted_after_its_vblank_is_late() {
+        let mut stats = FlipStats::new(REFRESH_HZ);
+        stats.record(800, 0, 1_000_000);
+        let missed = 1_000_000 + 2 * FRAME;
+        stats.record(800, 1_000_000 + FRAME + 500, missed);
+        let (_, line) = run(&mut stats, missed, 599);
+        let line = line.unwrap();
+        assert!(
+            line.contains("1 skipped a vblank (1 submitted after"),
+            "{line}"
+        );
+    }
+
+    #[test]
+    fn a_frame_submitted_in_time_but_shown_late_is_counted_apart() {
+        let mut stats = FlipStats::new(REFRESH_HZ);
+        stats.record(800, 0, 1_000_000);
+        let missed = 1_000_000 + 2 * FRAME;
+        stats.record(800, 1_000_000 + FRAME - 2_000, missed);
+        let (_, line) = run(&mut stats, missed, 599);
+        let line = line.unwrap();
+        assert!(
+            line.contains("1 skipped a vblank (0 submitted after"),
+            "{line}"
+        );
+        assert!(line.contains("1 submitted in time"), "{line}");
+    }
+}
