@@ -61,6 +61,8 @@ What step 1 adds:
 - **Launch script** (`card/rocknix/rocknix.sh`):
   - stops `essway`, `sway`, `inputplumber` and `input`
   - blocks logind's power-key suspend while slot runs
+  - switches the CPU, GPU and memory-controller governors to `performance`, as ROCKNIX's
+    `runemu.sh` does for games (`SLOT_GOVERNOR=keep` opts out)
   - loads ROCKNIX's environment, so audio reaches PipeWire
   - starts everything again however slot ends
   - turns Ctrl-C or a dropped SSH session into SIGTERM, so slot saves first
@@ -77,7 +79,8 @@ What step 1 adds:
 3. Copy a few unzipped ROMs into `/storage/slot/Games/GBA`, `Games/GB` and `Games/GBC`.
 4. Run it: `ssh -t root@<device-ip> bash /storage/slot/System/rocknix.sh`
 5. Press Ctrl-C in that terminal to save and go back to ROCKNIX. The log is in
-   `/storage/slot/Logs/slot.log`.
+   `/storage/slot/Logs/slot.log`. Prefix the command with `SLOT_TRACE_LATENCY=1` to log
+   frame pacing every 600 frames.
 
 ## Later steps
 

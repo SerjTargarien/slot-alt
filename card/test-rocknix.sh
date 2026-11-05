@@ -41,13 +41,29 @@ EOF
 
 chmod 755 "$BIN/systemctl" "$BIN/systemd-inhibit" "$TMP/loader"
 
+sysfs() {
+	rm -rf "$TMP/sys"
+	cpu="$TMP/sys/devices/system/cpu/cpufreq/policy0"
+	gpu="$TMP/sys/class/devfreq/fde60000.gpu"
+	npu="$TMP/sys/class/devfreq/fde40000.npu"
+	mkdir -p "$cpu" "$gpu" "$npu"
+	echo schedutil > "$cpu/scaling_governor"
+	echo "ondemand userspace powersave performance schedutil" > "$cpu/scaling_available_governors"
+	echo simple_ondemand > "$gpu/governor"
+	echo "userspace powersave performance simple_ondemand" > "$gpu/available_governors"
+	echo simple_ondemand > "$npu/governor"
+	echo "userspace powersave performance simple_ondemand" > "$npu/available_governors"
+}
+
 setup() {
+	sysfs
 	rm -rf "$TMP/card" "$TMP/log"
 	mkdir -p "$TMP/card/System"
 	cp "$SCRIPT" "$TMP/card/System/rocknix.sh"
 	: > "$TMP/log"
 	cat > "$TMP/card/System/slot" << EOF
 echo "root \$SLOT_ROOT platform \$SLOT_PLATFORM"
+echo "cpu \$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor") gpu \$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor") npu \$(cat "$TMP/sys/class/devfreq/fde40000.npu/governor")"
 echo started > "$TMP/started"
 trap 'echo saved; exit 0' TERM
 i=0
@@ -61,13 +77,13 @@ EOF
 }
 
 launch() {
-	PATH="$BIN:$PATH" FAKE_LOG="$TMP/log" SLOT_LOADER="$TMP/loader" SLOT_PROFILE="$TMP/none" \
+	PATH="$BIN:$PATH" FAKE_LOG="$TMP/log" SLOT_LOADER="$TMP/loader" SLOT_PROFILE="$TMP/none" SLOT_SYSFS="$TMP/sys" \
 		SLOT_ROOT="$TMP/card" bash "$TMP/card/System/rocknix.sh" > /dev/null 2>&1
 }
 
 launch_bg() {
 	(
-		PATH="$BIN:$PATH" FAKE_LOG="$TMP/log" SLOT_LOADER="$TMP/loader" SLOT_PROFILE="$TMP/none" \
+		PATH="$BIN:$PATH" FAKE_LOG="$TMP/log" SLOT_LOADER="$TMP/loader" SLOT_PROFILE="$TMP/none" SLOT_SYSFS="$TMP/sys" \
 			SLOT_ROOT="$TMP/card" exec bash "$TMP/card/System/rocknix.sh" > /dev/null 2>&1
 	) &
 	pid=$!
@@ -118,5 +134,24 @@ for sig in TERM HUP; do
 	grep -q saved "$TMP/card/Logs/slot.log" || fail "SIG$sig did not ask slot to save and quit"
 	[ "$(calls)" = "$want" ] || fail "services must come back after SIG$sig: $(calls)"
 done
+
+setup
+FAKE_ACTIVE="essway sway" launch || fail "a clean exit should return 0"
+grep -q "cpu performance gpu performance npu simple_ondemand" "$TMP/card/Logs/slot.log" ||
+	fail "slot should run with the CPU and GPU on performance, other devfreq untouched: $(grep '^cpu' "$TMP/card/Logs/slot.log")"
+[ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")" = schedutil ] ||
+	fail "the CPU governor was not put back"
+[ "$(cat "$TMP/sys/class/devfreq/fde60000.gpu/governor")" = simple_ondemand ] ||
+	fail "the GPU governor was not put back"
+
+setup
+FAKE_ACTIVE="essway sway" SLOT_GOVERNOR=keep launch || fail "a clean exit should return 0"
+grep -q "cpu schedutil gpu simple_ondemand" "$TMP/card/Logs/slot.log" ||
+	fail "SLOT_GOVERNOR=keep should leave the governors alone"
+
+setup
+FAKE_ACTIVE="essway sway" FAKE_STATUS=3 launch || true
+[ "$(cat "$TMP/sys/devices/system/cpu/cpufreq/policy0/scaling_governor")" = schedutil ] ||
+	fail "the CPU governor must come back when slot fails"
 
 echo "rocknix launch: ok"
