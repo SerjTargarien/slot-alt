@@ -42,7 +42,7 @@ use crate::update::{
 use crate::video_mode::{self, VideoMode};
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
-    Binding, CarouselKeys, Controls, Device, GameButton, Modifier, ShortcutKeys, LID_OFF_MIN,
+    Binding, CarouselKeys, Controls, Device, Modifier, ShortcutKeys, LID_OFF_MIN,
 };
 
 pub const RECORDING: &str = "Recording";
@@ -1605,9 +1605,6 @@ impl App {
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast
             | QuickRow::Scale => self.quick_value(self.playing_row(row)),
-            QuickRow::Stretch if self.stretch_switch() => {
-                Some(QuickValue::flag(self.video_mode == VideoMode::Stretch))
-            }
             QuickRow::Stretch => match self.playing_row(row) {
                 QuickRow::Stretch => None,
                 row => self.quick_value(row),
@@ -1615,6 +1612,13 @@ impl App {
             QuickRow::GbaScale => Some(scale_value(self.resolved_scale(Platform::Gba))),
             QuickRow::GbScale => Some(scale_value(self.resolved_scale(Platform::Gb))),
             QuickRow::GbcScale => Some(scale_value(self.resolved_scale(Platform::Gbc))),
+            QuickRow::GbStretch | QuickRow::GbcStretch if self.tall() => {
+                let platform = match row {
+                    QuickRow::GbcStretch => Platform::Gbc,
+                    _ => Platform::Gb,
+                };
+                Some(QuickValue::flag(self.stretched(platform)))
+            }
             QuickRow::GbStretch => Some(stretch_value(self.resolved_stretch(Platform::Gb))),
             QuickRow::GbcStretch => Some(stretch_value(self.resolved_stretch(Platform::Gbc))),
             QuickRow::GbaBlending => Some(blending_value(self.state.blending_gba)),
@@ -1759,6 +1763,8 @@ impl App {
             | QuickRow::ScSunlightDown
             | QuickRow::ScReset
             | QuickRow::ScGuide
+            | QuickRow::ScStretchOn
+            | QuickRow::ScStretchOff
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame => None,
@@ -2105,7 +2111,7 @@ impl App {
             (QuickRow::GbStretch, Platform::Gb),
             (QuickRow::GbcStretch, Platform::Gbc),
         ] {
-            if self.stretch_choices(platform).len() < 2 {
+            if self.stretch_choices(platform).len() < 2 && !self.tall() {
                 hidden.push(row);
             }
         }
@@ -2427,16 +2433,37 @@ impl App {
         let platform = self.playing_platform();
         video_mode::picture_for(
             platform,
-            self.video_mode,
+            self.video_mode_now(),
             self.drawn_scale(platform),
             self.stretch_on_panel(self.resolved_stretch(platform)),
         )
     }
 
-    /// On a tall panel there is one stretch style, so the in-game Stretch row switches
-    /// stretch on and off instead, as L1 and R1 do (handy with those keys unbound).
+    /// A panel taller than 4:3 (slot²'s square one) has a single stretch style, so its
+    /// Stretch rows switch stretch on and off instead. That is one value per platform,
+    /// shared by the shelf's Screen page, the in-game row and the Stretch shortcuts, like
+    /// Scale; upstream keeps stretch per game.
+    fn tall(&self) -> bool {
+        self.canvas().extra() > 0.0
+    }
+
     fn stretch_switch(&self) -> bool {
-        self.canvas().extra() > 0.0 && self.playing_platform().hardware() != Platform::Gba
+        self.tall() && self.playing_platform().hardware() != Platform::Gba
+    }
+
+    fn stretched(&self, platform: Platform) -> bool {
+        match platform {
+            Platform::Gbc => self.state.stretched_gbc,
+            _ => self.state.stretched_gb,
+        }
+    }
+
+    fn video_mode_now(&self) -> VideoMode {
+        match self.stretch_switch() && self.stretched(self.playing_platform()) {
+            true => VideoMode::Stretch,
+            false if self.stretch_switch() => VideoMode::Actual,
+            false => self.video_mode,
+        }
     }
 
     /// The classic stretch fills upstream's 3:2 band. On a panel taller than 4:3 that
@@ -2622,30 +2649,19 @@ impl App {
     pub fn picture_fills(&self) -> bool {
         match self.playing_platform().hardware() {
             Platform::Gba => self.picture().0 == Sizing::Panel && self.game_layout().panel,
-            _ => self.video_mode == VideoMode::Stretch,
+            _ => self.video_mode_now() == VideoMode::Stretch,
         }
     }
 
-    fn slot_owns_the_shoulders(&self) -> bool {
-        matches!(self.phase, Phase::Playing { .. }) && self.platform.hardware() != Platform::Gba
-    }
-
-    pub fn taken_buttons(&self) -> Vec<Btn> {
-        if !self.slot_owns_the_shoulders() {
-            return Vec::new();
-        }
-        [Btn::L1, Btn::R1]
+    /// The shortcuts the input layer listens for now. Stretch On and Off only apply to
+    /// Game Boy games, so in a GBA game their keys stay free (L and R, if bound there).
+    pub fn input_entries(&self) -> Vec<slot_input::Entry> {
+        let game_boy = self.playing_platform().hardware() != Platform::Gba;
+        self.binding_table()
+            .entries()
             .into_iter()
-            .filter(|b| !self.bound_to_game(*b))
+            .filter(|e| game_boy || !matches!(e.action, Action::StretchOn | Action::StretchOff))
             .collect()
-    }
-
-    fn bound_to_game(&self, b: Btn) -> bool {
-        GameButton::of(self.platform).iter().any(|g| {
-            self.controls
-                .game(*g)
-                .is_some_and(|x| x.modifier.is_none() && crate::input::device_btn(x.button) == b)
-        })
     }
 
     pub fn controls(&self) -> Controls {
@@ -2914,14 +2930,15 @@ impl App {
         self.carousel
     }
 
-    pub fn takes_from_the_game(&self, action: Action) -> bool {
-        match action {
-            Action::GbaDown(btn) | Action::GbaUp(btn) => self.taken_buttons().contains(&btn),
-            _ => false,
-        }
-    }
-
     fn set_picture(&mut self, mode: VideoMode) {
+        if self.stretch_switch() {
+            let on = mode == VideoMode::Stretch;
+            match self.playing_platform() {
+                Platform::Gbc => self.state.stretched_gbc = on,
+                _ => self.state.stretched_gb = on,
+            }
+            return self.persist();
+        }
         if self.video_mode == mode {
             return;
         }
@@ -3578,14 +3595,10 @@ impl App {
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
             Phase::Playing { .. } => match action {
-                Action::GbaDown(Btn::L1)
-                    if self.slot_owns_the_shoulders() && !self.bound_to_game(Btn::L1) =>
-                {
+                Action::StretchOn if self.playing_platform().hardware() != Platform::Gba => {
                     self.set_picture(VideoMode::Stretch)
                 }
-                Action::GbaDown(Btn::R1)
-                    if self.slot_owns_the_shoulders() && !self.bound_to_game(Btn::R1) =>
-                {
+                Action::StretchOff if self.playing_platform().hardware() != Platform::Gba => {
                     self.set_picture(VideoMode::Actual)
                 }
                 Action::Eject => self.eject(),
@@ -3908,6 +3921,8 @@ impl App {
             | QuickRow::ScSunlightDown
             | QuickRow::ScReset
             | QuickRow::ScGuide
+            | QuickRow::ScStretchOn
+            | QuickRow::ScStretchOff
             | QuickRow::LidOff => {}
         }
     }
@@ -3941,14 +3956,6 @@ impl App {
             }
             self.blending_pending = Some(self.blending_in_play());
             self.persist();
-            return;
-        }
-        if row == QuickRow::Stretch && self.stretch_switch() {
-            let on = self.video_mode == VideoMode::Stretch;
-            self.set_picture(match on {
-                true => VideoMode::Actual,
-                false => VideoMode::Stretch,
-            });
             return;
         }
         let row = self.playing_row(row);
@@ -4002,6 +4009,14 @@ impl App {
                 QuickRow::GbStretch => Platform::Gb,
                 _ => Platform::Gbc,
             };
+            if self.tall() {
+                match platform {
+                    Platform::Gbc => self.state.stretched_gbc = !self.state.stretched_gbc,
+                    _ => self.state.stretched_gb = !self.state.stretched_gb,
+                }
+                self.persist();
+                return;
+            }
             self.cycle_stretch(platform, right);
             self.persist();
             return;
@@ -4196,6 +4211,8 @@ impl App {
             | QuickRow::ScSunlightDown
             | QuickRow::ScReset
             | QuickRow::ScGuide
+            | QuickRow::ScStretchOn
+            | QuickRow::ScStretchOff
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame

@@ -127,15 +127,15 @@ fn stretch_full_screen_crops_the_border_and_hides_bezels() {
 #[test]
 fn stretch_fills_a_square_panel_whatever_the_stretch_style() {
     for stretch in [Stretch::Classic, Stretch::FullScreen] {
-        let (_d, mut a) = playing(
+        let (_d, a) = playing(
             Platform::Gb,
             (720, 720),
             SlotState {
                 stretch_gb: stretch,
+                stretched_gb: true,
                 ..SlotState::default()
             },
         );
-        a.set_video_mode(VideoMode::Stretch);
         assert_eq!(a.source_rect(), GB_CROP, "{stretch:?}");
         assert!(a.game_layout().panel, "{stretch:?}");
         assert_eq!(a.stretch_choices(Platform::Gb), [Stretch::Classic]);
@@ -176,6 +176,56 @@ fn on_a_square_panel_the_stretch_row_switches_stretch_like_l1_and_r1() {
     press(&mut a, Btn::Left);
     assert_eq!(a.quick_value(QuickRow::Stretch), Some(QuickValue::Off));
     assert!(!a.picture_fills());
+}
+
+#[test]
+fn on_a_square_panel_stretch_is_one_value_per_platform_shared_with_the_shelf() {
+    let (d, mut a) = playing(Platform::Gb, (720, 720), SlotState::default());
+    a.set_video_mode(VideoMode::Stretch);
+    assert!(
+        !a.picture_fills(),
+        "a game's own video_mode.txt entry is ignored here"
+    );
+    to_in_game_row(&mut a, QuickRow::Stretch);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::GbStretch), Some(QuickValue::On));
+    assert_eq!(a.quick_value(QuickRow::GbcStretch), Some(QuickValue::Off));
+    assert!(a.picture_fills());
+    let saved = slot_store::read_slot_state(d.path());
+    assert!(saved.stretched_gb && !saved.stretched_gbc);
+    a.apply(Action::QuickMenu);
+    assert_eq!(a.in_game_menu(), None);
+    a.apply(Action::StretchOff);
+    assert_eq!(a.quick_value(QuickRow::Stretch), Some(QuickValue::Off));
+    assert_eq!(a.quick_value(QuickRow::GbStretch), Some(QuickValue::Off));
+}
+
+#[test]
+fn the_shelf_shows_the_stretch_switch_on_a_square_panel_and_the_style_elsewhere() {
+    let (_d, a) = playing(Platform::Gb, (720, 720), SlotState::default());
+    let hidden = a.hidden_rows();
+    assert!(!hidden.contains(&QuickRow::GbStretch));
+    assert!(!hidden.contains(&QuickRow::GbcStretch));
+    assert_eq!(a.quick_value(QuickRow::GbStretch), Some(QuickValue::Off));
+    let (_d, a) = playing(Platform::Gb, (720, 480), SlotState::default());
+    assert_eq!(
+        a.quick_value(QuickRow::GbStretch),
+        Some(QuickValue::Classic)
+    );
+}
+
+#[test]
+fn the_stretch_shortcuts_switch_a_game_boy_game_and_leave_gba_alone() {
+    let (_d, mut a) = playing(Platform::Gb, (720, 480), SlotState::default());
+    a.apply(Action::StretchOn);
+    assert!(a.picture_fills());
+    a.apply(Action::StretchOff);
+    assert!(!a.picture_fills());
+    let (_d, a) = playing(Platform::Gba, (720, 480), SlotState::default());
+    assert!(a
+        .input_entries()
+        .iter()
+        .all(|e| !matches!(e.action, Action::StretchOn | Action::StretchOff)));
 }
 
 #[test]

@@ -209,7 +209,7 @@ impl Session {
         let mut actions = Vec::new();
         let latched = self.gestures.ff_latched();
         self.gestures.set_context(self.app.input_context());
-        let mut entries = self.app.binding_table().entries();
+        let mut entries = self.app.input_entries();
         if self.app.restart_chord() {
             entries.insert(
                 0,
@@ -271,11 +271,12 @@ impl Session {
     }
 
     fn sync_pad(&mut self) {
-        for btn in self.app.taken_buttons() {
-            self.pad.apply(Action::GbaUp(btn));
-        }
         if let Some(emu) = &self.emu {
-            let mask = self.pad.mask(&self.app.controls());
+            let mut mask = self.pad.mask(&self.app.controls());
+            // A Game Boy has no shoulders: L and R never reach its core.
+            if self.app.playing_platform().hardware() != Platform::Gba {
+                mask.0 &= !(slot_retro::ButtonMask::L | slot_retro::ButtonMask::R);
+            }
             if trace() && mask.0 != self.sent {
                 eprintln!("slot: pad {:#06x}", mask.0);
             }
@@ -318,10 +319,6 @@ impl Session {
         }
         if menu || self.overlaid() {
             self.pad.clear();
-        } else if self.app.takes_from_the_game(action) {
-            if let Action::GbaDown(btn) | Action::GbaUp(btn) = action {
-                self.pad.apply(Action::GbaUp(btn));
-            }
         } else {
             self.pad.apply(action);
         }

@@ -861,7 +861,7 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(1000 + i), 200, 40), (id(1100 + i), 200, 40)])
+            .map(|i| [(id(1000 + i), 200, 40), (id(1500 + i), 200, 40)])
             .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
@@ -905,7 +905,7 @@ fn fake_faces(a: &mut App) {
 
 fn label(row: QuickRow, lit: bool) -> usize {
     if lit {
-        1100 + row.index()
+        1500 + row.index()
     } else {
         1000 + row.index()
     }

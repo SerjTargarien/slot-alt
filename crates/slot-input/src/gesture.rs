@@ -39,6 +39,8 @@ pub enum Action {
     SunlightDown,
     Reset,
     Guide,
+    StretchOn,
+    StretchOff,
     VolumeUp,
     VolumeDown,
     QuickMenu,

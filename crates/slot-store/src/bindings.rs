@@ -327,10 +327,12 @@ pub enum Shortcut {
     SunlightDown,
     Reset,
     Guide,
+    StretchOn,
+    StretchOff,
 }
 
 impl Shortcut {
-    pub const ALL: [Shortcut; 19] = [
+    pub const ALL: [Shortcut; 21] = [
         Shortcut::SaveState,
         Shortcut::LoadState,
         Shortcut::Screenshot,
@@ -350,6 +352,8 @@ impl Shortcut {
         Shortcut::SunlightDown,
         Shortcut::Reset,
         Shortcut::Guide,
+        Shortcut::StretchOn,
+        Shortcut::StretchOff,
     ];
 
     pub fn label(self) -> &'static str {
@@ -373,6 +377,8 @@ impl Shortcut {
             Shortcut::SunlightDown => "Sunlight Down",
             Shortcut::Reset => "Reset Game",
             Shortcut::Guide => "Guide",
+            Shortcut::StretchOn => "Stretch On",
+            Shortcut::StretchOff => "Stretch Off",
         }
     }
 
@@ -397,6 +403,8 @@ impl Shortcut {
             Shortcut::SunlightDown => "sunlight_down",
             Shortcut::Reset => "reset",
             Shortcut::Guide => "guide",
+            Shortcut::StretchOn => "stretch_on",
+            Shortcut::StretchOff => "stretch_off",
         }
     }
 
@@ -421,6 +429,9 @@ impl Shortcut {
             Shortcut::SunlightUp | Shortcut::SunlightDown | Shortcut::Reset | Shortcut::Guide => {
                 None
             }
+            // Upstream had these fixed on plain L1 and R1 in Game Boy games.
+            Shortcut::StretchOn => Binding::with(Modifier::Menu, Device::L1),
+            Shortcut::StretchOff => Binding::with(Modifier::Menu, Device::R1),
         }
     }
 
@@ -474,7 +485,7 @@ impl Controls {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ShortcutKeys {
-    keys: [Option<Binding>; 19],
+    keys: [Option<Binding>; 21],
 }
 
 impl Default for ShortcutKeys {

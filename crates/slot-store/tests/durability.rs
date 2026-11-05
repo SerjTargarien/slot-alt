@@ -272,6 +272,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             scale_gbc: Scale::SpFrame,
             stretch_gb: Stretch::Classic,
             stretch_gbc: Stretch::Classic,
+            stretched_gb: false,
+            stretched_gbc: false,
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -675,6 +677,7 @@ fn scale_and_stretch_round_trip_and_fall_back() {
         scale_gbc: Scale::Fit,
         stretch_gb: Stretch::FullScreen,
         stretch_gbc: Stretch::Classic,
+        stretched_gb: true,
         ..SlotState::default()
     };
     write_slot_state(d.path(), &s).unwrap();
@@ -687,6 +690,8 @@ fn scale_and_stretch_round_trip_and_fall_back() {
         "scale_gbc=fit",
         "stretch_gb=full-screen",
         "stretch_gbc=classic",
+        "stretched_gb=1",
+        "stretched_gbc=0",
     ] {
         assert!(text.lines().any(|l| l == line), "{line} missing");
     }

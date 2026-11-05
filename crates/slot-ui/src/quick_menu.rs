@@ -117,6 +117,8 @@ pub enum QuickRow {
     Blending,
     Guide,
     ScGuide,
+    ScStretchOn,
+    ScStretchOff,
     Network,
     Wifi,
     WifiPower,
@@ -135,7 +137,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 123] = [
+    pub const ALL: [QuickRow; 125] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -244,6 +246,8 @@ impl QuickRow {
         QuickRow::Blending,
         QuickRow::Guide,
         QuickRow::ScGuide,
+        QuickRow::ScStretchOn,
+        QuickRow::ScStretchOff,
         QuickRow::Network,
         QuickRow::Wifi,
         QuickRow::WifiPower,
@@ -343,7 +347,7 @@ impl QuickRow {
         QuickRow::GameTurboB,
     ];
 
-    pub const SHORTCUTS: [QuickRow; 19] = [
+    pub const SHORTCUTS: [QuickRow; 21] = [
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScReset,
@@ -352,6 +356,8 @@ impl QuickRow {
         QuickRow::ScFastForwardToggle,
         QuickRow::ScScreenshot,
         QuickRow::ScGuide,
+        QuickRow::ScStretchOn,
+        QuickRow::ScStretchOff,
         QuickRow::ScBrightDown,
         QuickRow::ScBrightUp,
         QuickRow::ScBlueDown,
@@ -715,7 +721,9 @@ impl QuickRow {
             | QuickRow::ScSunlightUp
             | QuickRow::ScSunlightDown
             | QuickRow::ScReset
-            | QuickRow::ScGuide => self.shortcut().map_or("", Shortcut::label),
+            | QuickRow::ScGuide
+            | QuickRow::ScStretchOn
+            | QuickRow::ScStretchOff => self.shortcut().map_or("", Shortcut::label),
             QuickRow::ShelfPrev
             | QuickRow::ShelfNext
             | QuickRow::ShelfFavorite
@@ -824,6 +832,8 @@ impl QuickRow {
             QuickRow::ScSunlightDown => Shortcut::SunlightDown,
             QuickRow::ScReset => Shortcut::Reset,
             QuickRow::ScGuide => Shortcut::Guide,
+            QuickRow::ScStretchOn => Shortcut::StretchOn,
+            QuickRow::ScStretchOff => Shortcut::StretchOff,
             _ => return None,
         })
     }

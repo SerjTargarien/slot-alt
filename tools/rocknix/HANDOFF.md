@@ -105,7 +105,11 @@ macOS; `romm_ui` needs `--features romm`.
 3. **Link play (step 4)** when the second device (vanilla slot) arrives: host on `wlan0`
    on 2.4 GHz, power save off during play.
 4. **Our own U-Boot** (no 2 s countdown).
-5. Later: more menu rows on a tall canvas (`QUICK_VISIBLE` is 6), a crisper wallpaper,
+5. **Label printer jump (reported 2026-11-05):** the label printer (Select on the shelf)
+   jumps up before it opens on the square panel, as the core picker did. Fix it the same
+   way: take `first = out.len()` once its band layout is computed and
+   `shift(&mut out[first..], canvas.extra() / 2.0)` (see `draw_core_picker`).
+6. Later: more menu rows on a tall canvas (`QUICK_VISIBLE` is 6), a crisper wallpaper,
    then systems from slotPlus.
 - **Parked by the user:** boot time (11-12 s power-on to shelf is fine for now; analysis
   in BRINGUP.md).

@@ -1890,11 +1890,13 @@ fn l_and_r_change_the_mode_on_a_game_boy_cart_and_not_on_a_gba_one() {
         "it did not open actual size"
     );
 
+    // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::L1)], 100);
     assert_eq!(
         s.app().source_rect(),
         GB_WINDOW,
-        "L did not stretch the picture"
+        "Menu+L did not stretch the picture"
     );
     assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
     s.feed([RawEvent::Up(Btn::L1)], 120);
@@ -1903,10 +1905,19 @@ fn l_and_r_change_the_mode_on_a_game_boy_cart_and_not_on_a_gba_one() {
     assert_eq!(
         s.app().source_rect(),
         WHOLE_TEXTURE,
-        "R did not give it back"
+        "Menu+R did not give it back"
     );
     assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
     s.feed([RawEvent::Up(Btn::R1)], 220);
+    s.feed([RawEvent::Up(Btn::Menu)], 230);
+
+    s.feed([RawEvent::Down(Btn::L1)], 300);
+    assert_eq!(
+        pad(&s) & ButtonMask::L,
+        0,
+        "a Game Boy core was handed an L"
+    );
+    s.feed([RawEvent::Up(Btn::L1)], 320);
 
     let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);
     let mut s = session_playing(d.path());
@@ -1914,10 +1925,13 @@ fn l_and_r_change_the_mode_on_a_game_boy_cart_and_not_on_a_gba_one() {
     assert_ne!(pad(&s) & ButtonMask::L, 0, "the GBA lost its own L");
     s.feed([RawEvent::Down(Btn::R1)], 120);
     assert_ne!(pad(&s) & ButtonMask::R, 0, "the GBA lost its own R");
+    s.feed([RawEvent::Up(Btn::L1), RawEvent::Up(Btn::R1)], 140);
+    s.feed([RawEvent::Down(Btn::Menu)], 190);
+    s.feed([RawEvent::Down(Btn::L1)], 200);
     assert_eq!(
         s.app().source_rect(),
         WHOLE_TEXTURE,
-        "a GBA picture moved when its shoulders were pressed"
+        "a GBA picture moved on the Stretch shortcut"
     );
 }
 
@@ -1988,8 +2002,10 @@ fn a_shoulder_still_held_when_the_cart_seats_never_reaches_a_game_boy_core() {
 fn the_picture_mode_is_remembered_per_cart() {
     let d = common::tmp_root_with_gb_carts(&["Tetris", "Zzz"]);
     let mut s = session_playing(d.path());
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::L1)], 100);
     s.feed([RawEvent::Up(Btn::L1)], 120);
+    s.feed([RawEvent::Up(Btn::Menu)], 130);
     assert_eq!(video_mode_for(d.path(), "Tetris"), VideoMode::Stretch);
     assert_eq!(
         video_mode_for(d.path(), "Zzz"),
@@ -2004,6 +2020,7 @@ fn the_picture_mode_is_remembered_per_cart() {
         GB_WINDOW,
         "the cart did not come back stretched"
     );
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
     s.feed([RawEvent::Down(Btn::R1)], 100);
     assert_eq!(video_mode_for(d.path(), "Tetris"), VideoMode::Actual);
     assert_eq!(s.app().source_rect(), WHOLE_TEXTURE);

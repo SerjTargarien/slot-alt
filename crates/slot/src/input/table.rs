@@ -82,6 +82,7 @@ impl Table {
         self.rows
             .iter()
             .filter(|r| r.row != row && r.contexts.meets(mine.contexts))
+            .filter(|r| !apart(mine.row, r.row))
             .find(|r| {
                 r.binding == mine.binding
                     || (!console(mine)
@@ -90,6 +91,14 @@ impl Table {
             })
             .map(|r| r.row)
     }
+}
+
+/// Rows that never apply to the same game: Stretch On and Off work only in Game Boy
+/// games, and the L and R game buttons only in GBA games.
+fn apart(a: QuickRow, b: QuickRow) -> bool {
+    let game_boy = |r| matches!(r, QuickRow::ScStretchOn | QuickRow::ScStretchOff);
+    let gba = |r| matches!(r, QuickRow::GameL | QuickRow::GameR);
+    (game_boy(a) && gba(b)) || (gba(a) && game_boy(b))
 }
 
 fn shelf_action(a: CarouselAction) -> Action {
