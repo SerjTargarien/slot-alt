@@ -29,11 +29,13 @@ struct Pacer {
 const WORK_WINDOW: usize = 32;
 
 impl Pacer {
-    fn new() -> Self {
+    fn new(surface_margin: Option<Duration>) -> Self {
         let margin = std::env::var("SLOT_PACE_MARGIN_US")
             .ok()
             .and_then(|v| v.trim().parse().ok())
-            .map_or(MARGIN, Duration::from_micros);
+            .map(Duration::from_micros)
+            .or(surface_margin)
+            .unwrap_or(MARGIN);
         if margin != MARGIN {
             eprintln!("slot: pace margin {} us", margin.as_micros());
         }
@@ -171,7 +173,7 @@ pub fn run() {
         .spawn(sync_log_writes);
     let mut drawn = false;
     frontend.drive_emulator();
-    let mut pacer = Pacer::new();
+    let mut pacer = Pacer::new(surface.pace_margin());
     let (mut frames, mut missed, mut early, mut stale) = (0u32, 0u32, 0u32, 0u32);
     loop {
         pacer.wait();

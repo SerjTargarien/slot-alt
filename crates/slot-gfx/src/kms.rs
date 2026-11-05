@@ -37,6 +37,8 @@ const EGL_PLATFORM_GBM_KHR: u32 = 0x31D7;
 
 const FLIP_TIMEOUT_MS: c_int = 100;
 
+const PACE_MARGIN: std::time::Duration = std::time::Duration::from_micros(4000);
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ModeInfo {
@@ -554,7 +556,7 @@ impl KmsSurface {
                 usec: 0,
             }),
             flip_failed: false,
-            finish: env_on("SLOT_KMS_FINISH"),
+            finish: std::env::var_os("SLOT_KMS_FINISH").is_none_or(|v| v != "0"),
             stats: env_on("SLOT_TRACE_LATENCY").then(|| FlipStats::new(mode.refresh_hz())),
             swap_us: 0,
         };
@@ -872,6 +874,10 @@ impl Surface for KmsSurface {
         if self.finish {
             unsafe { ::gl::Finish() };
         }
+    }
+
+    fn pace_margin(&self) -> Option<std::time::Duration> {
+        Some(PACE_MARGIN)
     }
 
     fn swap(&mut self) -> Result<(), GfxError> {

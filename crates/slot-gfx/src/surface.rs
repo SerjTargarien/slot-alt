@@ -27,6 +27,9 @@ pub trait Surface {
     fn make_current(&mut self) -> Result<(), GfxError>;
     fn window_size(&self) -> (u32, u32);
     fn settle(&mut self) {}
+    fn pace_margin(&self) -> Option<std::time::Duration> {
+        None
+    }
     fn swap(&mut self) -> Result<(), GfxError>;
     fn proc_address(&self, name: &str) -> *const c_void;
 }

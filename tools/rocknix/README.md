@@ -51,6 +51,14 @@ What step 1 adds:
   preferred mode, renders through GBM and EGL with GLES2, and blocks on each page flip
   so the existing frame pacing still works. It loads its libraries at runtime, so the
   device build has no new dependencies.
+- **Frame pacing on KMS:** slot waits for the GPU after drawing (`glFinish`), so GPU time
+  counts as frame work, and draws 4 ms before each vblank instead of 1.5 ms. Without
+  either, `libmali` spent 1 to 2 ms in `eglSwapBuffers` that the pacer never saw, and 6
+  to 25 percent of frames reached the panel one vblank late, all of them submitted after
+  their deadline. With both, it was 0 to 2 frames in 600. `SLOT_KMS_FINISH=0` and
+  `SLOT_PACE_MARGIN_US` override them. With `SLOT_TRACE_LATENCY=1`, the log reports
+  every 600 flips how many skipped a vblank and why. The pacer measures the panel at about
+  60.0 Hz, although the mode's timings say 60.69 Hz.
 - **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The
   Anbernic table stays for BaseOS, since the two disagree about codes like `0x138`.
 - **FN** (`slot/src/input/adc.rs`): read from its ADC channel about 60 times a second as
