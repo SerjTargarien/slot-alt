@@ -228,6 +228,15 @@ fn theme_switches_between_dark_and_light_and_saves() {
     assert_eq!(read_slot_state(d.path()).appearance, Appearance::Dark);
 }
 
+/// The main page's rows as shown: RetroAchievements is hidden while it's switched off.
+fn shown_main(a: &App) -> Vec<QuickRow> {
+    let hidden = a.hidden_rows();
+    QuickRow::MAIN
+        .into_iter()
+        .filter(|r| !hidden.contains(r))
+        .collect()
+}
+
 #[test]
 fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     let (_d, mut a, _) = on_carousel();
@@ -238,7 +247,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         Some(QuickRow::About),
         "up from the top did not wrap to the bottom"
     );
-    for want in [
+    let wants = [
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
@@ -247,7 +256,9 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Achievements,
         QuickRow::About,
         QuickRow::General,
-    ] {
+    ];
+    let shown = shown_main(&a);
+    for want in wants.into_iter().filter(|r| shown.contains(r)) {
         press(&mut a, Btn::Down);
         assert_eq!(a.quick_menu(), Some(want));
     }
@@ -700,7 +711,10 @@ fn no_wifi_hardware_hides_tools_and_wifi() {
     let hidden = a.hidden_rows();
     assert!(hidden.contains(&QuickRow::Network));
     assert!(hidden.contains(&QuickRow::Wifi));
-    assert!(!QuickRow::MAIN.iter().any(|r| *r != QuickRow::Network && hidden.contains(r)));
+    let off = |r: &QuickRow| *r == QuickRow::Achievements && !slot::ACHIEVEMENTS;
+    assert!(!QuickRow::MAIN
+        .iter()
+        .any(|r| *r != QuickRow::Network && !off(r) && hidden.contains(r)));
 }
 
 #[test]
@@ -1063,7 +1077,7 @@ fn the_legend_says_change_on_a_value_row_and_open_on_a_row_that_opens() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::MAIN {
+    for row in shown_main(&a) {
         assert_eq!(a.quick_menu(), Some(row));
         let out = frame(&a);
         assert!(drawn(&out, 400), "no B BACK on {row:?}");
@@ -1115,7 +1129,7 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::MAIN {
+    for row in shown_main(&a) {
         let out = frame(&a);
         let pointers: Vec<_> = out
             .iter()
@@ -1135,7 +1149,7 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
             ly + lh / 2.0,
             "{row:?}: the pointer is off the row"
         );
-        for other in QuickRow::MAIN.into_iter().filter(|r| *r != row) {
+        for other in shown_main(&a).into_iter().filter(|r| *r != row) {
             assert!(drawn(&out, label(other, false)), "{other:?} is not grey");
             assert!(!drawn(&out, label(other, true)), "{other:?} is lit");
         }
@@ -2110,22 +2124,13 @@ fn encore_flips_with_a_or_left_and_right() {
 }
 
 #[test]
-fn retroachievements_are_greyed_out_while_switched_off() {
+fn retroachievements_are_hidden_while_switched_off() {
     if slot::ACHIEVEMENTS {
         return;
     }
-    let (d, mut a, _) = on_carousel();
-    assert_eq!(a.disabled_rows(), &[QuickRow::Achievements]);
-    open_at(&mut a, QuickRow::Achievements);
-    assert_eq!(a.quick_menu(), Some(QuickRow::Achievements), "the row can be reached");
-    press(&mut a, Btn::A);
-    assert_eq!(
-        a.quick_menu(),
-        Some(QuickRow::Achievements),
-        "but A doesn't open its page"
-    );
-    press(&mut a, Btn::Right);
-    assert!(a.keyboard().is_none());
+    let (d, a, _) = on_carousel();
+    assert!(a.disabled_rows().is_empty());
+    assert!(a.hidden_rows().contains(&QuickRow::Achievements));
     assert!(
         !d.path().join("Config/retroachievements.toml").exists(),
         "nothing is written for it"

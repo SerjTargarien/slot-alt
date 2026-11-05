@@ -2253,6 +2253,10 @@ impl App {
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
+        // Not greyed out but gone while RetroAchievements is switched off in this build.
+        if !crate::ACHIEVEMENTS {
+            hidden.push(QuickRow::Achievements);
+        }
         if !self.framed_panel() {
             hidden.push(QuickRow::GbaBezel);
         }
@@ -2460,12 +2464,10 @@ impl App {
         self.quick_achievement_faces = faces;
     }
 
-    /// slotPlus: menu rows shown greyed out, reached but not opened.
+    /// slotPlus: menu rows shown greyed out, reached but not opened. slot² hides the
+    /// RetroAchievements row instead while it is switched off (`hidden_rows`).
     pub fn disabled_rows(&self) -> &'static [QuickRow] {
-        match crate::ACHIEVEMENTS {
-            true => &[],
-            false => &[QuickRow::Achievements],
-        }
+        &[]
     }
 
     /// Settings changed the RetroAchievements file since last asked.
