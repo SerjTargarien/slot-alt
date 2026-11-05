@@ -5,7 +5,7 @@ use crate::art;
 use crate::bitmaps::{self, Mould};
 use crate::board::{BOARD_H, BOARD_W};
 use crate::shell::{shell_for, Finish, Shell};
-use crate::silhouette::{cart_mask, gb_cart_mask, GbShell};
+use crate::silhouette::{cart_mask, extra_mask, gb_cart_mask, GbShell};
 use crate::text;
 
 pub const CART_W: u32 = 360;
@@ -46,6 +46,113 @@ pub const GBC_LABEL_Y: u32 = 110;
 pub const GBC_LABEL_W: u32 = 223;
 pub const GBC_LABEL_H: u32 = 199;
 
+// WonderSwan: the label fills the face between the oval nameplate at the top
+// and the shoulder above the exposed contacts.
+pub use crate::bitmaps::{LYNX_CART_H, LYNX_CART_W, WS_CART_H, WS_CART_W};
+
+pub const fn ws_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 40 + 500) / 1000,
+        (h * 140 + 500) / 1000,
+        (w * 960 + 500) / 1000,
+        (h * 765 + 500) / 1000,
+    )
+}
+
+pub const WS_LABEL_X: u32 = ws_label_panel(WS_CART_W, WS_CART_H).0;
+pub const WS_LABEL_Y: u32 = ws_label_panel(WS_CART_W, WS_CART_H).1;
+pub const WS_LABEL_W: u32 = ws_label_panel(WS_CART_W, WS_CART_H).2 - WS_LABEL_X;
+pub const WS_LABEL_H: u32 = ws_label_panel(WS_CART_W, WS_CART_H).3 - WS_LABEL_Y;
+
+// Atari Lynx (curved-lip card): the label runs nearly edge to edge below the
+// lip, down to the clear strip over the contacts.
+pub const fn lynx_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 45 + 500) / 1000,
+        (h * 255 + 500) / 1000,
+        (w * 955 + 500) / 1000,
+        (h * 835 + 500) / 1000,
+    )
+}
+
+pub const LYNX_LABEL_X: u32 = lynx_label_panel(LYNX_CART_W, LYNX_CART_H).0;
+pub const LYNX_LABEL_Y: u32 = lynx_label_panel(LYNX_CART_W, LYNX_CART_H).1;
+pub const LYNX_LABEL_W: u32 = lynx_label_panel(LYNX_CART_W, LYNX_CART_H).2 - LYNX_LABEL_X;
+pub const LYNX_LABEL_H: u32 = lynx_label_panel(LYNX_CART_W, LYNX_CART_H).3 - LYNX_LABEL_Y;
+
+// Game Gear: a nearly square pak. A raised hood with grip ridges runs over
+// the top and down the sides to the flanges, the label sits in the U it
+// leaves, and the SEGA plaque sits at the foot.
+pub use crate::bitmaps::{GG_CART_H, GG_CART_W};
+
+pub const fn gg_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 88 + 500) / 1000,
+        (h * 145 + 500) / 1000,
+        (w * 912 + 500) / 1000,
+        (h * 755 + 500) / 1000,
+    )
+}
+
+pub const GG_LABEL_X: u32 = gg_label_panel(GG_CART_W, GG_CART_H).0;
+pub const GG_LABEL_Y: u32 = gg_label_panel(GG_CART_W, GG_CART_H).1;
+pub const GG_LABEL_W: u32 = gg_label_panel(GG_CART_W, GG_CART_H).2 - GG_LABEL_X;
+pub const GG_LABEL_H: u32 = gg_label_panel(GG_CART_W, GG_CART_H).3 - GG_LABEL_Y;
+
+// NeoGeo Pocket: a ridged cap across the top, the wide label in a recessed
+// frame, and below a seam two plaques with a down arrow between them.
+pub use crate::bitmaps::{NGP_CART_H, NGP_CART_W};
+
+pub const fn ngp_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 115 + 500) / 1000,
+        (h * 215 + 500) / 1000,
+        (w * 905 + 500) / 1000,
+        (h * 712 + 500) / 1000,
+    )
+}
+
+pub const NGP_LABEL_X: u32 = ngp_label_panel(NGP_CART_W, NGP_CART_H).0;
+pub const NGP_LABEL_Y: u32 = ngp_label_panel(NGP_CART_W, NGP_CART_H).1;
+pub const NGP_LABEL_W: u32 = ngp_label_panel(NGP_CART_W, NGP_CART_H).2 - NGP_LABEL_X;
+pub const NGP_LABEL_H: u32 = ngp_label_panel(NGP_CART_W, NGP_CART_H).3 - NGP_LABEL_Y;
+
+// TurboGrafx-16 HuCard: a portrait card with its contacts and a dark panel
+// across the top; the game art fills the lower half, square-cornered.
+pub use crate::bitmaps::{TG16_CART_H, TG16_CART_W};
+
+pub const fn tg16_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 60 + 500) / 1000,
+        (h * 420 + 500) / 1000,
+        (w * 955 + 500) / 1000,
+        (h * 905 + 500) / 1000,
+    )
+}
+
+pub const TG16_LABEL_X: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).0;
+pub const TG16_LABEL_Y: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).1;
+pub const TG16_LABEL_W: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).2 - TG16_LABEL_X;
+pub const TG16_LABEL_H: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).3 - TG16_LABEL_Y;
+
+// Nintendo DS game card: the portrait label sits in a shallow recess over
+// most of the face, above a little arrow at the foot.
+pub use crate::bitmaps::{NDS_CART_H, NDS_CART_W};
+
+pub const fn nds_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
+    (
+        (w * 100 + 500) / 1000,
+        (h * 45 + 500) / 1000,
+        (w * 900 + 500) / 1000,
+        (h * 870 + 500) / 1000,
+    )
+}
+
+pub const NDS_LABEL_X: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).0;
+pub const NDS_LABEL_Y: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).1;
+pub const NDS_LABEL_W: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).2 - NDS_LABEL_X;
+pub const NDS_LABEL_H: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).3 - NDS_LABEL_Y;
+
 const PAD: u32 = 10;
 const MAX_LINES: usize = 3;
 const MIN_PX: f32 = 10.0;
@@ -68,17 +175,70 @@ struct Spec {
 enum Shape {
     Gba,
     Gb(GbShell),
+    Extra(Mould),
+}
+
+impl Shape {
+    fn of(mould: Mould) -> Shape {
+        match mould {
+            Mould::Gba => Shape::Gba,
+            Mould::Notched => Shape::Gb(GbShell::Notched),
+            Mould::Rounded => Shape::Gb(GbShell::Rounded),
+            extra => Shape::Extra(extra),
+        }
+    }
+}
+
+/// The mould a cart is drawn from: the GBA cart, the Game Boy pak notched or
+/// rounded, or one of the shapes slotPlus adds.
+pub fn mould_of(cart: &Cart) -> Mould {
+    match cart.platform {
+        Platform::Ws => Mould::Ws,
+        Platform::Lynx => Mould::Lynx,
+        Platform::Gg => Mould::Gg,
+        Platform::Ngp => Mould::Ngp,
+        Platform::Tg16 => Mould::Tg16,
+        Platform::Nds => Mould::Nds,
+        _ => match gb_shell_of(cart) {
+            None => Mould::Gba,
+            Some(GbShell::Notched) => Mould::Notched,
+            Some(GbShell::Rounded) => Mould::Rounded,
+        },
+    }
+}
+
+/// Whether a platform's carts go into the slot upside down. A HuCard is drawn
+/// as it is printed, contacts at the top, so it turns end over end before it
+/// goes in contacts first, and turns back when it comes out.
+pub fn inserts_turned(platform: Platform) -> bool {
+    platform == Platform::Tg16
+}
+
+/// The mould a platform's carts are drawn from when the cart is not known. A
+/// Game Boy platform's carts take the notched pak's size either way.
+pub fn mould_for(platform: Platform) -> Mould {
+    match platform {
+        Platform::Gba | Platform::Gbav => Mould::Gba,
+        Platform::Gb | Platform::Gbc => Mould::Notched,
+        Platform::Ws => Mould::Ws,
+        Platform::Lynx => Mould::Lynx,
+        Platform::Gg => Mould::Gg,
+        Platform::Ngp => Mould::Ngp,
+        Platform::Tg16 => Mould::Tg16,
+        Platform::Nds => Mould::Nds,
+    }
 }
 
 pub fn folder_gb_shell(cart: &Cart) -> Option<GbShell> {
     match cart.platform {
-        Platform::Gba | Platform::Gbav => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
             Some(Outline::Notched) => GbShell::Notched,
             Some(Outline::Rounded) => GbShell::Rounded,
             _ if cart.platform == Platform::Gbc => GbShell::Rounded,
             _ => GbShell::Notched,
         }),
+        // The GBA, and slotPlus's systems: no Game Boy pak.
+        _ => None,
     }
 }
 
@@ -95,7 +255,8 @@ pub fn shelf_shape(cart: &Cart) -> (Option<GbShell>, bool) {
     let shell = crate::shell::indexed_shell(cart);
     let outline = cart.shell.map(|c| c.outline);
     let shape = match (cart.platform, outline) {
-        (Platform::Gba | Platform::Gbav, _) => None,
+        // slotPlus: only the Game Boy family has a pak shape to find.
+        (p, _) if !matches!(p, Platform::Gb | Platform::Gbc) => None,
         (_, Some(Outline::Notched)) => Some(GbShell::Notched),
         (_, Some(Outline::Rounded)) => Some(GbShell::Rounded),
         _ => match slot_store::header_index::peek_gb_header(&cart.rom).flatten() {
@@ -109,7 +270,14 @@ pub fn shelf_shape(cart: &Cart) -> (Option<GbShell>, bool) {
 
 pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
     match cart.platform {
-        Platform::Gba | Platform::Gbav => None,
+        Platform::Gba
+        | Platform::Gbav
+        | Platform::Ws
+        | Platform::Lynx
+        | Platform::Gg
+        | Platform::Ngp
+        | Platform::Tg16
+        | Platform::Nds => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
             Some(Outline::Notched) => GbShell::Notched,
             Some(Outline::Rounded) => GbShell::Rounded,
@@ -121,11 +289,35 @@ pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
     }
 }
 
-pub fn label_rect(shell: Option<GbShell>) -> (f32, f32, f32, f32) {
-    let s = spec(match shell {
-        None => Shape::Gba,
-        Some(shell) => Shape::Gb(shell),
-    });
+fn shape_of(cart: &Cart) -> Shape {
+    Shape::of(mould_of(cart))
+}
+
+/// slotPlus: a cart's label well and its art's size, in the art's pixels, whatever its mould.
+pub fn label_well(cart: &Cart) -> [u32; 4] {
+    let (x, y, w, h) = spec(shape_of(cart)).label;
+    [x, y, w, h]
+}
+
+pub fn cart_art_size(cart: &Cart) -> (u32, u32) {
+    let s = spec(shape_of(cart));
+    (s.w, s.h)
+}
+
+/// The same for a platform's usual mould, when there is no cart to ask.
+pub fn platform_label_well(platform: Platform) -> [u32; 4] {
+    let (x, y, w, h) = spec(Shape::of(mould_for(platform))).label;
+    [x, y, w, h]
+}
+
+pub fn platform_art_size(platform: Platform) -> (u32, u32) {
+    let s = spec(Shape::of(mould_for(platform)));
+    (s.w, s.h)
+}
+
+/// The label box of a mould, as fractions of the cart.
+pub fn mould_label_rect(mould: Mould) -> (f32, f32, f32, f32) {
+    let s = spec(Shape::of(mould));
     let (x, y, w, h) = s.label;
     (
         x as f32 / s.w as f32,
@@ -133,13 +325,6 @@ pub fn label_rect(shell: Option<GbShell>) -> (f32, f32, f32, f32) {
         w as f32 / s.w as f32,
         h as f32 / s.h as f32,
     )
-}
-
-fn shape_of(cart: &Cart) -> Shape {
-    match gb_shell_of(cart) {
-        None => Shape::Gba,
-        Some(shell) => Shape::Gb(shell),
-    }
 }
 
 fn spec(shape: Shape) -> Spec {
@@ -169,26 +354,81 @@ fn spec(shape: Shape) -> Spec {
                 GbShell::Rounded => bitmaps::gbc_cart(),
             },
         },
+        Shape::Extra(mould) => {
+            let (w, h) = mould.size();
+            Spec {
+                w,
+                h,
+                label: match mould {
+                    Mould::Ws => (WS_LABEL_X, WS_LABEL_Y, WS_LABEL_W, WS_LABEL_H),
+                    Mould::Gg => (GG_LABEL_X, GG_LABEL_Y, GG_LABEL_W, GG_LABEL_H),
+                    Mould::Ngp => (NGP_LABEL_X, NGP_LABEL_Y, NGP_LABEL_W, NGP_LABEL_H),
+                    Mould::Tg16 => (TG16_LABEL_X, TG16_LABEL_Y, TG16_LABEL_W, TG16_LABEL_H),
+                    Mould::Nds => (NDS_LABEL_X, NDS_LABEL_Y, NDS_LABEL_W, NDS_LABEL_H),
+                    _ => (LYNX_LABEL_X, LYNX_LABEL_Y, LYNX_LABEL_W, LYNX_LABEL_H),
+                },
+                mask: extra_mask(mould),
+                mould,
+                paint: bitmaps::extra_cart(mould),
+            }
+        }
     }
 }
 
 pub const SEATED_W: u32 = 240;
 const SEATED_H: u32 = 141;
 const GB_SEATED_H: u32 = 259;
+/// tools/slot_art/dslite.py cuts its slot to this width.
+pub const NDS_SEATED_W: u32 = 168;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba | Platform::Gbav => (SEATED_W, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
+        // A DS card is far smaller than the others, so it seats narrower, in a
+        // DS Lite slot narrowed to match.
+        Platform::Nds => {
+            let (w, h) = mould_for(Platform::Nds).size();
+            (NDS_SEATED_W, (h * NDS_SEATED_W + w / 2) / w)
+        }
+        // The others are drawn at the seated width already scaled, so their seated
+        // height follows from their own aspect.
+        other => {
+            let (w, h) = mould_for(other).size();
+            (SEATED_W, (h * SEATED_W + w / 2) / w)
+        }
     }
 }
 
 pub fn cart_box(platform: Platform) -> (u32, u32) {
-    let s = spec(match platform {
-        Platform::Gba | Platform::Gbav => Shape::Gba,
-        Platform::Gb | Platform::Gbc => Shape::Gb(GbShell::Notched),
-    });
+    let s = spec(Shape::of(mould_for(platform)));
     (s.w, s.h)
+}
+
+/// The shadow of any mould's outline, drawn under a cart that is fading.
+pub fn mould_shadow(mould: Mould) -> CartFace {
+    let s = spec(Shape::of(mould));
+    shadow(s.w, s.h, s.mask)
+}
+
+/// The board a clear cart of any mould is drawn over.
+pub fn mould_backing(mould: Mould) -> CartFace {
+    match Shape::of(mould) {
+        Shape::Gba => cart_backing(None),
+        Shape::Gb(shell) => cart_backing(Some(shell)),
+        Shape::Extra(mould) => {
+            let s = spec(Shape::Extra(mould));
+            let mut rgba = bitmaps::extra_board(mould).to_vec();
+            for (px, cover) in rgba.chunks_exact_mut(4).zip(s.mask) {
+                px[3] = ((px[3] as u32 * *cover as u32 + 127) / 255) as u8;
+            }
+            CartFace {
+                rgba,
+                w: s.w,
+                h: s.h,
+            }
+        }
+    }
 }
 
 pub fn cart_shadow() -> CartFace {
@@ -208,9 +448,26 @@ fn shadow(w: u32, h: u32, mask: &[u8]) -> CartFace {
 }
 
 pub fn cart_face(cart: &Cart) -> CartFace {
-    let (lw, lh) = label_size(cart);
-    let art = cart.label.as_deref().and_then(|p| art::cover(p, lw, lh));
+    let art = cart.label.as_deref().and_then(|p| label_art(cart, p));
     cart_face_with(cart, art)
+}
+
+/// A cart's label art at its label size. Most labels fill their box, cropped to
+/// it. A HuCard label is printed on the card under its dark panel, and real
+/// ones come in different heights: it spans the box's width at its own shape,
+/// sits on the box's foot, and leaves the card showing above it.
+pub fn label_art(cart: &Cart, path: &std::path::Path) -> Option<Vec<u8>> {
+    let (lw, lh) = label_size(cart);
+    match label_on_card(mould_of(cart)) {
+        true => art::fit_bottom(path, lw, lh),
+        false => art::cover(path, lw, lh),
+    }
+}
+
+/// Whether a mould's label is printed straight on the card, with the card's own
+/// plastic, in the shell's colour, wherever the art leaves it showing.
+pub fn label_on_card(mould: Mould) -> bool {
+    mould == Mould::Tg16
 }
 
 pub fn is_clear(cart: &Cart) -> bool {
@@ -226,10 +483,15 @@ pub fn shows_interior(cart: &Cart) -> bool {
 /// 80% opacity. A GBA cart uses `gba_interior.png`, a Game Boy pak `gb_interior.png`, and a Game
 /// Boy Color pak `gbc_interior.png`. Same size as that cart's board and face.
 pub fn cart_interior(cart: &Cart) -> CartFace {
-    let colour = shell_for(cart).colour;
-    let (src, w, h, mask) = match gb_shell_of(cart) {
-        None => (bitmaps::gba_interior(), BOARD_W, BOARD_H, None),
-        Some(shell) => {
+    // The inside of the back half, so a two-tone cart's back colour.
+    let colour = shell_for(cart).back_colour();
+    let (src, w, h, mask) = match Shape::of(mould_of(cart)) {
+        Shape::Extra(mould) => {
+            let s = spec(Shape::Extra(mould));
+            (bitmaps::extra_interior(mould), s.w, s.h, Some(s.mask))
+        }
+        Shape::Gba => (bitmaps::gba_interior(), BOARD_W, BOARD_H, None),
+        Shape::Gb(shell) => {
             let s = spec(Shape::Gb(shell));
             let src = match shell {
                 GbShell::Notched => bitmaps::gb_interior(),
@@ -307,8 +569,54 @@ pub fn cart_face_with(cart: &Cart, art: Option<Vec<u8>>) -> CartFace {
         }
     };
     paste_label(&s, &mut face, &label);
+    if let Some(decal) = bitmaps::extra_decal(s.mould) {
+        paste_decal(&mut face, decal);
+    }
     clip_to_silhouette(&s, &mut face);
     face
+}
+
+/// Lay a decal over the face as it is, keeping its own colour: the shell's tint
+/// is already on the face beneath it.
+fn paste_decal(face: &mut CartFace, decal: &[u8]) {
+    for (dst, src) in face.rgba.chunks_exact_mut(4).zip(decal.chunks_exact(4)) {
+        let a = u32::from(src[3]);
+        if a == 0 {
+            continue;
+        }
+        for c in 0..3 {
+            dst[c] = ((u32::from(src[c]) * a + u32::from(dst[c]) * (255 - a) + 127) / 255) as u8;
+        }
+        dst[3] = dst[3].max(src[3]);
+    }
+}
+
+/// The back of a cart: its coloured shell with no label, seen from behind, so
+/// mirrored left to right and clipped to the mirrored outline.
+pub fn cart_back_shell(cart: &Cart) -> CartFace {
+    let s = spec(shape_of(cart));
+    let shell = shell_for(cart);
+    let back = Shell {
+        colour: shell.back_colour(),
+        ..shell
+    };
+    let front = shell_face(&s, &back);
+    let (w, h) = (front.w as usize, front.h as usize);
+    let mut rgba = vec![0u8; front.rgba.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let from = (y * w + (w - 1 - x)) * 4;
+            let to = (y * w + x) * 4;
+            rgba[to..to + 4].copy_from_slice(&front.rgba[from..from + 4]);
+            let cover = s.mask[y * w + (w - 1 - x)] as u32;
+            rgba[to + 3] = ((rgba[to + 3] as u32 * cover + 127) / 255) as u8;
+        }
+    }
+    CartFace {
+        rgba,
+        w: front.w,
+        h: front.h,
+    }
 }
 
 fn clip_to_silhouette(s: &Spec, face: &mut CartFace) {
@@ -421,12 +729,7 @@ fn shade_of(paint: &[u8], w: u32, h: u32, label: (u32, u32, u32, u32)) -> Vec<u3
 /// shoulder and the grey label box. `clear` makes the see-through variant, which is its own
 /// asset with a rim and a sheen. The game's colour is blended on by `overlay`.
 pub fn neutral_shell(mould: Mould, clear: bool) -> Vec<u8> {
-    let shape = match mould {
-        Mould::Gba => Shape::Gba,
-        Mould::Notched => Shape::Gb(GbShell::Notched),
-        Mould::Rounded => Shape::Gb(GbShell::Rounded),
-    };
-    let s = spec(shape);
+    let s = spec(Shape::of(mould));
     assert_eq!(
         s.paint.len(),
         (s.w * s.h * 4) as usize,
@@ -488,6 +791,8 @@ fn dress(s: &Spec, rgba: &mut [u8]) {
         Mould::Gba => "GAME BOY ADVANCE",
         Mould::Notched => "GAME BOY",
         Mould::Rounded => "GAME BOY COLOR",
+        // The slotPlus moulds carry their markings in their art.
+        Mould::Ws | Mould::Lynx | Mould::Gg | Mould::Ngp | Mould::Tg16 | Mould::Nds => return,
     };
     stamp_console(rgba, s.w, s.h, title, y0);
 }
@@ -583,9 +888,15 @@ fn shell_face_of(s: &Spec, shell: &Shell, bare: bool) -> CartFace {
     // stays the grey of the asset. A clear shell is its own asset with real transparency: what the
     // compositor drew underneath (the board) shows through and stays put while the shell moves.
     let (lx, ly, lw, lh) = s.label;
+    let r = label_corner(s.mould);
+    let boxed = !label_on_card(s.mould);
     for y in 0..s.h {
         for x in 0..s.w {
-            let on_label = !bare && (lx..lx + lw).contains(&x) && (ly..ly + lh).contains(&y);
+            let on_label = !bare
+                && boxed
+                && (lx..lx + lw).contains(&x)
+                && (ly..ly + lh).contains(&y)
+                && corner_cover(x - lx, y - ly, lw, lh, r) >= 128;
             let i = ((y * s.w + x) * 4) as usize;
             if !on_label {
                 for c in 0..3 {
@@ -652,7 +963,13 @@ fn generated_label(s: &Spec, title: &str, bg: [u8; 3]) -> Vec<u8> {
 
     if let Some(font) = text::label_font() {
         let (max_px, max_h) = match s.mould {
-            Mould::Gba => (lh as f32 / (MAX_LINES as f32 * 1.36), f32::INFINITY),
+            Mould::Gba
+            | Mould::Ws
+            | Mould::Lynx
+            | Mould::Gg
+            | Mould::Ngp
+            | Mould::Tg16
+            | Mould::Nds => (lh as f32 / (MAX_LINES as f32 * 1.36), f32::INFINITY),
             Mould::Notched | Mould::Rounded => {
                 let room = (lh - 2 * PAD) as f32;
                 (room / MAX_LINES as f32, room)
@@ -681,12 +998,37 @@ fn ink(bg: [u8; 3]) -> [u8; 3] {
     }
 }
 
+/// How round a mould's label corners are. A Game Gear label has rounded
+/// corners that tuck inside the arches of the hood, and a NeoGeo Pocket's
+/// are softly rounded too, and a DS card's a little; the others are square.
+fn label_corner(mould: Mould) -> f32 {
+    match mould {
+        Mould::Gg => 14.0,
+        Mould::Ngp => 6.0,
+        Mould::Nds => 4.0,
+        _ => 0.0,
+    }
+}
+
+/// How much of the label pixel at (x, y) a rounded corner of radius `r` keeps.
+fn corner_cover(x: u32, y: u32, w: u32, h: u32, r: f32) -> u32 {
+    if r <= 0.0 {
+        return 255;
+    }
+    let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+    let cx = px.clamp(r, w as f32 - r);
+    let cy = py.clamp(r, h as f32 - r);
+    let out = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt() - r;
+    ((0.5 - out).clamp(0.0, 1.0) * 255.0).round() as u32
+}
+
 fn paste_label(s: &Spec, face: &mut CartFace, label: &[u8]) {
     let (lx, ly, lw, lh) = s.label;
+    let r = label_corner(s.mould);
     for y in 0..lh {
         for x in 0..lw {
             let src = ((y * lw + x) * 4) as usize;
-            let a = label[src + 3] as u32;
+            let a = (label[src + 3] as u32 * corner_cover(x, y, lw, lh, r) + 127) / 255;
             if a == 0 {
                 continue;
             }

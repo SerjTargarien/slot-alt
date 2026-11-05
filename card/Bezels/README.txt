@@ -18,5 +18,9 @@ changing Scale switches between them.
 If your bezel is solid from just under the game to the bottom edge, like
 the AGS-102 bezel, slot moves the game to the top of the screen.
 
+slotPlus gives every system its own folder: WS, Lynx, and in Ultra GG, NGP
+and TG16. Pick one in Settings > Screen > that system > Bezel. Make it the
+size of the screen too, with the game's area left clear.
+
 Other sizes are scaled to fill and cropped from the centre. On the 640 x 480
 devices a 640 x 427 bezel covers only the game area, with black above and below.

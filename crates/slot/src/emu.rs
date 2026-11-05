@@ -6,9 +6,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crate::cable::{self, Cable};
-use slot_retro::{
-    ButtonMask, Link, LinkChannel, RetroCore, Rumble, GBA_H, GBA_W, NETPACKET_RELIABLE,
-};
+use slot_retro::{ButtonMask, Link, LinkChannel, Pointer, RetroCore, Rumble, NETPACKET_RELIABLE};
 
 use crate::audio::Ring;
 use crate::drc::{drc_ratio, drc_target};
@@ -32,6 +30,11 @@ const SNAPSHOT_EVERY: u32 = 2;
 
 const STALL: Duration = Duration::from_millis(25);
 
+/// A core above this many frames a second is owed more than one frame a
+/// present. Every core Slot ran before sits at or just under 60, and keeps
+/// the one frame a present it always had.
+const FAST_CORE_FPS: f64 = 62.0;
+
 const RATE_WINDOW: u32 = 300;
 
 const TRACE_EVERY: u64 = 300;
@@ -41,6 +44,96 @@ const MAX_LINK_PACKETS_PER_PRESENT: u32 = 256;
 const ANSWER_WAIT: Duration = Duration::from_secs(2);
 
 const STOP_WAIT: Duration = Duration::from_secs(10);
+
+/// How many core frames to run for each present. A core near 60 frames a
+/// second is owed one. A faster one (the Lynx's 75) is owed a fraction more,
+/// so it runs one or two, carrying the remainder from present to present.
+///
+/// The Lynx's 75 is only a nominal figure: each game sets its own screen
+/// refresh, so the audio a frame carries says how long the frame really is.
+/// A fast core's `per_present` therefore follows the rate its audio implies,
+/// and the game runs at its own speed rather than at 75 whatever it asked for.
+struct Owed {
+    nominal: f64,
+    per_present: f64,
+    carry: f64,
+    adapts: bool,
+    frames: f64,
+    samples: f64,
+}
+
+/// How much of the running audio tally a present keeps: about 1 / (1 - this)
+/// presents of history, a little over half a second.
+const OWED_MEMORY: f64 = 0.97;
+
+/// The slowest and fastest a game's refresh may be taken to be.
+const OWED_FPS_RANGE: (f64, f64) = (50.0, 85.0);
+
+impl Owed {
+    fn new(fps: f64) -> Owed {
+        let adapts = fps > FAST_CORE_FPS;
+        let nominal = match adapts {
+            true => fps * PRESENT.as_secs_f64(),
+            false => 1.0,
+        };
+        Owed {
+            nominal,
+            per_present: nominal,
+            carry: 0.0,
+            adapts,
+            frames: 0.0,
+            samples: 0.0,
+        }
+    }
+
+    /// How many core frames a present is owed on the core's nominal rate:
+    /// 1.0 for a core near 60 frames a second, 1.25 for the Lynx's 75. The
+    /// audio ratio is built on this, and it never changes.
+    fn nominal(&self) -> f64 {
+        self.nominal
+    }
+
+    /// Fold in a present that ran `ran` frames and made `samples` stereo
+    /// samples (frames of audio) at `rate` Hz.
+    fn observe(&mut self, ran: u32, samples: usize, rate: f64) {
+        if !self.adapts || ran == 0 || samples == 0 || rate <= 0.0 {
+            return;
+        }
+        self.frames = self.frames * OWED_MEMORY + f64::from(ran);
+        self.samples = self.samples * OWED_MEMORY + samples as f64;
+        let fps = (rate * self.frames / self.samples).clamp(OWED_FPS_RANGE.0, OWED_FPS_RANGE.1);
+        self.per_present = fps * PRESENT.as_secs_f64();
+    }
+
+    /// The frame rate the audio implies, or None for a core that keeps one
+    /// frame a present.
+    fn implied_fps(&self) -> Option<f64> {
+        self.adapts
+            .then(|| self.per_present / PRESENT.as_secs_f64())
+    }
+
+    fn take(&mut self) -> u32 {
+        self.carry += self.per_present;
+        let whole = self.carry.floor();
+        self.carry -= whole;
+        whole as u32
+    }
+}
+
+/// The resampler's ratio is built so that `expected` core frames of audio fill
+/// one present. At normal speed that is the *average* number of frames a
+/// present is owed, not the number this present happened to run: a 75 fps core
+/// runs one frame in some presents and two in others, and scaling by the
+/// count each time would stretch the sound in one present and squash it in the
+/// next, a pitch wobble on every note. Fast forward runs a chosen number of
+/// frames a present, so there the count that ran is the right divisor.
+fn audio_span(speed: Speed, owed: f64, span: u32, ran: u32) -> f64 {
+    let expected = match speed {
+        Speed::Normal => owed,
+        _ => f64::from(ran),
+    };
+    f64::from(span) / expected
+}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Speed {
@@ -96,6 +189,15 @@ struct Shared {
     rewind: AtomicBool,
     rewind_fill: AtomicU8,
     turbo: AtomicBool,
+    /// The core takes X and Y as buttons of its own (the DS), so turbo leaves
+    /// them be.
+    face_xy: AtomicBool,
+    /// The core skips drawing the frame after one that ran slow (the DS):
+    /// slot runs a frame a present, so a slow one only makes the present
+    /// late, and the core is never otherwise told it is behind.
+    skip_slow: AtomicBool,
+    /// The touch screen's pointer, packed by `pack_pointer`; 0 is none.
+    pointer: AtomicU64,
     recording: AtomicBool,
     stop: AtomicBool,
     volume: AtomicU8,
@@ -162,7 +264,8 @@ impl EmuHandle {
     ) -> Self {
         let rumble = core.rumble();
         let link = core.net();
-        let frames = Frames::new((GBA_W * GBA_H * 4) as usize);
+        let (vw, vh) = core.video_size();
+        let frames = Frames::sized(vw, vh);
         let shared = Arc::new(Shared {
             input: AtomicU16::new(0),
             speed: AtomicU8::new(Speed::Paused as u8),
@@ -171,6 +274,9 @@ impl EmuHandle {
             rewind: AtomicBool::new(false),
             rewind_fill: AtomicU8::new(0),
             turbo: AtomicBool::new(true),
+            face_xy: AtomicBool::new(false),
+            skip_slow: AtomicBool::new(false),
+            pointer: AtomicU64::new(0),
             recording: AtomicBool::new(true),
             stop: AtomicBool::new(false),
             volume: AtomicU8::new(100),
@@ -368,6 +474,21 @@ impl EmuHandle {
 
     pub fn set_turbo(&self, on: bool) {
         self.shared.turbo.store(on, Ordering::Relaxed);
+    }
+
+    pub fn set_face_xy(&self, on: bool) {
+        self.shared.face_xy.store(on, Ordering::Relaxed);
+    }
+
+    pub fn set_skip_slow(&self, on: bool) {
+        self.shared.skip_slow.store(on, Ordering::Relaxed);
+    }
+
+    /// Where the stylus points, for a core with a touch screen.
+    pub fn set_pointer(&self, pointer: Option<Pointer>) {
+        self.shared
+            .pointer
+            .store(pack_pointer(pointer), Ordering::Relaxed);
     }
 
     pub fn set_rewind_recording(&self, on: bool) {
@@ -596,10 +717,17 @@ impl Worker {
         let mut served = 0u64;
         let mut ticked = false;
         let mut paced = 0u64;
+        let mut core_trace = CoreTrace::new();
+        // The last frame's time, and whether the core was asked to skip after
+        // it: DSperate decides a frame ahead, so the frame after an ask is the
+        // one it does not draw.
+        let mut last_took = Duration::ZERO;
+        let mut asked = false;
         let mut scale = 0.0f64;
         let mut rate = TickRate::new(Instant::now(), 0);
         let mut stalled = false;
         let mut turbo_frame = 0u32;
+        let mut owed = Owed::new(av.fps);
         let mut transport: Option<Box<dyn LinkChannel>> = None;
         let mut cable: Option<Cable> = None;
         let mut cable_presents = 0u32;
@@ -608,7 +736,9 @@ impl Worker {
         let mut cable_core = Duration::ZERO;
         let mut cable_wait = Duration::ZERO;
         let mut ff = (0u32, 0u32, Duration::ZERO, Instant::now());
-        let mut owed = 0u32;
+        // Fast forward's quarter frames owed, for its 1.5x (slotPlus's `owed`
+        // is the normal-speed pacer above).
+        let mut ff_owed = 0u32;
         while !self.shared.stop.load(Ordering::Relaxed) {
             for cmd in self.cmds.try_iter() {
                 self.apply(cmd, core.as_mut(), &mut transport, &mut cable, &link);
@@ -683,16 +813,16 @@ impl Worker {
             let ceiling = match speed {
                 Speed::Paused => 0,
                 Speed::Normal if lock && !ticked => 0,
-                Speed::Normal => 1,
+                Speed::Normal => owed.take(),
                 Speed::Fast => {
-                    owed += self.shared.fast_quarters.load(Ordering::Relaxed);
-                    let whole = owed / 4;
-                    owed %= 4;
+                    ff_owed += self.shared.fast_quarters.load(Ordering::Relaxed);
+                    let whole = ff_owed / 4;
+                    ff_owed %= 4;
                     whole
                 }
             };
             if speed != Speed::Fast {
-                owed = 0;
+                ff_owed = 0;
             }
             if rewinding {
                 if let Some(state) = rewind.pop() {
@@ -701,7 +831,7 @@ impl Worker {
                     }
                     core.set_frame_skip(false);
                     core.run_frame(ButtonMask(0));
-                    self.publish(core.video_xrgb8888());
+                    self.publish(core.video_xrgb8888(), core.frame_size());
                 }
                 self.shared
                     .rewind_fill
@@ -719,13 +849,27 @@ impl Worker {
                 let (mut skipped, mut drawn) = (None::<Duration>, Duration::ZERO);
                 loop {
                     ran += 1;
-                    let last = ran >= ceiling || cost.last(began.elapsed(), budget);
-                    let input = match self.shared.turbo.load(Ordering::Relaxed) {
-                        true => input.turbo(turbo_frame),
-                        false => input.without_turbo(),
+                    // At normal speed the frames a present is owed are all
+                    // run: dropping one when the estimate says it won't fit
+                    // never gets it back, and the game just runs slow. Only
+                    // fast forward trims to the time it has.
+                    let last = ran >= ceiling
+                        || (speed != Speed::Normal && cost.last(began.elapsed(), budget));
+                    let input = if self.shared.face_xy.load(Ordering::Relaxed) {
+                        input
+                    } else if self.shared.turbo.load(Ordering::Relaxed) {
+                        input.turbo(turbo_frame)
+                    } else {
+                        input.without_turbo()
                     };
                     turbo_frame = turbo_frame.wrapping_add(1);
-                    core.set_frame_skip(!last);
+                    let ask = !last
+                        || (speed == Speed::Normal
+                            && self.shared.skip_slow.load(Ordering::Relaxed)
+                            && last_took > SLOW_FRAME);
+                    core.set_frame_skip(ask);
+                    let after_ask = asked;
+                    asked = ask;
                     let frame_began = Instant::now();
                     match cable.as_mut() {
                         Some(c) => {
@@ -765,9 +909,16 @@ impl Worker {
                                 }
                             }
                         }
-                        None => core.run_frame(input),
+                        None => {
+                            core.set_pointer(unpack_pointer(
+                                self.shared.pointer.load(Ordering::Relaxed),
+                            ));
+                            core.run_frame(input)
+                        }
                     }
                     let took = frame_began.elapsed();
+                    last_took = took;
+                    core_trace.frame(took, after_ask);
                     if last {
                         drawn = took;
                     } else {
@@ -779,6 +930,7 @@ impl Worker {
                 }
                 let core_time = began.elapsed();
                 cost.measured(skipped, drawn);
+                core_trace.report_when_due();
                 if cable.is_some() {
                     cable_presents += 1;
                     cable_core += core_time;
@@ -819,7 +971,7 @@ impl Worker {
                     }
                 }
                 flush_outbound(&mut transport, &link);
-                self.publish(core.video_xrgb8888());
+                self.publish(core.video_xrgb8888(), core.frame_size());
                 self.frame_done(served);
 
                 since_snapshot += 1;
@@ -840,6 +992,9 @@ impl Worker {
                 }
 
                 let audio = core.take_audio();
+                if speed == Speed::Normal {
+                    owed.observe(ran, audio.len() / 2, av.sample_rate);
+                }
                 if speed == Speed::Normal || ff_sound {
                     let target = drc_target(ring.capacity_frames());
                     let queued = ring.queued_frames();
@@ -849,7 +1004,9 @@ impl Worker {
                     }
                     let base = if lock { scale } else { 1.0 };
                     resampler.set_ratio(
-                        drc_ratio(queued, target) * base * f64::from(span) / f64::from(ran),
+                        drc_ratio(queued, target)
+                            * base
+                            * audio_span(speed, owed.nominal(), span, ran),
                     );
                     resampler.process(&audio, &mut out);
                     crate::audio::volume::apply(
@@ -861,7 +1018,8 @@ impl Worker {
                     if crate::session::trace() && paced.is_multiple_of(TRACE_EVERY) {
                         let (dropped, starved) = (ring.overruns(), ring.underruns());
                         eprintln!(
-                            "slot: audio: {queued}/{target} queued, {dropped} dropped, {starved} starved, locked {lock} at {scale:.5}"
+                            "slot: audio: {queued}/{target} queued, {dropped} dropped, {starved} starved, locked {lock} at {scale:.5}, core {:.2} fps",
+                            owed.implied_fps().unwrap_or(av.fps)
                         );
                     }
                 }
@@ -944,7 +1102,7 @@ impl Worker {
                     core.run_frame(ButtonMask(0));
                     core.set_frame_skip(false);
                     core.run_frame(ButtonMask(0));
-                    self.publish(core.video_xrgb8888());
+                    self.publish(core.video_xrgb8888(), core.frame_size());
                     let _ = core.take_audio();
                     if let Err(e) = core.unserialize(&state) {
                         eprintln!("slot: refresh: {e}");
@@ -956,7 +1114,10 @@ impl Worker {
                 let _ = reply.send(core.save_ram());
             }
             Cmd::Thumb(reply) => {
-                let _ = reply.send(crate::thumb::png(core.video_xrgb8888()));
+                let _ = reply.send(crate::thumb::png_of(
+                    core.video_xrgb8888(),
+                    core.video_size(),
+                ));
             }
             Cmd::BeginLink(client_id, t) => {
                 self.shared.link_lost.store(false, Ordering::Relaxed);
@@ -1048,7 +1209,8 @@ impl Worker {
         }
     }
 
-    fn publish(&self, video: &[u8]) {
+    fn publish(&self, video: &[u8], shown: (u32, u32)) {
+        self.frames.set_shown(shown);
         let mut buf = self.frames.take_write();
         buf.clear();
         buf.extend_from_slice(video);
@@ -1186,6 +1348,109 @@ fn drain_transport(transport: &mut dyn LinkChannel, link: &Link, cap: u32) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_core_near_sixty_is_owed_one_frame_every_present() {
+        for fps in [0.0, 59.73, 59.8, 60.0] {
+            let mut owed = Owed::new(fps);
+            for present in 0..1000 {
+                assert_eq!(owed.take(), 1, "{fps} fps, present {present}");
+            }
+        }
+    }
+
+    #[test]
+    fn audio_is_stretched_by_the_same_amount_every_present_at_normal_speed() {
+        let mut owed = Owed::new(75.0);
+        let ratios: Vec<f64> = (0..40)
+            .map(|_| {
+                let ran = owed.take();
+                audio_span(Speed::Normal, owed.nominal(), 1, ran)
+            })
+            .collect();
+        assert!(
+            ratios.windows(2).all(|w| (w[0] - w[1]).abs() < 1e-12),
+            "the ratio changed from present to present: {ratios:?}"
+        );
+        assert!((ratios[0] - 0.8).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_core_near_sixty_keeps_a_ratio_of_one_at_normal_speed() {
+        let owed = Owed::new(59.7);
+        assert_eq!(audio_span(Speed::Normal, owed.nominal(), 1, 1), 1.0);
+    }
+
+    #[test]
+    fn fast_forward_still_divides_by_the_frames_that_ran() {
+        assert_eq!(audio_span(Speed::Fast, 1.25, 1, 4), 0.25);
+        assert_eq!(audio_span(Speed::Fast, 1.0, 2, 6), 2.0 / 6.0);
+    }
+
+    #[test]
+    fn a_75_fps_core_is_owed_five_frames_every_four_presents() {
+        let mut owed = Owed::new(75.0);
+        let runs: Vec<u32> = (0..400).map(|_| owed.take()).collect();
+        assert!(runs.iter().all(|n| (1..=2).contains(n)), "{runs:?}");
+        assert_eq!(runs.iter().sum::<u32>(), 500);
+        assert_eq!(&runs[..4], &[1, 1, 1, 2]);
+    }
+
+    /// Run `presents` presents of a game whose frames each carry
+    /// `samples_per_frame` stereo samples, and return what the core is then
+    /// taken to run at.
+    fn settled_fps(owed: &mut Owed, samples_per_frame: usize, presents: u32) -> f64 {
+        for _ in 0..presents {
+            let ran = owed.take();
+            owed.observe(ran, ran as usize * samples_per_frame, 44_100.0);
+        }
+        owed.implied_fps().unwrap()
+    }
+
+    #[test]
+    fn a_fast_core_follows_the_refresh_its_audio_implies() {
+        let mut owed = Owed::new(75.0);
+        let fps = settled_fps(&mut owed, 630, 600);
+        assert!((fps - 70.0).abs() < 0.5, "{fps}");
+        let runs: u32 = (0..700).map(|_| owed.take()).sum();
+        assert!(
+            (runs as i32 - 817).abs() <= 2,
+            "{runs} frames in 700 presents"
+        );
+    }
+
+    #[test]
+    fn a_game_at_the_nominal_rate_stays_there() {
+        let mut owed = Owed::new(75.0);
+        let fps = settled_fps(&mut owed, 588, 600);
+        assert!((fps - 75.0).abs() < 0.5, "{fps}");
+    }
+
+    #[test]
+    fn a_wild_audio_reading_cannot_push_the_rate_out_of_range() {
+        let mut owed = Owed::new(75.0);
+        let fps = settled_fps(&mut owed, 5_000, 600);
+        assert_eq!(fps, OWED_FPS_RANGE.0);
+        let mut owed = Owed::new(75.0);
+        let fps = settled_fps(&mut owed, 10, 600);
+        assert_eq!(fps, OWED_FPS_RANGE.1);
+    }
+
+    #[test]
+    fn a_core_near_sixty_never_adapts() {
+        let mut owed = Owed::new(59.7);
+        owed.observe(1, 100, 44_100.0);
+        assert!(owed.implied_fps().is_none());
+        assert_eq!((0..5).map(|_| owed.take()).collect::<Vec<_>>(), [1; 5]);
+    }
+
+    #[test]
+    fn a_present_with_no_audio_is_ignored() {
+        let mut owed = Owed::new(75.0);
+        owed.observe(2, 0, 44_100.0);
+        owed.observe(0, 600, 44_100.0);
+        assert!((owed.implied_fps().unwrap() - 75.0).abs() < 1e-6);
+    }
+
     use super::*;
     use slot_retro::LoopbackLink;
 
@@ -1375,5 +1640,140 @@ mod tests {
         assert_eq!(link.take_inbound().as_deref(), Some(&b"one"[..]));
         assert_eq!(link.take_inbound().as_deref(), Some(&b"two"[..]));
         assert_eq!(link.take_inbound(), None);
+    }
+}
+
+/// A pointer in one word for the emulator thread: bit 33 says there is one,
+/// bit 32 that it is pressed, and the low 32 bits hold x and y.
+fn pack_pointer(pointer: Option<Pointer>) -> u64 {
+    pointer.map_or(0, |p| {
+        1 << 33 | u64::from(p.pressed) << 32 | u64::from(p.x as u16) << 16 | u64::from(p.y as u16)
+    })
+}
+
+/// With tracing on, how long the core takes over its frames, said every
+/// five seconds: its frame rate, its mean and slowest frame, and how many
+/// frames took longer than a 60 Hz frame has.
+struct CoreTrace {
+    since: Instant,
+    frames: u32,
+    total: Duration,
+    slowest: Duration,
+    over: u32,
+    /// Frames run after the core was asked to skip, and their time.
+    skipped: u32,
+    skipped_total: Duration,
+}
+
+/// A frame slower than this leaves too little of a 60 Hz present for the
+/// rest of it, so a core that skips when slow skips the next one.
+const SLOW_FRAME: Duration = Duration::from_millis(15);
+
+/// The CPU's clock now and at most, in MHz, for the trace.
+fn cpu_mhz() -> Option<(u32, u32)> {
+    let read = |f: &str| {
+        std::fs::read_to_string(format!("/sys/devices/system/cpu/cpu0/cpufreq/{f}"))
+            .ok()?
+            .trim()
+            .parse::<u32>()
+            .ok()
+    };
+    Some((
+        read("scaling_cur_freq")? / 1000,
+        read("scaling_max_freq")? / 1000,
+    ))
+}
+
+impl CoreTrace {
+    const EVERY: Duration = Duration::from_secs(5);
+    const BUDGET: Duration = Duration::from_micros(16_667);
+
+    fn new() -> CoreTrace {
+        CoreTrace {
+            since: Instant::now(),
+            frames: 0,
+            total: Duration::ZERO,
+            slowest: Duration::ZERO,
+            over: 0,
+            skipped: 0,
+            skipped_total: Duration::ZERO,
+        }
+    }
+
+    fn frame(&mut self, took: Duration, skipped: bool) {
+        if !crate::session::trace() {
+            return;
+        }
+        self.frames += 1;
+        if skipped {
+            self.skipped += 1;
+            self.skipped_total += took;
+        }
+        self.total += took;
+        self.slowest = self.slowest.max(took);
+        self.over += u32::from(took > Self::BUDGET);
+    }
+
+    fn report_when_due(&mut self) {
+        let span = self.since.elapsed();
+        if !crate::session::trace() || span < Self::EVERY {
+            return;
+        }
+        if self.frames > 0 {
+            let ms = |d: Duration| d.as_secs_f64() * 1000.0;
+            let drawn = self.frames - self.skipped;
+            let mean = |total: Duration, n: u32| match n {
+                0 => "-".to_string(),
+                n => format!("{:.1}", ms(total) / f64::from(n)),
+            };
+            let cpu =
+                cpu_mhz().map_or(String::new(), |(now, max)| format!(", cpu {now}/{max} MHz"));
+            eprintln!(
+                "slot: core: {} frames in {:.1} s ({:.1} fps), mean {:.1} ms, slowest {:.1} ms, {} over 16.7 ms; {} skipped at {} ms, {} drawn at {} ms{cpu}",
+                self.frames,
+                span.as_secs_f64(),
+                f64::from(self.frames) / span.as_secs_f64(),
+                ms(self.total) / f64::from(self.frames),
+                ms(self.slowest),
+                self.over,
+                self.skipped,
+                mean(self.skipped_total, self.skipped),
+                drawn,
+                mean(self.total - self.skipped_total, drawn),
+            );
+        }
+        *self = CoreTrace::new();
+    }
+}
+
+fn unpack_pointer(word: u64) -> Option<Pointer> {
+    (word & 1 << 33 != 0).then_some(Pointer {
+        x: (word >> 16) as u16 as i16,
+        y: word as u16 as i16,
+        pressed: word & 1 << 32 != 0,
+    })
+}
+
+#[cfg(test)]
+mod pointer_word {
+    use super::*;
+
+    #[test]
+    fn a_pointer_survives_the_word_it_is_packed_into() {
+        assert_eq!(unpack_pointer(pack_pointer(None)), None);
+        for p in [
+            Pointer {
+                x: -0x7fff,
+                y: 0x7fff,
+                pressed: true,
+            },
+            Pointer {
+                x: 12,
+                y: -3,
+                pressed: false,
+            },
+        ] {
+            assert_eq!(unpack_pointer(pack_pointer(Some(p))), Some(p));
+        }
     }
 }

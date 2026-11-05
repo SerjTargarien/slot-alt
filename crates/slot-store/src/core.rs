@@ -11,16 +11,39 @@ pub enum Core {
     Mgba,
     Gpsp,
     Gambatte,
+    // slotPlus's systems, one core each.
+    Cygne,
+    Lynx,
+    Gearsystem,
+    Ngp,
+    Pce,
+    Dsperate,
 }
 
 impl Core {
-    pub const ALL: [Core; 3] = [Core::Mgba, Core::Gpsp, Core::Gambatte];
+    pub const ALL: [Core; 9] = [
+        Core::Mgba,
+        Core::Gpsp,
+        Core::Gambatte,
+        Core::Cygne,
+        Core::Lynx,
+        Core::Gearsystem,
+        Core::Ngp,
+        Core::Pce,
+        Core::Dsperate,
+    ];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             Core::Mgba => "mgba",
             Core::Gpsp => "gpsp",
             Core::Gambatte => "gambatte",
+            Core::Cygne => "cygne",
+            Core::Lynx => "lynx",
+            Core::Gearsystem => "gearsystem",
+            Core::Ngp => "ngp",
+            Core::Pce => "pce",
+            Core::Dsperate => "dsperate",
         }
     }
 
@@ -33,6 +56,12 @@ impl Core {
             Core::Mgba => "mGBA",
             Core::Gpsp => "gpSP",
             Core::Gambatte => "Gambatte",
+            Core::Cygne => "Beetle Cygne",
+            Core::Lynx => "Beetle Lynx",
+            Core::Gearsystem => "Gearsystem",
+            Core::Ngp => "Beetle NeoPop",
+            Core::Pce => "Beetle PCE Fast",
+            Core::Dsperate => "DSperate",
         }
     }
 
@@ -41,15 +70,30 @@ impl Core {
             "mgba" => Some(Core::Mgba),
             "gpsp" => Some(Core::Gpsp),
             "gambatte" => Some(Core::Gambatte),
+            "cygne" => Some(Core::Cygne),
+            "lynx" => Some(Core::Lynx),
+            "gearsystem" => Some(Core::Gearsystem),
+            "ngp" => Some(Core::Ngp),
+            "pce" => Some(Core::Pce),
+            "dsperate" => Some(Core::Dsperate),
             _ => None,
         }
     }
 
     pub fn runs(self, platform: Platform) -> bool {
         match self {
-            Core::Mgba => true,
+            Core::Mgba => matches!(
+                platform,
+                Platform::Gba | Platform::Gbav | Platform::Gb | Platform::Gbc
+            ),
             Core::Gpsp => platform.hardware() == Platform::Gba,
             Core::Gambatte => matches!(platform, Platform::Gb | Platform::Gbc),
+            Core::Cygne => platform == Platform::Ws,
+            Core::Lynx => platform == Platform::Lynx,
+            Core::Gearsystem => platform == Platform::Gg,
+            Core::Ngp => platform == Platform::Ngp,
+            Core::Pce => platform == Platform::Tg16,
+            Core::Dsperate => platform == Platform::Nds,
         }
     }
 
@@ -57,6 +101,27 @@ impl Core {
         match platform {
             Platform::Gba | Platform::Gbav => [Core::Mgba, Core::Gpsp],
             Platform::Gb | Platform::Gbc => [Core::Mgba, Core::Gambatte],
+            // slotPlus: one core, so both sockets hold it.
+            other => [Core::default_for(other); 2],
+        }
+    }
+
+    /// slotPlus: the cores that run a platform, in the picker's order.
+    pub fn choices(platform: Platform) -> Vec<Core> {
+        Core::ALL.into_iter().filter(|c| c.runs(platform)).collect()
+    }
+
+    /// slotPlus: a game's core when nothing is chosen. The Game Boy family's is the
+    /// card's choice (see `core_for_platform`); this is mGBA for them.
+    pub fn default_for(platform: Platform) -> Core {
+        match platform {
+            Platform::Gba | Platform::Gb | Platform::Gbc | Platform::Gbav => Core::Mgba,
+            Platform::Ws => Core::Cygne,
+            Platform::Lynx => Core::Lynx,
+            Platform::Gg => Core::Gearsystem,
+            Platform::Ngp => Core::Ngp,
+            Platform::Tg16 => Core::Pce,
+            Platform::Nds => Core::Dsperate,
         }
     }
 }
@@ -75,7 +140,7 @@ pub fn core_for_platform(root: &Path, stem: &str, platform: Platform, gb_core: C
         .filter(|core| core.runs(platform))
         .unwrap_or_else(|| match platform {
             Platform::Gb | Platform::Gbc if gb_core.runs(platform) => gb_core,
-            _ => Core::Mgba,
+            other => Core::default_for(other),
         })
 }
 

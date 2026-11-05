@@ -249,6 +249,12 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             shader_gbc: Shader::Simpletex,
+            shader_ws: Shader::Simpletex,
+            shader_lynx: Shader::Grid,
+            shader_gg: Shader::Simpletex,
+            shader_ngp: Shader::Simpletex,
+            shader_tg16: Shader::Grid,
+            shader_nds: Shader::Off,
             auto_load: true,
             eject_save: true,
             turbo: true,
@@ -260,6 +266,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_titles: false,
+            bespoke_slot: false,
             left_stick_dpad: true,
             lid_off_min: None,
             wifi_off: false,
@@ -267,6 +274,12 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             bezel_gba: BezelPick::Ags102,
             bezel_gb: BezelPick::Ags102,
             bezel_gbc: BezelPick::Ags102,
+            bezel_ws: BezelPick::None,
+            bezel_lynx: BezelPick::None,
+            bezel_gg: BezelPick::None,
+            bezel_ngp: BezelPick::None,
+            bezel_tg16: BezelPick::None,
+            bezel_nds: BezelPick::Bundled("DS Lite".into()),
             scale_gba: Scale::Fit,
             scale_gb: Scale::SpFrame,
             scale_gbc: Scale::SpFrame,
@@ -306,7 +319,19 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         gb_palette: GbPalette::parse("GBC Dark Green →A").unwrap(),
         wallpaper_tint: WallpaperTint::Medium,
         colour_correction_gbc: true,
-        shader_gbc: Shader::Shimmerless,
+        shader_gbc: Shader::Transparent,
+        shader_ws: Shader::Lcd3x,
+        shader_lynx: Shader::Dot,
+        shader_gg: Shader::Lcd3x,
+        bezel_ws: BezelPick::File("Swan.png".into()),
+        bezel_lynx: BezelPick::None,
+        bezel_gg: BezelPick::File("Gear.png".into()),
+        shader_ngp: Shader::Grid,
+        bezel_ngp: BezelPick::File("Pocket.png".into()),
+        shader_tg16: Shader::Dot,
+        shader_nds: Shader::Dot,
+        bezel_tg16: BezelPick::Bundled("PCE".into()),
+        bezel_nds: BezelPick::Bundled("PCE".into()),
         saturation: 4,
         contrast: 7,
         bezel_gba: BezelPick::None,
@@ -344,7 +369,17 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "bezel_gb=default",
         "bezel_gbc=Pocket.png",
         "colour_correction_gbc=1",
-        "shader_gbc=shimmerless",
+        "shader_gbc=transparent",
+        "shader_ws=lcd3x",
+        "shader_lynx=dot",
+        "bezel_ws=Swan.png",
+        "bezel_lynx=none",
+        "shader_gg=lcd3x",
+        "bezel_gg=Gear.png",
+        "shader_ngp=grid",
+        "bezel_ngp=Pocket.png",
+        "shader_tg16=dot",
+        "bezel_tg16=bundled:PCE",
         "saturation=4",
         "contrast=7",
         "blending_gba=ghosting",
@@ -518,7 +553,7 @@ fn an_unreadable_platform_reads_as_a_card_that_never_said() {
         ("cart_platform=nes\n", None),
         ("cart_platform=gameboy\n", None),
         ("cart_platform=0\n", None),
-        ("cart_platform=nds\n", None),
+        ("cart_platform=psp\n", None),
         ("cart_platform=GBA\n", Some(Platform::Gba)),
         ("cart_platform=Gbc\n", Some(Platform::Gbc)),
     ] {
@@ -647,6 +682,69 @@ fn a_card_from_before_the_gbc_split_starts_gbc_from_the_gb_c_settings() {
         (false, Shader::Off),
         "the GB settings overrode GBC's own"
     );
+}
+
+#[test]
+fn a_card_from_before_wonderswan_and_lynx_shaders_keeps_the_ones_they_used() {
+    let d = tmp_root();
+    std::fs::write(
+        d.path().join("Config/slot.state"),
+        "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=1\nclock_set=1\nutc_offset_min=-300\nshader_gba=dot\nshader_gb=grid\n",
+    )
+    .unwrap();
+    let s = read_slot_state(d.path());
+    assert_eq!(
+        s.shader_ws,
+        Shader::Grid,
+        "the WonderSwan used the GB shader"
+    );
+    assert_eq!(s.shader_lynx, Shader::Dot, "the Lynx used the GBA shader");
+    assert_eq!(
+        s.shader_gg,
+        Shader::Grid,
+        "the Game Gear used the GB shader"
+    );
+}
+
+#[test]
+fn transparent_is_on_both_game_boy_lists_and_no_other() {
+    assert!(Shader::GB.contains(&Shader::Transparent));
+    assert!(!Shader::WS.contains(&Shader::Transparent));
+    assert!(!Shader::GG.contains(&Shader::Transparent));
+    assert!(!Shader::NGP.contains(&Shader::Transparent));
+    assert!(!Shader::GBA.contains(&Shader::Transparent));
+    assert!(!Shader::LYNX.contains(&Shader::Transparent));
+    assert_eq!(Shader::parse("transparent"), Some(Shader::Transparent));
+
+    // GB and GBC each keep Transparent, and a WonderSwan falling back to a
+    // Transparent Game Boy shader gets its default instead.
+    let d = tmp_root();
+    std::fs::write(
+        d.path().join("Config/slot.state"),
+        "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=1\nclock_set=1\nutc_offset_min=-300\nshader_gb=transparent\nshader_gbc=transparent\n",
+    )
+    .unwrap();
+    let s = read_slot_state(d.path());
+    assert_eq!(s.shader_gb, Shader::Transparent);
+    assert_eq!(s.shader_gbc, Shader::Transparent);
+    assert_eq!(s.shader_ws, SlotState::default().shader_ws);
+    assert_eq!(s.shader_gg, SlotState::default().shader_gg);
+    assert_eq!(s.shader_ngp, SlotState::default().shader_ngp);
+    assert_eq!(s.shader_tg16, SlotState::default().shader_tg16);
+}
+
+#[test]
+fn a_bundled_bezel_keeps_its_name_apart_from_a_file_of_the_same_name() {
+    for pick in [
+        BezelPick::Bundled("TG16".into()),
+        BezelPick::Bundled("PCE Wide".into()),
+        BezelPick::File("TG16.png".into()),
+        BezelPick::File("TG16".into()),
+    ] {
+        assert_eq!(BezelPick::parse(&pick.key()), pick, "{pick:?}");
+    }
+    assert_eq!(BezelPick::Bundled("PCE".into()).label(), "PCE");
+    assert_eq!(BezelPick::File("PCE.png".into()).label(), "PCE");
 }
 
 #[test]

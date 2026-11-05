@@ -70,7 +70,29 @@ uniform vec2 u_origin;
 uniform vec4 u_rect;
 uniform vec2 u_fbo;
 uniform vec4 u_pic;
+uniform float u_sharp;
 varying vec2 v_uv;
+// Sharp bilinear: at a scale that is not whole, each texel is drawn flat
+// and only its edge, one output pixel wide, is blended with its neighbour,
+// so every texel comes out the same size. The four taps stay inside the
+// part of the frame being drawn, so a DS screen never takes a row from the
+// screen next to it in the buffer.
+vec3 sharp_sample(vec2 uv) {
+    vec2 scale = max(u_rect.zw * u_fbo / (u_uv.zw * u_src), vec2(1.0));
+    vec2 t = uv * u_src;
+    vec2 d = fract(t) - 0.5;
+    vec2 r = 0.5 - 0.5 / scale;
+    vec2 p = floor(t) + (d - clamp(d, -r, r)) * scale;
+    vec2 i = floor(p);
+    vec2 w = p - i;
+    vec2 lo = u_uv.xy * u_src + 0.5;
+    vec2 hi = (u_uv.xy + u_uv.zw) * u_src - 0.5;
+    vec2 a = clamp(i + 0.5, lo, hi) / u_src;
+    vec2 b = clamp(i + 1.5, lo, hi) / u_src;
+    vec3 top = mix(texture2D(u_game, a).rgb, texture2D(u_game, vec2(b.x, a.y)).rgb, w.x);
+    vec3 bottom = mix(texture2D(u_game, vec2(a.x, b.y)).rgb, texture2D(u_game, b).rgb, w.x);
+    return mix(top, bottom, w.y);
+}
 const vec3 offsets = vec3(3.141592654) * vec3(1.0 / 2.0, 1.0 / 2.0 - 2.0 / 3.0, 1.0 / 2.0 - 4.0 / 3.0);
 const vec3 luma_coeff = vec3(0.2126, 0.7152, 0.0722);
 vec2 grid_band(vec2 x) {
@@ -79,12 +101,39 @@ vec2 grid_band(vec2 x) {
 float dot_weight(vec2 f, vec2 o, float bloom) {
     return exp(-4.0 * length(f - (o + vec2(0.5))) * bloom);
 }
+// Transparent: an unlit Game Boy screen. Light pixels let the screen's backing
+// show through, and the dark pixels above it cast soft shadows onto it.
+const vec3 clear_backing = vec3(0.60, 0.62, 0.50);
+const float clear_see = 0.5;
+const float clear_shadow_px = 2.0;
+const float clear_blur_px = 1.0;
+const float clear_shadow = 0.4;
+float darkness_at(vec2 at) {
+    vec2 lo = u_pic.xy;
+    vec2 hi = u_pic.zw - 0.5 / u_src;
+    return 1.0 - dot(texture2D(u_game, clamp(at, lo, hi)).rgb, luma_coeff);
+}
 void main() {
     vec2 uv = u_uv.xy + v_uv * u_uv.zw;
     vec2 f = fract(uv * u_src);
-    vec3 c = texture2D(u_game, uv).rgb;
+    vec3 c = u_sharp > 0.5 ? sharp_sample(uv) : texture2D(u_game, uv).rgb;
     bool inside = all(greaterThanEqual(uv, u_pic.xy)) && all(lessThan(uv, u_pic.zw));
     if (!inside) {
+    } else if (u_mode > 5.5) {
+        vec2 angle = f * 6.283185307;
+        float yfactor = (16.0 + sin(angle.y)) / 17.0;
+        vec3 xfactors = (4.0 + sin(angle.x + offsets)) / 5.0;
+        vec3 lcd = c * yfactor * xfactors;
+        float grain = texture2D(u_paper, (floor(gl_FragCoord.xy - u_origin) + 0.5) / u_paper_size).r;
+        vec3 backing = clear_backing * (0.9 + 0.2 * grain);
+        vec2 px = u_uv.zw / u_rect.zw;
+        vec2 at = uv - clear_shadow_px * px;
+        vec2 b = clear_blur_px * px;
+        float dark = darkness_at(at)
+            + darkness_at(at + vec2(b.x, 0.0)) + darkness_at(at - vec2(b.x, 0.0))
+            + darkness_at(at + vec2(0.0, b.y)) + darkness_at(at - vec2(0.0, b.y));
+        backing *= 1.0 - clear_shadow * dark / 5.0;
+        c = mix(lcd, backing, clear_see * dot(c, luma_coeff));
     } else if (u_mode > 4.5) {
         vec2 hp = 0.5 * u_uv.zw * u_src / (u_rect.zw * u_fbo);
         vec2 p = uv * u_src;

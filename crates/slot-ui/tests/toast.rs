@@ -19,7 +19,7 @@ fn the_link_shortcut_on_the_wrong_core_says_to_switch() {
 
 #[test]
 fn sunlight_on_gpsp_says_to_switch_to_mgba() {
-    assert_eq!(Toast::NeedsMgba.text(), "Please switch to mGBA");
+    assert_eq!(Toast::NeedsMgba.text(), "Switch to mGBA");
     let f = toast_face(Toast::NeedsMgba);
     assert!(f.rgba.chunks(4).any(|p| p[3] > 0), "the banner is blank");
 }
@@ -42,7 +42,7 @@ fn the_link_ending_says_who_ended_it() {
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..26],
+        all[..27],
         [
             Toast::StateSaved,
             Toast::StateLoaded,
@@ -64,6 +64,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
             Toast::ShaderDot,
             Toast::ShaderSimpletex,
             Toast::ShaderShimmerless,
+            Toast::ShaderTransparent,
             Toast::CardUnwritable,
             Toast::CardRepair,
             Toast::CardRepairCharge,
@@ -76,18 +77,24 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let palettes = GbColors::all().count();
     assert_eq!(palettes, 49);
     assert_eq!(
-        all[26..26 + palettes],
+        all[27..27 + palettes],
         GbColors::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
+    let duplicates = QuickRow::ALL.into_iter().filter(|r| r.binds()).count();
     assert_eq!(
-        all[26 + palettes..],
+        all[27 + palettes..27 + palettes + duplicates],
         QuickRow::ALL
             .into_iter()
             .filter(|r| r.binds())
             .map(Toast::Duplicate)
             .collect::<Vec<_>>()[..],
         "the duplicate warnings do not follow the palettes in row order"
+    );
+    assert_eq!(
+        all[27 + palettes + duplicates..],
+        (0..5).map(Toast::DsLayout).collect::<Vec<_>>()[..],
+        "the DS layouts come last, in the order SELECT + L2 steps them"
     );
     for (i, t) in all.iter().enumerate() {
         assert_eq!(t.index(), i, "{t:?} does not answer to its own place");

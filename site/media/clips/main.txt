@@ -1,0 +1,36 @@
+# state: show_recents=0
+# state: show_titles=0
+# state: shelf=ws
+# state: shelf_cart=ws/Kaze no Klonoa - Moonlight Museum (Japan) (En) (v1.1) (Raccoon Sam)
+# state: cart=
+# The home screen's loop: the WonderSwan, Lynx, Game Gear, NeoGeo Pocket and
+# TurboGrafx-16 shelves, a few carts each.
+wait 90
+rec
+wait 50
+tap right
+wait 40
+tap right
+wait 50
+tap r1
+wait 60
+tap right
+wait 40
+tap right
+wait 50
+tap r1
+wait 60
+tap right
+wait 50
+tap r1
+wait 60
+tap right
+wait 40
+tap right
+wait 50
+tap r1
+wait 60
+tap right
+wait 40
+tap right
+wait 70

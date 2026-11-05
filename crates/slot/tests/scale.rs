@@ -26,6 +26,7 @@ fn root_for(platform: Platform) -> TempDir {
             std::fs::write(dir.join("Game.gba"), rom).unwrap();
             d
         }
+        other => panic!("Scale is the Game Boy family's, not {other:?}'s"),
     }
 }
 

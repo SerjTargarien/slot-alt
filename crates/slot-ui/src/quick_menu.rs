@@ -28,6 +28,7 @@ pub enum QuickRow {
     Wallpaper,
     Recents,
     ShowTitles,
+    CartSlot,
     WallpaperTint,
     GbcShader,
     GbcColourCorrection,
@@ -49,6 +50,24 @@ pub enum QuickRow {
     GbaBezel,
     ScreenGbc,
     ScreenGb,
+    ScreenWs,
+    ScreenLynx,
+    WsShader,
+    LynxShader,
+    WsBezel,
+    LynxBezel,
+    ScreenGg,
+    GgShader,
+    GgBezel,
+    ScreenNgp,
+    NgpShader,
+    NgpBezel,
+    ScreenTg16,
+    Tg16Shader,
+    Tg16Bezel,
+    ScreenNds,
+    NdsShader,
+    NdsBezel,
     General,
     ShelfPrev,
     ShelfNext,
@@ -125,6 +144,11 @@ pub enum QuickRow {
     Networks,
     CheckUpdates,
     Server,
+    Achievements,
+    RaUsername,
+    RaPassword,
+    RaMode,
+    RaEncore,
     Romm,
     RommProtocol,
     RommServer,
@@ -137,7 +161,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 125] = [
+    pub const ALL: [QuickRow; 149] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -157,6 +181,7 @@ impl QuickRow {
         QuickRow::Wallpaper,
         QuickRow::Recents,
         QuickRow::ShowTitles,
+        QuickRow::CartSlot,
         QuickRow::WallpaperTint,
         QuickRow::GbcShader,
         QuickRow::GbcColourCorrection,
@@ -178,6 +203,24 @@ impl QuickRow {
         QuickRow::GbaBezel,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        QuickRow::ScreenWs,
+        QuickRow::ScreenLynx,
+        QuickRow::WsShader,
+        QuickRow::LynxShader,
+        QuickRow::WsBezel,
+        QuickRow::LynxBezel,
+        QuickRow::ScreenGg,
+        QuickRow::GgShader,
+        QuickRow::GgBezel,
+        QuickRow::ScreenNgp,
+        QuickRow::NgpShader,
+        QuickRow::NgpBezel,
+        QuickRow::ScreenTg16,
+        QuickRow::Tg16Shader,
+        QuickRow::Tg16Bezel,
+        QuickRow::ScreenNds,
+        QuickRow::NdsShader,
+        QuickRow::NdsBezel,
         QuickRow::General,
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
@@ -254,6 +297,11 @@ impl QuickRow {
         QuickRow::Networks,
         QuickRow::CheckUpdates,
         QuickRow::Server,
+        QuickRow::Achievements,
+        QuickRow::RaUsername,
+        QuickRow::RaPassword,
+        QuickRow::RaMode,
+        QuickRow::RaEncore,
         QuickRow::Romm,
         QuickRow::RommProtocol,
         QuickRow::RommServer,
@@ -265,21 +313,32 @@ impl QuickRow {
         QuickRow::RommDisconnect,
     ];
 
-    pub const MAIN: [QuickRow; 6] = [
+    pub const MAIN: [QuickRow; 7] = [
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::Controls,
         QuickRow::Network,
+        QuickRow::Achievements,
         QuickRow::About,
     ];
 
-    pub const GENERAL: [QuickRow; 8] = [
+    /// slotPlus: the RetroAchievements page. Hardcore needs a live connection and no save
+    /// states, so Cheevo Mode is fixed at Casual.
+    pub const ACHIEVEMENTS: [QuickRow; 4] = [
+        QuickRow::RaUsername,
+        QuickRow::RaPassword,
+        QuickRow::RaMode,
+        QuickRow::RaEncore,
+    ];
+
+    pub const GENERAL: [QuickRow; 9] = [
         QuickRow::Theme,
         QuickRow::Wallpaper,
         QuickRow::WallpaperTint,
         QuickRow::Recents,
         QuickRow::ShowTitles,
+        QuickRow::CartSlot,
         QuickRow::LidOff,
         QuickRow::DateTime,
         QuickRow::Wifi,
@@ -371,11 +430,17 @@ impl QuickRow {
         QuickRow::ScSunlightUp,
     ];
 
-    pub const SCREEN: [QuickRow; 4] = [
+    pub const SCREEN: [QuickRow; 10] = [
         QuickRow::ScreenGeneral,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        QuickRow::ScreenWs,
+        QuickRow::ScreenLynx,
+        QuickRow::ScreenGg,
+        QuickRow::ScreenNgp,
+        QuickRow::ScreenTg16,
+        QuickRow::ScreenNds,
     ];
 
     pub const SCREEN_GENERAL: [QuickRow; 4] = [
@@ -384,6 +449,20 @@ impl QuickRow {
         QuickRow::Saturation,
         QuickRow::Contrast,
     ];
+
+    /// The WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 cores
+    /// have no colour
+    /// correction to set, so their pages hold a shader and a bezel.
+    pub const SCREEN_WS: [QuickRow; 2] = [QuickRow::WsShader, QuickRow::WsBezel];
+
+    pub const SCREEN_LYNX: [QuickRow; 2] = [QuickRow::LynxShader, QuickRow::LynxBezel];
+
+    pub const SCREEN_GG: [QuickRow; 2] = [QuickRow::GgShader, QuickRow::GgBezel];
+
+    pub const SCREEN_NGP: [QuickRow; 2] = [QuickRow::NgpShader, QuickRow::NgpBezel];
+
+    pub const SCREEN_TG16: [QuickRow; 2] = [QuickRow::Tg16Shader, QuickRow::Tg16Bezel];
+    pub const SCREEN_NDS: [QuickRow; 2] = [QuickRow::NdsShader, QuickRow::NdsBezel];
 
     pub const SCREEN_GBA: [QuickRow; 5] = [
         QuickRow::GbaShader,
@@ -464,7 +543,13 @@ impl QuickRow {
             QuickRow::ScreenGeneral
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
-            | QuickRow::ScreenGb => &QuickRow::SCREEN,
+            | QuickRow::ScreenGb
+            | QuickRow::ScreenWs
+            | QuickRow::ScreenLynx
+            | QuickRow::ScreenGg
+            | QuickRow::ScreenNgp
+            | QuickRow::ScreenTg16
+            | QuickRow::ScreenNds => &QuickRow::SCREEN,
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
@@ -473,6 +558,12 @@ impl QuickRow {
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast => &QuickRow::PLAY_SCREEN,
+            QuickRow::WsShader | QuickRow::WsBezel => &QuickRow::SCREEN_WS,
+            QuickRow::LynxShader | QuickRow::LynxBezel => &QuickRow::SCREEN_LYNX,
+            QuickRow::GgShader | QuickRow::GgBezel => &QuickRow::SCREEN_GG,
+            QuickRow::NgpShader | QuickRow::NgpBezel => &QuickRow::SCREEN_NGP,
+            QuickRow::Tg16Shader | QuickRow::Tg16Bezel => &QuickRow::SCREEN_TG16,
+            QuickRow::NdsShader | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBlending
@@ -505,6 +596,7 @@ impl QuickRow {
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
+            | QuickRow::CartSlot
             | QuickRow::LidOff
             | QuickRow::Wifi => &QuickRow::GENERAL,
             QuickRow::WifiPower | QuickRow::Networks => &QuickRow::WIFI,
@@ -512,6 +604,9 @@ impl QuickRow {
             | QuickRow::FetchArt
             | QuickRow::Romm
             | QuickRow::Server => &QuickRow::NETWORK,
+            QuickRow::RaUsername | QuickRow::RaPassword | QuickRow::RaMode | QuickRow::RaEncore => {
+                &QuickRow::ACHIEVEMENTS
+            }
             QuickRow::RommProtocol
             | QuickRow::RommServer
             | QuickRow::RommPort
@@ -556,6 +651,12 @@ impl QuickRow {
             QuickRow::GbaShader => Some(QuickRow::ScreenGba),
             QuickRow::GbcShader => Some(QuickRow::ScreenGbc),
             QuickRow::GbShader => Some(QuickRow::ScreenGb),
+            QuickRow::WsShader => Some(QuickRow::ScreenWs),
+            QuickRow::LynxShader => Some(QuickRow::ScreenLynx),
+            QuickRow::GgShader => Some(QuickRow::ScreenGg),
+            QuickRow::NgpShader => Some(QuickRow::ScreenNgp),
+            QuickRow::Tg16Shader => Some(QuickRow::ScreenTg16),
+            QuickRow::NdsShader => Some(QuickRow::ScreenNds),
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),
@@ -565,6 +666,7 @@ impl QuickRow {
             QuickRow::Server => Some(QuickRow::Network),
             QuickRow::RommProtocol => Some(QuickRow::Romm),
             QuickRow::WifiPower => Some(QuickRow::Wifi),
+            QuickRow::RaUsername => Some(QuickRow::Achievements),
             QuickRow::ControlsShelf => Some(QuickRow::Controls),
             QuickRow::ShelfPrev => Some(QuickRow::ControlsShelf),
             _ => None,
@@ -602,6 +704,7 @@ impl QuickRow {
             QuickRow::Shortcuts => Some(QuickRow::SHORTCUTS[0]),
             QuickRow::General => Some(QuickRow::GENERAL[0]),
             QuickRow::Network => Some(QuickRow::NETWORK[0]),
+            QuickRow::Achievements => Some(QuickRow::ACHIEVEMENTS[0]),
             QuickRow::Romm => Some(QuickRow::ROMM[0]),
             QuickRow::Wifi => Some(QuickRow::WIFI[0]),
             QuickRow::Controls => Some(QuickRow::CONTROL_PAGES[0]),
@@ -611,6 +714,12 @@ impl QuickRow {
             QuickRow::ScreenGba => Some(QuickRow::SCREEN_GBA[0]),
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
             QuickRow::ScreenGb => Some(QuickRow::SCREEN_GB[0]),
+            QuickRow::ScreenWs => Some(QuickRow::SCREEN_WS[0]),
+            QuickRow::ScreenLynx => Some(QuickRow::SCREEN_LYNX[0]),
+            QuickRow::ScreenGg => Some(QuickRow::SCREEN_GG[0]),
+            QuickRow::ScreenNgp => Some(QuickRow::SCREEN_NGP[0]),
+            QuickRow::ScreenTg16 => Some(QuickRow::SCREEN_TG16[0]),
+            QuickRow::ScreenNds => Some(QuickRow::SCREEN_NDS[0]),
             _ => None,
         }
     }
@@ -660,6 +769,7 @@ impl QuickRow {
             QuickRow::Wallpaper => "Wallpaper",
             QuickRow::Recents => "Recents",
             QuickRow::ShowTitles => "Game Titles",
+            QuickRow::CartSlot => "Cart Slot",
             QuickRow::WallpaperTint => "Wallpaper Tint",
             QuickRow::Resume => "Resume",
             QuickRow::UndoSave => "Undo Save",
@@ -676,6 +786,11 @@ impl QuickRow {
             QuickRow::Network => "Tools",
             QuickRow::Wifi | QuickRow::WifiPower => "Wi-Fi",
             QuickRow::Networks => "Network",
+            QuickRow::Achievements => "RetroAchievements",
+            QuickRow::RaUsername => "Username",
+            QuickRow::RaPassword => "Password",
+            QuickRow::RaMode => "Cheevo Mode",
+            QuickRow::RaEncore => "Encore",
             QuickRow::CheckUpdates => "Check for Updates",
             QuickRow::Server => "Gamebit",
             QuickRow::Romm => "RomM",
@@ -748,6 +863,24 @@ impl QuickRow {
             | QuickRow::Blending => "Frame Blending",
             QuickRow::GbaBezel => "Bezel",
             QuickRow::Bezel => "Bezel",
+            QuickRow::ScreenWs => "WonderSwan",
+            QuickRow::ScreenLynx => "Atari Lynx",
+            QuickRow::WsShader => "Shader",
+            QuickRow::LynxShader => "Shader",
+            QuickRow::WsBezel => "Bezel",
+            QuickRow::LynxBezel => "Bezel",
+            QuickRow::ScreenGg => "Game Gear",
+            QuickRow::GgShader => "Shader",
+            QuickRow::GgBezel => "Bezel",
+            QuickRow::ScreenNgp => "NeoGeo Pocket",
+            QuickRow::NgpShader => "Shader",
+            QuickRow::NgpBezel => "Bezel",
+            QuickRow::ScreenTg16 => "TurboGrafx-16",
+            QuickRow::Tg16Shader => "Shader",
+            QuickRow::Tg16Bezel => "Bezel",
+            QuickRow::ScreenNds => "Nintendo DS",
+            QuickRow::NdsShader => "Shader",
+            QuickRow::NdsBezel => "Bezel",
         }
     }
 
@@ -779,12 +912,21 @@ impl QuickRow {
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc
                 | QuickRow::ScreenGb
+                | QuickRow::ScreenWs
+                | QuickRow::ScreenLynx
+                | QuickRow::ScreenGg
+                | QuickRow::ScreenNgp
+                | QuickRow::ScreenTg16
+                | QuickRow::ScreenNds
                 | QuickRow::ScreenGeneral
                 | QuickRow::Network
                 | QuickRow::Wifi
                 | QuickRow::Networks
                 | QuickRow::CheckUpdates
                 | QuickRow::Server
+                | QuickRow::Achievements
+                | QuickRow::RaUsername
+                | QuickRow::RaPassword
                 | QuickRow::Romm
                 | QuickRow::RommServer
                 | QuickRow::RommPort
@@ -886,6 +1028,7 @@ pub enum QuickValue {
     Low,
     Medium,
     High,
+    Transparent,
     Min1,
     Min3,
     Min5,
@@ -902,6 +1045,8 @@ pub enum QuickValue {
     Level7,
     Level8,
     Level9,
+    SlotDefault,
+    SlotBespoke,
     Level10,
     Level11,
     Level12,
@@ -920,7 +1065,7 @@ pub enum QuickValue {
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 50] = [
+    pub const ALL: [QuickValue; 53] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -940,6 +1085,7 @@ impl QuickValue {
         QuickValue::Low,
         QuickValue::Medium,
         QuickValue::High,
+        QuickValue::Transparent,
         QuickValue::Min1,
         QuickValue::Min3,
         QuickValue::Min5,
@@ -956,6 +1102,8 @@ impl QuickValue {
         QuickValue::Level7,
         QuickValue::Level8,
         QuickValue::Level9,
+        QuickValue::SlotDefault,
+        QuickValue::SlotBespoke,
         QuickValue::Level10,
         QuickValue::Level11,
         QuickValue::Level12,
@@ -1019,6 +1167,7 @@ impl QuickValue {
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
             QuickValue::Shimmerless => "Shimmerless",
+            QuickValue::Transparent => "Transparent",
             QuickValue::Dark => "Dark",
             QuickValue::Light => "Light",
             QuickValue::Show => "Show",
@@ -1042,6 +1191,8 @@ impl QuickValue {
             QuickValue::Level7 => "7",
             QuickValue::Level8 => "8",
             QuickValue::Level9 => "9",
+            QuickValue::SlotDefault => "Default",
+            QuickValue::SlotBespoke => "Bespoke",
             QuickValue::Level10 => "10",
             QuickValue::Level11 => "11",
             QuickValue::Level12 => "12",
@@ -1121,6 +1272,15 @@ const WARNING_GAP: u32 = 10;
 
 pub fn quick_label_face(row: QuickRow, lit: bool) -> UndoFace {
     quick_text_face(row.label(), if lit { MENU_INK } else { DIM_INK })
+}
+
+/// What the Turbo A and Turbo B rows are called while a WonderSwan game is
+/// playing. Its X and Y are also the Y pad with R1 held and the X pad in
+/// vertical games, so they are named as buttons, not as turbo.
+pub const WS_TURBO_LABELS: [&str; 2] = ["X Button", "Y Button"];
+
+pub fn ws_turbo_label_faces() -> [[UndoFace; 2]; 2] {
+    WS_TURBO_LABELS.map(|t| [DIM_INK, MENU_INK].map(|ink| quick_text_face(t, ink)))
 }
 
 fn cap_centre(label: &fontdue::Font, h: u32) -> f32 {
@@ -1292,6 +1452,8 @@ pub fn core_button_legends(ink: [u8; 3]) -> Vec<UndoFace> {
             true,
         ),
         with_hint(button_face(ButtonLegend::A), "Choose", hint, false),
+        // The Lynx rotation picker's chip goes any of four ways.
+        with_hint(four_way(), "Swap", hint, true),
     ]
 }
 
@@ -1373,7 +1535,11 @@ pub fn print_stop_legend(ink: [u8; 3]) -> UndoFace {
     let (src, w, h) = button_legend(ButtonLegend::B);
     let side = PRINT_STOP_BUTTON;
     let rgba = crate::art::cover_rgba(src, w, h, side, side).unwrap_or_default();
-    let button = UndoFace { rgba, w: side, h: side };
+    let button = UndoFace {
+        rgba,
+        w: side,
+        h: side,
+    };
     with_hint(button, "Stop", Some(ink), true)
 }
 
@@ -1393,7 +1559,12 @@ pub enum StudioGlyph {
     UpDown,
 }
 
-pub fn studio_legend(glyph: StudioGlyph, word: &str, ink: [u8; 3], hint_on_right: bool) -> UndoFace {
+pub fn studio_legend(
+    glyph: StudioGlyph,
+    word: &str,
+    ink: [u8; 3],
+    hint_on_right: bool,
+) -> UndoFace {
     let button = match glyph {
         StudioGlyph::A => button_face(ButtonLegend::A),
         StudioGlyph::B => button_face(ButtonLegend::B),
@@ -1439,6 +1610,86 @@ pub(crate) fn button_face(which: ButtonLegend) -> UndoFace {
         w,
         h,
     }
+}
+
+/// All four directions as one cross-shaped D-pad, drawn in the style of
+/// Slot's button art: a black outline, a light grey face lit from above with
+/// a darker bevel, dark arrows, a soft shadow above and a pale rim below.
+fn four_way() -> UndoFace {
+    let (_, _, h) = button_legend(ButtonLegend::Left);
+    let w = h;
+    let c = w as f32 / 2.0;
+    // Half the length of an arm, half its width, and the corner rounding.
+    let (reach, half, round) = (24.5, 10.5, 3.0);
+    let sd = |x: f32, y: f32| {
+        let rect = |hx: f32, hy: f32| {
+            let (qx, qy) = ((x - c).abs() - hx + round, (y - c).abs() - hy + round);
+            let out = (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt();
+            out + qx.max(qy).min(0.0) - round
+        };
+        rect(reach, half).min(rect(half, reach))
+    };
+    // An arrow in each arm, pointing out from the middle.
+    let arrow = |x: f32, y: f32| {
+        let (dx, dy) = (x - c, y - c);
+        let along_across = [(-dy, dx), (dy, -dx), (-dx, dy), (dx, -dy)];
+        along_across.iter().any(|&(along, across)| {
+            let t = along - 10.5;
+            (0.0..8.5).contains(&t) && across.abs() <= (8.5 - t) * 0.62
+        })
+    };
+    const SS: u32 = 4;
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    for py in 0..h {
+        for px in 0..w {
+            let mut acc = [0f32; 4];
+            for sy in 0..SS {
+                for sx in 0..SS {
+                    let x = px as f32 + (sx as f32 + 0.5) / SS as f32;
+                    let y = py as f32 + (sy as f32 + 0.5) / SS as f32;
+                    let d = sd(x, y);
+                    let (rgb, a) = if d <= -2.5 {
+                        let shade = if arrow(x, y) {
+                            60.0
+                        } else {
+                            // Lit from above: a bright line along the top
+                            // edge, darker towards the bevel at the sides.
+                            let lit = if sd(x, y - 2.0) > -2.5 { 227.0 } else { 177.0 };
+                            let bevel = (1.0 - ((-d - 2.5) / 3.0).min(1.0)) * 50.0;
+                            lit - bevel
+                        };
+                        ([shade; 3], 1.0)
+                    } else if d <= 0.0 {
+                        ([0.0; 3], 1.0)
+                    } else if sd(x, y - 3.0) <= 0.0 {
+                        // A pale rim below the key.
+                        ([246.0; 3], 0.3)
+                    } else if d <= 2.5 {
+                        // A soft shadow round it.
+                        ([0.0; 3], 0.27 * (1.0 - d / 2.5))
+                    } else {
+                        ([0.0; 3], 0.0)
+                    };
+                    for k in 0..3 {
+                        acc[k] += rgb[k] * a;
+                    }
+                    acc[3] += a;
+                }
+            }
+            let n = (SS * SS) as f32;
+            let at = ((py * w + px) * 4) as usize;
+            let a = acc[3] / n;
+            for k in 0..3 {
+                rgba[at + k] = if acc[3] > 0.0 {
+                    (acc[k] / acc[3]).round() as u8
+                } else {
+                    0
+                };
+            }
+            rgba[at + 3] = (a * 255.0).round() as u8;
+        }
+    }
+    UndoFace { rgba, w, h }
 }
 
 const ARROW_EDGE: u32 = 480;
@@ -1539,6 +1790,8 @@ pub type FacePair = [(TexId, u32, u32); 2];
 
 pub struct QuickMenuFaces {
     pub labels: Vec<[(TexId, u32, u32); 2]>,
+    /// The Turbo A and Turbo B labels for a WonderSwan game, see `WS_TURBO_LABELS`.
+    pub ws_turbo_labels: [FacePair; 2],
     pub pointer: (TexId, u32, u32),
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub legend: [(TexId, u32); 8],
@@ -1549,10 +1802,16 @@ pub struct QuickMenuFaces {
 pub struct QuickMenu<'a> {
     pub row: QuickRow,
     pub hidden: &'a [QuickRow],
+    /// slotPlus: rows shown greyed out, which can be reached but not opened.
+    pub disabled: &'a [QuickRow],
+    /// A WonderSwan game is playing, so the turbo rows are named X and Y.
+    pub ws_buttons: bool,
     pub values: [Option<QuickValue>; QuickRow::ALL.len()],
     pub clock: Option<[(TexId, u32, u32); 2]>,
     pub wallpaper: Option<[(TexId, u32, u32); 2]>,
     pub networks: Option<[(TexId, u32, u32); 2]>,
+    /// slotPlus: the RetroAchievements page's Username, Password and Cheevo Mode values.
+    pub achievements: [Option<[(TexId, u32, u32); 2]>; 3],
     pub romm: [Option<[(TexId, u32, u32); 2]>; 4],
     pub faces: Option<&'a QuickMenuFaces>,
     pub ground: Option<(TexId, u32)>,
@@ -1560,6 +1819,9 @@ pub struct QuickMenu<'a> {
     pub gba_bezel: Option<[(TexId, u32, u32); 2]>,
     pub gb_bezel: Option<[(TexId, u32, u32); 2]>,
     pub gbc_bezel: Option<[(TexId, u32, u32); 2]>,
+    /// The WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 Bezel
+    /// rows' values, in that order.
+    pub extra_bezels: [Option<[(TexId, u32, u32); 2]>; 6],
     pub bezel: Option<[(TexId, u32, u32); 2]>,
     pub bound: Option<&'a [Option<FacePair>]>,
     pub description: Option<(TexId, u32, u32)>,
@@ -1600,12 +1862,17 @@ impl QuickMenu<'_> {
         let Some(faces) = self.faces else {
             return;
         };
+        let label = |row: QuickRow| match (self.ws_buttons, row) {
+            (true, QuickRow::GameTurboA) => Some(&faces.ws_turbo_labels[0]),
+            (true, QuickRow::GameTurboB) => Some(&faces.ws_turbo_labels[1]),
+            _ => faces.labels.get(row.index()),
+        };
         let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
         let main_w = self
             .row
             .page()
             .iter()
-            .filter_map(|r| faces.labels.get(r.index()))
+            .filter_map(|r| label(*r))
             .map(|l| l[1].1)
             .max()
             .unwrap_or(0);
@@ -1615,14 +1882,23 @@ impl QuickMenu<'_> {
         for row in shown.into_iter().skip(start).take(len) {
             let y = quick_row_top_at(row, self.row, self.hidden, self.canvas) + TYPE_DROP;
             let lit = row == self.row;
+            // slotPlus: a greyed-out row keeps its dim face, faded, even under the pointer.
+            let greyed = self.disabled.contains(&row);
             let mut label_end = QUICK_LABEL_X;
-            if let Some(&(tex, w, h)) = faces.labels.get(row.index()).map(|l| &l[lit as usize]) {
+            if let Some(&(tex, w, h)) = label(row).map(|l| &l[(lit && !greyed) as usize]) {
                 let x = match row.centred() {
                     true => self.canvas.centred(main_w as f32),
                     false => QUICK_LABEL_X - pad,
                 };
                 label_end = x + w as f32 - pad;
-                push(out, tex, x, y, w, h);
+                out.push(Draw::Tex {
+                    x: x.round(),
+                    y: y.round(),
+                    w: w as f32,
+                    h: h as f32,
+                    tex,
+                    alpha: if greyed { GREYED_ALPHA } else { 1.0 },
+                });
                 if lit {
                     let (tex, pw, ph) = faces.pointer;
                     let px = x + pad - POINTER_GAP - pw as f32;
@@ -1639,10 +1915,20 @@ impl QuickMenu<'_> {
                 }
                 QuickRow::RommPort => self.romm[2].map(|c| c[lit as usize]),
                 QuickRow::RommStatus => self.romm[3].map(|c| c[lit as usize]),
+                QuickRow::RaUsername => self.achievements[0].map(|c| c[lit as usize]),
+                QuickRow::RaPassword => self.achievements[1].map(|c| c[lit as usize]),
+                // Casual is the only mode, so its value stays dim even when lit.
+                QuickRow::RaMode => self.achievements[2].map(|c| c[0]),
                 QuickRow::Palette | QuickRow::GbPalette => self.palette.map(|c| c[lit as usize]),
                 QuickRow::GbaBezel => self.gba_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbBezel => self.gb_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbcBezel => self.gbc_bezel.map(|c| c[lit as usize]),
+                QuickRow::WsBezel => self.extra_bezels[0].map(|c| c[lit as usize]),
+                QuickRow::LynxBezel => self.extra_bezels[1].map(|c| c[lit as usize]),
+                QuickRow::GgBezel => self.extra_bezels[2].map(|c| c[lit as usize]),
+                QuickRow::NgpBezel => self.extra_bezels[3].map(|c| c[lit as usize]),
+                QuickRow::Tg16Bezel => self.extra_bezels[4].map(|c| c[lit as usize]),
+                QuickRow::NdsBezel => self.extra_bezels[5].map(|c| c[lit as usize]),
                 QuickRow::Bezel => self.bezel.map(|c| c[lit as usize]),
                 _ if row.binds() => self
                     .bound
@@ -1727,6 +2013,9 @@ pub fn draw_menu_ground(canvas: Canvas, ground: Option<(TexId, u32)>, out: &mut 
     }
 }
 
+/// slotPlus: how faint a greyed-out row is drawn.
+const GREYED_ALPHA: f32 = 0.4;
+
 pub const QUICK_VISIBLE: usize = 6;
 
 /// How many rows a scrolling list shows: upstream's 6 on the 480-unit band, more on a
@@ -1758,6 +2047,8 @@ fn scrolls(page: &[QuickRow]) -> bool {
         &QuickRow::SHORTCUTS,
         &QuickRow::GENERAL,
         &QuickRow::PLAY_SCREEN,
+        // General and eight consoles are more rows than fit above the legend.
+        &QuickRow::SCREEN,
     ]
     .contains(&page)
 }
@@ -1834,4 +2125,23 @@ fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
         tex,
         alpha: 1.0,
     });
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    #[test]
+    fn the_screen_page_scrolls_its_general_row_and_eight_consoles_above_the_legend() {
+        assert!(scrolls(&QuickRow::SCREEN));
+        assert!(QuickRow::SCREEN.len() > QUICK_VISIBLE);
+        // Whichever row is chosen, it sits in a window that fits between the top and the legend.
+        for row in QuickRow::SCREEN {
+            let top = quick_row_top(row, &[], Canvas::FRAMED);
+            assert!(
+                top >= 0.0 && top + QUICK_PITCH <= LEGEND_Y,
+                "{row:?} at {top}"
+            );
+        }
+    }
 }

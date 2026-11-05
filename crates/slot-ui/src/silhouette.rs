@@ -40,3 +40,26 @@ pub(crate) fn gb_cart_mask(shell: GbShell) -> &'static [u8] {
     };
     lock.get_or_init(|| gb_silhouette(shell, GB_CART_W, GB_CART_H))
 }
+
+/// The outline of one of the moulds slotPlus adds.
+pub(crate) fn extra_mask(mould: bitmaps::Mould) -> &'static [u8] {
+    static WS: OnceLock<Vec<u8>> = OnceLock::new();
+    static LYNX: OnceLock<Vec<u8>> = OnceLock::new();
+    static GG: OnceLock<Vec<u8>> = OnceLock::new();
+    static NGP: OnceLock<Vec<u8>> = OnceLock::new();
+    static TG16: OnceLock<Vec<u8>> = OnceLock::new();
+    static NDS: OnceLock<Vec<u8>> = OnceLock::new();
+    let lock = match mould {
+        bitmaps::Mould::Ws => &WS,
+        bitmaps::Mould::Lynx => &LYNX,
+        bitmaps::Mould::Gg => &GG,
+        bitmaps::Mould::Ngp => &NGP,
+        bitmaps::Mould::Tg16 => &TG16,
+        bitmaps::Mould::Nds => &NDS,
+        other => panic!("{other:?} is not a slotPlus mould"),
+    };
+    lock.get_or_init(|| {
+        let (w, h) = mould.size();
+        alpha(bitmaps::extra_cart(mould), w, h)
+    })
+}

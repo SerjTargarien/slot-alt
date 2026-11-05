@@ -769,7 +769,11 @@ fn open_scan(a: &mut App) {
     open_networks(a);
     select(a, SCAN_NETWORKS);
     press(a, Btn::A);
-    assert!(matches!(a.phase(), Phase::NetworkScan { .. }), "{:?}", a.phase());
+    assert!(
+        matches!(a.phase(), Phase::NetworkScan { .. }),
+        "{:?}",
+        a.phase()
+    );
     settle(a);
 }
 
@@ -842,13 +846,20 @@ fn b_cancels_the_scan_and_lands_on_the_scan_row() {
     select(&mut a, SCAN_NETWORKS);
     press(&mut a, Btn::A);
     press(&mut a, Btn::B);
-    assert!(matches!(a.phase(), Phase::Networks { .. }), "{:?}", a.phase());
+    assert!(
+        matches!(a.phase(), Phase::Networks { .. }),
+        "{:?}",
+        a.phase()
+    );
     assert_eq!(selected_label(&a), SCAN_NETWORKS);
     settle(&mut a);
     let scans = log.lock().unwrap().iter().filter(|l| *l == "scan").count();
     settle(&mut a);
     settle(&mut a);
-    assert_eq!(log.lock().unwrap().iter().filter(|l| *l == "scan").count(), scans);
+    assert_eq!(
+        log.lock().unwrap().iter().filter(|l| *l == "scan").count(),
+        scans
+    );
 }
 
 #[test]
@@ -1046,4 +1057,29 @@ fn b_held_to_close_the_help_does_not_delete() {
     assert!(a.keyboard().unwrap().help());
     hold(&mut a, Btn::B, 1000);
     assert_eq!(a.keyboard().unwrap().text(), "secret99");
+}
+
+#[test]
+fn a_game_waiting_on_its_achievements_keeps_wifi_up_for_a_while() {
+    let _g = serial();
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    std::fs::write(d.path().join("Config/wifi.conf"), b"network={}\n").unwrap();
+    let mut a = common::app_playing_in(d.path(), "Emerald");
+    a.set_wifi(Wifi::inline(Box::new(Fake::joined())));
+    settle(&mut a);
+    assert!(!a.wifi().held, "Slot keeps Wi-Fi off in a game");
+    a.set_achievements_want_wifi(true);
+    settle(&mut a);
+    assert!(a.wifi().held, "a game still fetching its achievement set keeps Wi-Fi");
+    a.set_achievements_want_wifi(false);
+    settle(&mut a);
+    assert!(!a.wifi().held, "and lets it go once the set is in");
+    a.set_achievements_want_wifi(true);
+    settle(&mut a);
+    assert!(a.wifi().held);
+    for _ in 0..130 {
+        let t = a.now();
+        a.tick_ms(t + 1_000);
+    }
+    assert!(!a.wifi().held, "a network that never answers can't hold Wi-Fi all game");
 }

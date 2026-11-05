@@ -24,6 +24,9 @@ concurrency:
 jobs:
   deploy:
     name: site
+    # slotPlus's site, at nelynes.github.io/slotPlus. Only this repository
+    # publishes it, so a fork of slotPlus doesn't try to.
+    if: github.repository == 'nelynes/slotPlus'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -31,25 +34,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/configure-pages@v5
+      # A browser may keep style.css and app.js for a while, so each publish names them with its
+      # commit and a returning visitor never pairs a new page with an old stylesheet.
+      - name: Stamp the stylesheet and script with the commit
+        run: |
+          set -eu
+          v="${GITHUB_SHA::7}"
+          sed -i "s|href=\"style.css\"|href=\"style.css?v=$v\"|; s|src=\"app.js\"|src=\"app.js?v=$v\"|" site/index.html
+          grep -q "style.css?v=$v" site/index.html
+          grep -q "app.js?v=$v" site/index.html
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - run: pip install zensical==0.0.71
-
-      - run: zensical build --clean --strict -f site/zensical.toml
-
+      # What a slotPlus card checks for an update: the latest release's zip for each
+      # edition, and BaseOS. Published beside the site, at /versions.json.
       - name: Publish versions.json
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          OUT=site/public/versions.json SLOT_REPO="$GITHUB_REPOSITORY" bash .github/scripts/versions.sh
+        run: OUT=site/versions.json SLOT_REPO="$GITHUB_REPOSITORY" bash .github/scripts/versions.sh
+
+      - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site/public
+          path: site
 
       - id: deploy
         uses: actions/deploy-pages@v4

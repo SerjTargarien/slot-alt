@@ -3,8 +3,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use slot_input::{Action, Btn, Chord, Contexts, Entry, Gestures, Millis, Mod, RawEvent};
-use slot_retro::Rumble;
-use slot_store::Platform;
+use slot_retro::{Rumble, WsLayout, HANDHELD_TURN_OPTION};
+use slot_store::{Core, Platform};
 use slot_ui::FfState;
 
 pub const RUMBLE_MIN_MS: Millis = 100;
@@ -21,6 +21,9 @@ use crate::prefetch::Prefetch;
 use crate::print_scene::Cue;
 
 pub struct Session {
+    achievements: slot_achievements::Service,
+    /// Slot's Wi-Fi was up last frame, so RetroAchievements hears when it comes back.
+    wifi_up: bool,
     root: PathBuf,
     app: App,
     emu: Option<EmuHandle>,
@@ -38,6 +41,13 @@ pub struct Session {
     prefetch: Prefetch,
     reloading: bool,
     driven: bool,
+    ws_vertical: bool,
+    /// SELECT flips this Lynx game between the turned and the upright layout.
+    lynx_select: bool,
+    /// The Lynx game is held the usual way, drawn upright with bars at the sides.
+    lynx_upright: bool,
+    /// How the handheld is held for the Lynx game playing, as the host is told.
+    lynx_held: &'static str,
     sunlight_sent: Option<u8>,
     buzz_ends: Option<Instant>,
 }
@@ -49,6 +59,8 @@ impl Session {
 
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
         let mut session = Session {
+            achievements: crate::achievement_service(&root),
+            wifi_up: false,
             app: App::boot(&root),
             root,
             emu: None,
@@ -66,6 +78,10 @@ impl Session {
             prefetch: Prefetch::default(),
             reloading: false,
             driven: false,
+            ws_vertical: false,
+            lynx_select: false,
+            lynx_upright: false,
+            lynx_held: "off",
             sunlight_sent: None,
             buzz_ends: None,
         };
@@ -98,7 +114,11 @@ impl Session {
             }
             Cue::Tear => self.play_sfx(Sfx::Tear),
             Cue::BuzzOff => {
-                if self.buzz_ends.take().is_some_and(|end| Instant::now() < end) {
+                if self
+                    .buzz_ends
+                    .take()
+                    .is_some_and(|end| Instant::now() < end)
+                {
                     self.sink.ring().hush();
                 }
             }
@@ -107,6 +127,15 @@ impl Session {
 
     pub fn audio_queued(&self) -> usize {
         self.sink.ring().queued_frames()
+    }
+
+    /// A clip prepared off-thread, mixed at the current volume when it reaches the screen.
+    pub(crate) fn mix_sfx(&mut self, mut samples: Vec<i16>) {
+        if samples.is_empty() {
+            return;
+        }
+        crate::audio::volume::apply(&mut samples, self.app.output_volume());
+        self.sink.ring().mix(&samples);
     }
 
     pub fn audio_ring(&self) -> std::sync::Arc<Ring> {
@@ -135,6 +164,31 @@ impl Session {
 
     pub fn app(&self) -> &App {
         &self.app
+    }
+
+    pub fn take_achievement_notice(&self) -> Option<slot_achievements::Notice> {
+        self.achievements.take_notice()
+    }
+
+    /// The game in play can't earn achievements yet: its set hasn't loaded.
+    pub fn achievement_waiting(&self) -> bool {
+        self.achievements.waiting_for_set()
+    }
+
+    pub fn achievement_flush_ready(&self) -> bool {
+        self.achievements.flush_ready()
+    }
+
+    pub fn achievement_sync_progress(&self) -> Option<u8> {
+        self.achievements.sync_progress()
+    }
+
+    pub fn achievement_sync_pending(&self) -> bool {
+        self.achievements.sync_pending()
+    }
+
+    pub fn achievement_sync_status(&self) -> slot_achievements::SyncStatus {
+        self.achievements.sync_status()
     }
 
     pub fn app_mut(&mut self) -> &mut App {
@@ -258,6 +312,10 @@ impl Session {
                     continue;
                 }
             }
+            if self.ds_takes(ev, now) {
+                self.gestures.observe(ev);
+                continue;
+            }
             actions.extend(self.gestures.feed(ev, now));
         }
         actions.extend(self.gestures.tick(now));
@@ -270,18 +328,130 @@ impl Session {
         self.sync_pad();
     }
 
+    /// A DS game's own controls, ahead of slot's: L2 swaps its main screen,
+    /// SELECT + L2 steps through its layouts,
+    /// and R2 holds the stylus out, which the D-pad moves and A touches. They
+    /// are taken from slot's L2 and R2 shortcuts (rewind and fast forward) in
+    /// a DS game. Letting go of a stylus button still reaches the game, so
+    /// nothing it held when the stylus came out stays down.
+    fn ds_takes(&mut self, ev: RawEvent, now: Millis) -> bool {
+        if !self.app.ds_controls() {
+            return false;
+        }
+        match ev {
+            RawEvent::Down(Btn::L2) if self.gestures.take_select_chord(now) => {
+                self.app.next_ds_layout();
+                true
+            }
+            RawEvent::Down(Btn::L2) => {
+                self.app.swap_ds_screens();
+                true
+            }
+            RawEvent::Up(Btn::L2) => true,
+            RawEvent::Down(Btn::R2) => {
+                self.app.stylus_out(true);
+                true
+            }
+            RawEvent::Up(Btn::R2) => {
+                self.app.stylus_out(false);
+                true
+            }
+            RawEvent::Down(b) if self.app.stylus_takes(b) => {
+                self.app.stylus_press(b, true);
+                true
+            }
+            RawEvent::Up(b) if self.app.stylus_takes(b) => {
+                self.app.stylus_press(b, false);
+                false
+            }
+            _ => false,
+        }
+    }
+
     fn sync_pad(&mut self) {
         if let Some(emu) = &self.emu {
             let mut mask = self.pad.mask(&self.app.controls());
-            // A Game Boy has no shoulders: L and R never reach its core.
-            if self.app.playing_platform().hardware() != Platform::Gba {
+            // Systems without shoulder buttons: L and R never reach their core.
+            if matches!(
+                self.app.playing_platform(),
+                Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp | Platform::Tg16
+            ) {
                 mask.0 &= !(slot_retro::ButtonMask::L | slot_retro::ButtonMask::R);
             }
+            let mask = match self.app.core() {
+                Core::Cygne => mask.wonderswan_for(self.ws_layout()),
+                Core::Lynx if self.lynx_select => mask.without_select(),
+                // Gearsystem takes SELECT as a console reset, which the Game
+                // Gear does not have.
+                Core::Gearsystem => mask.without_select(),
+                _ => mask,
+            };
             if trace() && mask.0 != self.sent {
                 eprintln!("slot: pad {:#06x}", mask.0);
             }
             self.sent = mask.0;
             emu.set_input(mask);
+        }
+    }
+
+    /// Power the handheld off. A core that writes its own save file does so
+    /// when its game is unloaded, so once Slot's own saves have settled, that
+    /// core is stopped before the power goes.
+    pub fn poweroff(&mut self) {
+        self.stop_self_saving_core();
+        self.app.poweroff();
+    }
+
+    /// Get ready for Slot to exit and be started again: write the resume
+    /// state for the game in the slot and every pending save, and stop a core
+    /// that writes its own saves, so the game comes back where it was.
+    pub fn relaunch(&mut self) {
+        self.app.flush_resume();
+        self.stop_self_saving_core();
+    }
+
+    /// Restart the handheld, stopping a core that writes its own saves first,
+    /// as `poweroff` does.
+    pub fn restart(&mut self) {
+        self.stop_self_saving_core();
+        self.app.restart();
+    }
+
+    /// Step aside for the SD card repair, stopping a core that writes its own
+    /// saves first, as `restart` does, in case the card still takes them.
+    pub fn repair(&mut self) {
+        self.stop_self_saving_core();
+        self.app.repair();
+    }
+
+    fn stop_self_saving_core(&mut self) {
+        self.app.settle_saves();
+        if crate::core::writes_own_saves(self.app.core()) {
+            self.emu = None;
+        }
+    }
+
+    fn ws_layout(&self) -> WsLayout {
+        match (self.ws_vertical, self.app.frame_is_tall()) {
+            (false, _) => WsLayout::Horizontal,
+            (true, true) => WsLayout::Upright,
+            (true, false) => WsLayout::Sideways,
+        }
+    }
+
+    /// SELECT switches between the way the handheld was being held and the
+    /// other natural way: upright, or the way the game is made to be held.
+    fn flip_lynx_layout(&mut self) {
+        self.lynx_upright = !self.lynx_upright;
+        let value = match self.lynx_upright {
+            true => crate::hold_picker::select_held(self.lynx_held),
+            false => self.lynx_held,
+        };
+        if trace() {
+            eprintln!("slot: lynx: {HANDHELD_TURN_OPTION}={value}");
+        }
+        if let Some(emu) = &self.emu {
+            emu.set_option(HANDHELD_TURN_OPTION, value);
         }
     }
 
@@ -300,6 +470,14 @@ impl Session {
             eprintln!("slot: {action:?} in {:?}", self.app.phase());
         }
         let menu_open = self.app.in_game_menu().is_some();
+        if matches!(action, Action::GbaDown(Btn::Select))
+            && self.lynx_select
+            && !menu_open
+            && self.playing()
+            && !self.overlaid()
+        {
+            self.flip_lynx_layout();
+        }
         match action {
             Action::RewindStart if !menu_open => self.rewinding = true,
             Action::RewindStop => self.rewinding = false,
@@ -327,6 +505,22 @@ impl Session {
 
     pub fn update(&mut self, dt: f32) {
         self.bridge_link(|app| app.update(dt));
+        // Background preparation only runs while the shelf sits idle, so it never competes
+        // with booting, opening a game or playing one for the card.
+        let idle = self.opening.is_none() && matches!(self.app.phase(), Phase::Shelf);
+        self.achievements.set_busy(!idle);
+        // Slot's Wi-Fi is up on the shelf; unlocks earned in a game wait for it.
+        let up = self.app.wifi_up();
+        if up && !self.wifi_up {
+            self.achievements.network_available();
+        }
+        self.wifi_up = up;
+        self.app.set_achievements_want_wifi(self.achievements.wants_network());
+        if self.app.take_achievements_changed() {
+            // The account or Encore changed in Settings: start again with the new file.
+            // Unlocks are already on the card, so nothing is lost.
+            self.achievements = crate::achievement_service(&self.root);
+        }
         self.sink.hold_open(self.app.headphones());
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());
@@ -360,8 +554,10 @@ impl Session {
             }
         }
         if let Some(blending) = self.app.take_blending() {
-            if let Some(emu) = &self.emu {
-                let (key, value) = crate::core::blend_option(self.app.core(), blending);
+            if let (Some(emu), Some((key, value))) = (
+                &self.emu,
+                crate::core::blend_option(self.app.core(), blending),
+            ) {
                 emu.set_option(key, value);
                 recoloured = true;
             }
@@ -507,27 +703,32 @@ impl Session {
     }
 
     fn sync_speed(&self) {
+        let mut ds_running = false;
         if let Some(emu) = &self.emu {
             emu.set_fast_quarters(u32::from(self.app.ff_speed()));
             emu.set_ff_sound(self.app.ff_sound());
-            emu.set_speed(
-                if self.inserting()
-                    || self.ejecting()
-                    || self.showing_polaroids()
-                    || self.dozing()
-                    || (self.held() && !self.app.link_active())
-                {
-                    Speed::Paused
-                } else if self.actually_fast_forwarding() {
-                    Speed::Fast
-                } else {
-                    Speed::Normal
-                },
-            );
+            let speed = if self.inserting()
+                || self.ejecting()
+                || self.showing_polaroids()
+                || self.dozing()
+                || (self.held() && !self.app.link_active())
+            {
+                Speed::Paused
+            } else if self.actually_fast_forwarding() {
+                Speed::Fast
+            } else {
+                Speed::Normal
+            };
+            emu.set_speed(speed);
             emu.set_rewinding(self.actually_rewinding());
             emu.set_turbo(self.app.turbo());
+            emu.set_face_xy(self.app.core() == Core::Dsperate);
+            emu.set_skip_slow(self.app.core() == Core::Dsperate);
+            emu.set_pointer(self.app.pointer());
             emu.set_rewind_recording(self.app.records_rewind());
+            ds_running = self.app.core() == Core::Dsperate && speed != Speed::Paused;
         }
+        crate::cpu_governor::hold_full(ds_running);
     }
 
     fn no_core() -> bool {
@@ -588,6 +789,8 @@ impl Session {
         self.app.set_platform(platform);
         self.app
             .set_video_mode(crate::video_mode::video_mode_for(&self.root, stem));
+        self.app
+            .set_ds_view(crate::video_mode::ds_view_for(&self.root, stem));
         self.app.set_link_loaded(serial);
         let root = self.root.clone();
         let stem = stem.to_owned();
@@ -612,6 +815,11 @@ impl Session {
                 launch("core opened");
                 let sav = persist::read_sav(&root, platform, &stem);
                 launch("save read");
+                // A Lynx game's turn and a WonderSwan game's orientation come
+                // from files too, so they are read here with the rest.
+                let ws_vertical = platform == Platform::Ws && slot_store::ws_vertical(&rom);
+                let lynx_turn = (platform == Platform::Lynx)
+                    .then(|| crate::hold_picker::lynx_setup(&root, &stem));
                 Loaded {
                     opened,
                     rom,
@@ -620,6 +828,8 @@ impl Session {
                     palette_live: palette.is_some(),
                     sav,
                     resume,
+                    ws_vertical,
+                    lynx_turn,
                 }
             })
             .ok();
@@ -644,12 +854,19 @@ impl Session {
         let sav = self.app.card_read("save", loaded.sav);
         let resume = self.app.card_read("resume", loaded.resume);
         let (sav_unread, resume_unread) = (sav.is_none(), resume.is_none());
-        let (core, rom, sav, resume) = (
-            loaded.opened.core,
-            loaded.rom,
-            sav.flatten(),
-            resume.flatten(),
-        );
+        // Tracked only for the Game Boy family, and never over a link cable.
+        let tracked = crate::ACHIEVEMENTS
+            && matches!(
+                loaded.platform,
+                Platform::Gb | Platform::Gbc | Platform::Gba
+            )
+            && loaded.player.is_none();
+        let core = if tracked {
+            self.achievements.wrap(loaded.opened.core)
+        } else {
+            loaded.opened.core
+        };
+        let (core, rom, sav, resume) = (core, loaded.rom, sav.flatten(), resume.flatten());
         let emu = match loaded.player.filter(|_| loaded.platform == Platform::Gba) {
             Some(p) => EmuHandle::spawn_linked(core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(core, rom, ring, sav, resume),
@@ -661,6 +878,19 @@ impl Session {
             emu.refuse_resume();
         }
         self.app.set_resume_unread(resume_unread);
+        self.ws_vertical = loaded.ws_vertical;
+        self.lynx_select = false;
+        self.lynx_upright = false;
+        if let Some(setup) = loaded.lynx_turn {
+            eprintln!(
+                "slot: lynx: lynx_rot_screen={}, {HANDHELD_TURN_OPTION}={}",
+                setup.core_turn, setup.held
+            );
+            emu.set_option("lynx_rot_screen", setup.core_turn);
+            emu.set_option(HANDHELD_TURN_OPTION, setup.held);
+            self.lynx_held = setup.held;
+            self.lynx_select = crate::core::lynx_select_toggles(setup.core_turn);
+        }
         emu.set_volume(self.app.output_volume());
         emu.set_driven(self.driven);
         self.app.set_snapshot(Box::new(emu.snapshot()));
@@ -710,6 +940,8 @@ struct Loaded {
     palette_live: bool,
     sav: std::io::Result<Option<Vec<u8>>>,
     resume: std::io::Result<Option<Vec<u8>>>,
+    ws_vertical: bool,
+    lynx_turn: Option<crate::hold_picker::LynxSetup>,
 }
 
 struct Opening {

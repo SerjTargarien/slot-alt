@@ -1,14 +1,61 @@
 <div align="center">
 
-<img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
-
-<a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
-<a href="https://github.com/BrandonKowalski/slot/stargazers"><img src="https://img.shields.io/github/stars/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="Stars"></a>
-<a href="https://github.com/BrandonKowalski/slot/releases"><img src="https://img.shields.io/github/downloads/BrandonKowalski/slot/total?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="Downloads"></a>
-<a href="https://slot-cfw.fyi"><img src="https://img.shields.io/badge/Guide-slot--cfw.fyi-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Docs"></a>
-<a href="https://discord.gg/NYRWsSuPUu"><img src="https://img.shields.io/badge/Discord-4d4d57?style=for-the-badge&labelColor=242429&logo=discord&logoColor=white" height="36" alt="Discord"></a>
+<img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP. slot plays Game Boy Advance, Game Boy Color and Game Boy. slotPlus, for the 3:2 fan, adds WonderSwan, WonderSwan Color and Atari Lynx. slotPlusUltra, for the ultimate handheld, adds Game Gear, NeoGeo Pocket, TurboGrafx-16 and Nintendo DS on top of that. Every version adds HDMI out to your TV and pixel transparency for GB and GBC.">
 
 </div>
+
+---
+
+# RetroAchievements: on hold
+
+RetroAchievements arrived in 1.13.0-plus2.6 as a beta. From 1.14.0-plus2.6 it's switched off while the rough edges are worked out: Settings → RetroAchievements is greyed out, no game is tracked and nothing is sent. Your `Config/retroachievements.toml` and any unlocks already on the card are left as they are, ready for when it comes back.
+
+# What is slotPlus?
+
+A slightly modified Slot. Alongside Slot's Game Boy Advance, Game Boy and Game Boy Color, it plays more handhelds, each on its own shelf with its own cart, and it can play on a TV over HDMI.
+
+**See it in action, and find installing steps and what each system adds, at [nelynes.github.io/slotPlus](https://nelynes.github.io/slotPlus/).**
+
+Each release comes in two versions. Pick the one you want from the [releases page](https://github.com/nelynes/slotPlus/releases):
+
+- **`slot-plus.zip`, slotPlus:** Game Boy Advance, Game Boy and Game Boy Color, plus WonderSwan and Atari Lynx.
+- **`slot-plusultra.zip`, slotPlusUltra:** everything in slotPlus, plus Game Gear, NeoGeo Pocket, TurboGrafx-16 and Nintendo DS.
+
+| System | Version | Put games in | Files | Core | BIOS |
+|---|---|---|---|---|---|
+| WonderSwan / Color | Plus and Ultra | `Games/WS/` | `.ws` `.wsc` | Beetle WonderSwan (Cygne) | Not needed |
+| Atari Lynx | Plus and Ultra | `Games/Lynx/` | `.lnx` `.lyx` | Beetle Lynx | `lynxboot.img` in `BIOS/` |
+| Sega Game Gear | Ultra | `Games/GG/` | `.gg` | Gearsystem | Not needed |
+| NeoGeo Pocket / Color | Ultra | `Games/NGP/` | `.ngp` `.ngc` `.ngpc` | Beetle NeoPop | Not needed |
+| TurboGrafx-16 / TurboExpress | Ultra | `Games/TG16/` | `.pce` (HuCards) | Beetle PCE Fast | Not needed |
+| Nintendo DS | Ultra | `Games/NDS/` | `.nds` | DSperate | Not needed |
+
+> [!IMPORTANT]
+> Atari Lynx games need `lynxboot.img`, the Lynx boot ROM. It is **not included**. Put your own copy in `BIOS/`.
+
+**Installing:** for a fresh install, unzip and copy everything onto the Slot card. To upgrade, unzip and replace the `System` folder on your card with the new one. Switching between Plus and Ultra works the same way, and your games, saves and settings stay put. Going back from Ultra to Plus leaves the Game Gear, NeoGeo Pocket, TurboGrafx-16 and DS games and saves on the card, without their shelves.
+
+- **Folders:** each system's folders under `Games`, `Labels`, `Saves`, `States` and `Bezels` are created for you on first boot.
+- **Carts:** each system has its own cart, drawn in Slot's look. WonderSwan games get a black cart, WonderSwan Color games a frosted clear one, and a HuCard turns over to go into the slot contacts first.
+- **Cart Slot:** set Settings > General > Cart Slot to Bespoke and the slot on each shelf becomes the back of that system's handheld: a pearl WonderSwan and a Lynx II, plus a Game Gear, a carbon NeoGeo Pocket Color, a TurboExpress and a silver DS Lite in Ultra. The Game Boy shelves keep Slot's own.
+
+**Controls, label art sizes, bezels, saves, the DS's screen layouts and stylus, and how Lynx and WonderSwan games that turn sideways work are all in the [systems guide](SYSTEMS.md).**
+
+## Label Art
+
+- **Label art:** optional PNGs go in `Labels/<folder>/<game name>.png`.
+- My copy of Cart studio is updated to support the new systems, go to: [Cart Studio+](https://nelynes.github.io/slotPlus-studio/)
+
+## Playing on a TV
+
+Both versions can show the picture on a TV over HDMI, on handhelds with a mini-HDMI port such as the RG SP.
+
+- Plug the TV in before or after switching on. The shelf and games show on the TV at 1080p, with the sound there too, and the handheld's screen goes dark. The handheld is the controller.
+- Plug in or pull the cable at any time, even mid-game. Slot saves the game, starts again on the other screen within a few seconds and picks up where you were.
+- Closing the lid doesn't sleep the handheld while it's on the TV.
+
+> [!NOTE]
+> HDMI has been tested on the RG SP. The other supported handhelds with a mini-HDMI port should work the same way. If yours doesn't, please open an issue.
 
 ---
 
@@ -33,7 +80,13 @@ A full user guide can be found at [slot-cfw.fyi](https://slot-cfw.fyi).
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/link.gif" width="96.5%" alt="Two SPs racing in Mario Kart over the emulated link">
+<img src=".github/resources/screenshots/plus-shelves.gif" width="48%" alt="slotPlus: scrolling the Game Boy Color, Game Boy Advance, Atari Lynx and WonderSwan shelves, then putting Mr. Driller in the slot and resuming at its title screen">
+<img src=".github/resources/screenshots/ultra-shelves.gif" width="48%" alt="slotPlusUltra: scrolling the Game Gear and NeoGeo Pocket shelves, then the TurboGrafx-16 shelf, where a HuCard turns over, goes in the slot and Devil's Crush starts">
+</p>
+
+<p align="center">
+<img src=".github/resources/screenshots/ds-layouts.gif" width="48%" alt="slotPlusUltra on the RG SP: scrolling the Nintendo DS shelf, putting Mario Kart DS in and resuming mid-race, swapping the screens with L2, then stepping through Full Screen, Side by Side, Picture in Picture, Both Screens and One Screen with SELECT and L2">
+<img src=".github/resources/screenshots/cart-slot.gif" width="48%" alt="slotPlusUltra: setting Cart Slot to Bespoke in Settings, then scrolling every shelf: the Game Boy shelves keep Slot's slot, and the WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 shelves each show the back of their own handheld">
 </p>
 
 ---

@@ -105,6 +105,11 @@ if [ -f "$logo" ] && ! cmp -s "$logo" "$SD/Cache/bootlogo.installed"; then
 fi
 
 [ -f "$LOGS/slot.log" ] && mv -f "$LOGS/slot.log" "$LOGS/slot.log.1"
+
+# An empty Config/trace on the card turns on slot's timing log: every five
+# seconds of play, the core's frame rate and frame times, and the sound
+# buffer's level, into Logs/slot.log.
+[ -f "$SD/Config/trace" ] && export SLOT_TRACE=1 && log "trace on"
 log "exec $SYS/slot"
 
 exec "$LOADER" "$SYS/slot" > "$LOGS/slot.log" 2>&1

@@ -54,6 +54,8 @@ pub enum UpdateFail {
     Rejected(String),
 }
 
+/// slotPlus: the release is slotPlus's, with one zip for each edition, and this build takes
+/// its own edition's (`crate::edition`).
 pub fn parse_release(json: &str) -> Result<Release, UpdateFail> {
     let v: serde_json::Value = serde_json::from_str(json).map_err(|_| UpdateFail::Bad)?;
     let stable = &v["stable"];
@@ -62,12 +64,16 @@ pub fn parse_release(json: &str) -> Result<Release, UpdateFail> {
         .ok_or(UpdateFail::Bad)?
         .to_string();
     let tag = stable["tag"].as_str().ok_or(UpdateFail::Bad)?;
-    let zip = stable["zip"].as_str().ok_or(UpdateFail::Bad)?;
-    if zip != format!("slot-v{version}-h700.zip") {
+    if tag != format!("v{version}") {
         return Err(UpdateFail::Bad);
     }
-    let size = stable["size"].as_u64().ok_or(UpdateFail::Bad)?;
-    let sha256 = stable["sha256"]
+    let ours = &stable[crate::edition::KEY];
+    let zip = ours["zip"].as_str().ok_or(UpdateFail::Bad)?;
+    if zip != crate::edition::ZIP {
+        return Err(UpdateFail::Bad);
+    }
+    let size = ours["size"].as_u64().ok_or(UpdateFail::Bad)?;
+    let sha256 = ours["sha256"]
         .as_str()
         .and_then(hex32)
         .ok_or(UpdateFail::Bad)?;
@@ -116,8 +122,13 @@ fn hex32(s: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
+/// A version's numbers in order. slotPlus's carry Slot's and then its own:
+/// `1.13.0-plus2.5` is 1, 13, 0, 2, 5, so it is newer than plain Slot 1.13.0.
 fn parts(v: &str) -> Option<Vec<u64>> {
-    v.split('.').map(|p| p.parse().ok()).collect()
+    v.replacen("-plus", ".", 1)
+        .split('.')
+        .map(|p| p.parse().ok())
+        .collect()
 }
 
 pub fn newer(release: &str, running: &str) -> bool {
@@ -277,8 +288,9 @@ impl<R: Read> Read for Stoppable<R> {
 }
 
 pub const WIFI_CONF: &str = "Config/wifi.conf";
-pub const LATEST: &str = "https://slot-cfw.fyi/versions.json";
-const RELEASES: &str = "https://github.com/BrandonKowalski/slot/releases/download";
+// slotPlus updates from its own releases, never Slot's, which would replace it with Slot.
+pub const LATEST: &str = "https://nelynes.github.io/slotPlus/versions.json";
+const RELEASES: &str = "https://github.com/nelynes/slotPlus/releases/download";
 const BASEOS_RELEASES: &str = "https://github.com/pvaibhav/BaseOS/releases/download";
 
 #[derive(Debug, Clone, Copy)]

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { platformName, VIDEO_HOME, VIDEO_TAG } from '@/api/platforms'
+import { NO_BIOS, platformName, VIDEO_HOME, VIDEO_TAG } from '@/api/platforms'
 import Dropdown from '@/components/ui/Dropdown.vue'
 import type { DropdownItem } from '@/components/ui/Dropdown.vue'
 import BiosSlot from '@/components/platform/BiosSlot.vue'
@@ -37,7 +37,7 @@ const tabs = computed(() => [
   { key: 'games' as TabKey, label: t('platform.tabGames') },
   ...(hasVideo.value ? [{ key: 'video' as TabKey, label: t('platform.tabVideo') }] : []),
   { key: 'bezels' as TabKey, label: t('platform.tabBezels') },
-  { key: 'bios' as TabKey, label: t('platform.tabBios') },
+  ...(NO_BIOS.includes(props.tag) ? [] : [{ key: 'bios' as TabKey, label: t('platform.tabBios') }]),
 ])
 
 function selectTab(tab: TabKey) {

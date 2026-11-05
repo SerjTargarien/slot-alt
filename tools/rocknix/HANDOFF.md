@@ -96,6 +96,30 @@ OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer w
 `server_ui`, `pipeline` and `quad` tests need `HeadlessSurface`, which only builds on
 macOS; `romm_ui` needs `--features romm`.
 
+**slotPlus merged (2026-11-05, late; branch `slotsq-plus`):** slotPlusUltra
+(`nelynes/slotPlus` branch `slot-1.14-ultra`, upstream 1.14.0 plus WonderSwan, Lynx, Game
+Gear, NeoGeo Pocket, TurboGrafx-16 and DS) is merged into our fork, decided as option 1:
+take it whole rather than port pieces, so later merges from slotPlus stay cheap.
+- **RetroAchievements** comes along switched off at build time (`ACHIEVEMENTS = false`):
+  no worker, no network, nothing read. The user wants it later, once battery cost is
+  understood.
+- **slotPlus's HDMI** is for the H700's sunxi driver under BaseOS: `device_app.rs` runs it
+  only on the fbdev display, so slot² (KMS) never touches it. The RGB20SX has an HDMI
+  port (`HDMI-A-1`, HDMI sound): our own KMS HDMI is future work.
+- **Stretch:** the Stretch On/Off shortcuts (Menu+L1/R1) work on every system but GBA and
+  DS (`stretches()`), so Lynx and WonderSwan, whose L1/R1 are game buttons, can stretch
+  too. L/R never reach the cores of systems without shoulder buttons (GB, GBC, GG, NGP,
+  TG16). The square panel's shared Stretch value covers GB and GBC; the new systems keep
+  slotPlus's per-game `video_mode.txt`.
+- **Cores on the card** came from slotPlus's release `v1.14.0-plus2.6`
+  (`slot-plusultra.zip`): all nine `*_libretro.so`, its `web/` and `licenses/`. The
+  pre-merge slot, cores and web are in `System/slot.premerge` and `System/premerge/`.
+  The user wants to learn to build cores (`cores/*/build.sh`, pinned sources and
+  patches, built natively in an arm64 box) before adding more: not done yet.
+- The merged binary is 18.0 MB (was 14.6 MB).
+- Not yet checked on the device: each new system's shelf, carts and bespoke slot on the
+  square canvas, speed, controls, DS layouts and stylus (the right stick could drive it).
+
 **Upstream and square panels:** upstream supports the RG CubeXX (720x720) for input and
 its boot logo, but lays the UI out on the letterboxed 720x480 band there (`framed()` is
 4:3 only, and no square bezels ship). Our height-aware canvas is new work that 3:2 and

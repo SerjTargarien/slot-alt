@@ -2,7 +2,8 @@ use slot_store::{Cart, Platform};
 use slot_ui::{
     cart_box, edge, foot_y, housing, icon_box, opening, recess, seated_box,
     Canvas, Draw, Shelf, SlotChrome, TexId, ALERT_PX, CART_H, CART_W, GB_LABEL_H, GB_LABEL_Y,
-    LABEL_H, LABEL_Y, MOUTH_H, OUT_H, OUT_W,
+    GG_LABEL_H, GG_LABEL_Y, LABEL_H, LABEL_Y, LYNX_LABEL_H, LYNX_LABEL_Y, MOUTH_H, NGP_LABEL_H,
+    NGP_LABEL_Y, OUT_H, OUT_W, TG16_LABEL_H, TG16_LABEL_Y, WS_LABEL_H, WS_LABEL_Y,
 };
 
 const CENTRED: f32 = (OUT_W - CART_W) as f32 / 2.0;
@@ -41,8 +42,14 @@ fn both() -> [(&'static str, Cart); 2] {
 
 fn label_band(c: &Cart) -> (f32, f32) {
     let (y, h) = match c.platform {
-        Platform::Gba | Platform::Gbav => (LABEL_Y as f32, LABEL_H as f32),
+        // A DS card sits on the GBA's mould until it has its own.
+        Platform::Gba | Platform::Gbav | Platform::Nds => (LABEL_Y as f32, LABEL_H as f32),
         Platform::Gb | Platform::Gbc => (GB_LABEL_Y as f32, GB_LABEL_H as f32),
+        Platform::Ws => (WS_LABEL_Y as f32, WS_LABEL_H as f32),
+        Platform::Lynx => (LYNX_LABEL_Y as f32, LYNX_LABEL_H as f32),
+        Platform::Gg => (GG_LABEL_Y as f32, GG_LABEL_H as f32),
+        Platform::Ngp => (NGP_LABEL_Y as f32, NGP_LABEL_H as f32),
+        Platform::Tg16 => (TG16_LABEL_Y as f32, TG16_LABEL_H as f32),
     };
     let k = seated_box(c.platform).1 as f32 / cart_box(c.platform).1 as f32;
     (y * k, h * k)
@@ -62,12 +69,14 @@ fn quad(d: &Draw) -> Quad {
         | Draw::Tex { x, y, w, h, .. }
         | Draw::Part { x, y, w, h, .. }
         | Draw::Turned { x, y, w, h, .. } => Quad { x, y, w, h },
-        Draw::Game | Draw::Shot { .. } | Draw::Capture | Draw::Quad { .. } | Draw::Paper { .. } => Quad {
-            x: 0.0,
-            y: 0.0,
-            w: OUT_W as f32,
-            h: OUT_H as f32,
-        },
+        Draw::Game | Draw::Shot { .. } | Draw::Capture | Draw::Quad { .. } | Draw::Paper { .. } => {
+            Quad {
+                x: 0.0,
+                y: 0.0,
+                w: OUT_W as f32,
+                h: OUT_H as f32,
+            }
+        }
     }
 }
 
@@ -111,7 +120,9 @@ fn alpha(d: &Draw) -> f32 {
         | Draw::Part { alpha, .. }
         | Draw::Turned { alpha, .. }
         | Draw::Quad { alpha, .. } => alpha,
-        Draw::Game | Draw::Shot { .. } | Draw::Capture | Draw::Quad { .. } | Draw::Paper { .. } => 1.0,
+        Draw::Game | Draw::Shot { .. } | Draw::Capture | Draw::Paper { .. } => {
+            1.0
+        }
     }
 }
 
@@ -143,6 +154,7 @@ fn chrome_into(c: &Cart, seat: f32, out: &mut Vec<Draw>) {
         rest: centred(c),
         scale: 1.0,
         seat,
+        turn: 0.0,
         alert: None,
         dim: 0.5,
         screen: 0.0,
@@ -176,6 +188,7 @@ fn a_cart_the_row_had_not_finished_moving_slides_across_as_it_goes_in() {
             rest,
             scale,
             seat,
+            turn: 0.0,
             alert: None,
             dim: 0.0,
             screen: 0.0,
@@ -236,6 +249,7 @@ fn draw_powering_on(t: f32, out: &mut Vec<Draw>) {
         rest: CENTRED,
         scale: 1.0,
         seat: 1.0,
+        turn: 0.0,
         alert: None,
         dim: 0.0,
         screen: t,
@@ -704,6 +718,7 @@ fn a_clear_carts_board_goes_into_the_slot_and_comes_out_with_it() {
                 rest: centred(&c),
                 scale: 1.0,
                 seat,
+                turn: 0.0,
                 alert: None,
                 dim: 0.0,
                 screen: 0.0,
@@ -739,5 +754,67 @@ fn a_clear_carts_board_goes_into_the_slot_and_comes_out_with_it() {
                 "{name} at {seat}: the face is not under the slot front"
             );
         }
+    }
+}
+
+#[test]
+fn a_turning_cart_is_drawn_turned_about_its_middle_and_a_still_one_plainly() {
+    let c = cart();
+    let face = TexId::from_raw(3);
+    let draw = |turn: f32| {
+        let mut out = Vec::new();
+        SlotChrome {
+            cart: &c,
+            face: Some(face),
+            rest: centred(&c),
+            scale: 1.0,
+            seat: 0.0,
+            turn,
+            alert: None,
+            dim: 0.0,
+            screen: 0.0,
+            game: false,
+            over: true,
+            behind: [None, None],
+            slot: None,
+            canvas: Canvas::FRAMED,
+        }
+        .draw(&mut out);
+        out.into_iter()
+            .find(|d| matches!(d, Draw::Tex { tex, .. } | Draw::Turned { tex, .. } if *tex == face))
+            .expect("no cart drawn")
+    };
+    assert!(
+        matches!(draw(0.0), Draw::Tex { .. }),
+        "a cart that does not turn is turned"
+    );
+    let Draw::Turned { turn: half, .. } = draw(0.5) else {
+        panic!("half way round is not turned");
+    };
+    assert!((half - std::f32::consts::FRAC_PI_2).abs() < 1e-4, "{half}");
+    let Draw::Turned { turn: over, .. } = draw(1.0) else {
+        panic!("all the way round is not turned");
+    };
+    assert!((over - std::f32::consts::PI).abs() < 1e-4, "{over}");
+    let (
+        Draw::Tex { x, y, w, h, .. },
+        Draw::Turned {
+            x: tx,
+            y: ty,
+            w: tw,
+            h: th,
+            ..
+        },
+    ) = (draw(0.0), draw(1.0))
+    else {
+        unreachable!()
+    };
+    assert_eq!((x, y, w, h), (tx, ty, tw, th), "turning moved the cart");
+}
+
+#[test]
+fn only_the_hucard_goes_in_upside_down() {
+    for p in Platform::ALL {
+        assert_eq!(slot_ui::inserts_turned(p), p == Platform::Tg16, "{p:?}");
     }
 }

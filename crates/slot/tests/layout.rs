@@ -1,6 +1,7 @@
 mod common;
 
 use slot::app::{App, Phase};
+use slot::video_mode::VideoMode;
 use slot_gfx::{Canvas, Draw};
 use slot_input::Action;
 use slot_store::{Cart, Platform};
@@ -10,13 +11,17 @@ const PANEL_4_3: (u32, u32) = (640, 480);
 const NATIVE: Canvas = Canvas { w: 640.0, h: 480.0 };
 
 fn app_with_carts(stems: &[&str], panel: (u32, u32)) -> App {
+    app_on(Platform::Gba, stems, panel)
+}
+
+fn app_on(platform: Platform, stems: &[&str], panel: (u32, u32)) -> App {
     let mut a = App::new(
         stems
             .iter()
             .map(|stem| Cart {
-                platform: Platform::Gba,
+                platform,
                 stem: (*stem).to_string(),
-                rom: format!("Games/GBA/{stem}.gba").into(),
+                rom: format!("Games/{}/{stem}.rom", platform.dir_name()).into(),
                 label: None,
                 code: String::new(),
                 shell: None,
@@ -300,6 +305,66 @@ fn ejecting_while_the_overlay_rises_never_raises_it_further() {
         );
         high = now;
     });
+}
+
+fn playing_on(platform: Platform, panel: (u32, u32)) -> App {
+    let mut a = app_on(platform, &["Game", "Zzz"], panel);
+    a.set_platform(platform);
+    a.apply(Action::Insert);
+    a.on_core_ready();
+    for _ in 0..120 {
+        tick(&mut a);
+    }
+    a
+}
+
+#[test]
+fn a_stretched_game_fills_a_4_by_3_panel_but_the_game_boy_keeps_its_window() {
+    for platform in [
+        Platform::Gba,
+        Platform::Ws,
+        Platform::Lynx,
+        Platform::Gg,
+        Platform::Ngp,
+    ] {
+        let mut a = playing_on(platform, PANEL_4_3);
+        assert!(matches!(a.phase(), Phase::Playing { .. }), "{platform:?}");
+        assert!(!a.game_fills_panel(), "{platform:?} filled at actual size");
+        a.set_video_mode(VideoMode::Stretch);
+        assert!(a.game_fills_panel(), "{platform:?} did not fill the panel");
+        assert_eq!(a.canvas(), NATIVE, "{platform:?}");
+    }
+    for platform in [Platform::Gb, Platform::Gbc] {
+        let mut a = playing_on(platform, PANEL_4_3);
+        a.set_video_mode(VideoMode::Stretch);
+        assert!(!a.game_fills_panel(), "{platform:?} left its 3:2 window");
+    }
+}
+
+#[test]
+fn a_stretched_game_on_a_720_panel_needs_nothing_more() {
+    let mut a = playing_on(Platform::Gg, (720, 480));
+    a.set_video_mode(VideoMode::Stretch);
+    assert!(!a.game_fills_panel());
+    assert_eq!(a.canvas(), Canvas::FRAMED);
+}
+
+#[test]
+fn a_game_filling_a_4_by_3_panel_hides_the_sp_strip() {
+    let strip = slot_gfx::TexId::from_raw(9_999);
+    // The GBA wears the SP frame on a 4:3 panel; the Game Gear and the rest wear their own bezels.
+    let mut a = playing(PANEL_4_3);
+    a.set_sp_strip(Some(strip));
+    assert!(
+        strip_at(&a, strip).is_some(),
+        "the strip should cover an actual-size game"
+    );
+    a.set_video_mode(VideoMode::Stretch);
+    assert_eq!(
+        strip_at(&a, strip),
+        None,
+        "the strip covered a stretched game"
+    );
 }
 
 fn plates(out: &[Draw]) -> Vec<(f32, f32)> {

@@ -12,6 +12,9 @@ use slot_input::{Btn, InputSource, Millis, RawEvent};
 use slot_power::SimPlatform;
 use slot_ui::{quick_row_top, QuickRow, MOUTH_H};
 
+/// The 480-unit band these tests lay out on.
+const BAND: slot_ui::Canvas = slot_ui::Canvas::FRAMED;
+
 struct Script(VecDeque<Vec<RawEvent>>);
 
 impl InputSource for Script {
@@ -89,7 +92,7 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
     assert_eq!(f.app().in_game_menu(), Some(QuickRow::Shader));
     let screen = composed(&mut f, &mut c, "screen");
 
-    let panel = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden()) as usize - 16;
+    let panel = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden(), BAND) as usize - 16;
     let (mut probed, mut lit) = (0, 0);
     for y in (48..panel).step_by(17) {
         for x in (0..150).chain(570..OUT_W as usize).step_by(13) {
@@ -128,7 +131,7 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
         );
     }
 
-    let row = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden()) as usize;
+    let row = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden(), BAND) as usize;
     let ink = (row..row + 40)
         .flat_map(|y| (64..400).map(move |x| (x, y)))
         .filter(|&(x, y)| bright(at(&screen, x, y)) > 600)
@@ -187,7 +190,7 @@ fn the_brightness_rows_render_on_the_screen_page() {
         }
         assert_eq!(f.app().in_game_menu(), Some(row));
         let px = composed(&mut f, &mut c, &format!("screen-{row:?}"));
-        let top = quick_row_top(row, &hidden) as usize;
+        let top = quick_row_top(row, &hidden, BAND) as usize;
         let value = (top..top + 40)
             .flat_map(|y| (360..OUT_W as usize - 24).map(move |x| (x, y)))
             .filter(|&(x, y)| bright(at(&px, x, y)) > 600)

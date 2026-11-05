@@ -5,10 +5,26 @@ macro_rules! eprintln {
     }};
 }
 
+mod achievement_ui;
+
+/// slotPlus: RetroAchievements is built in but switched off in this release while it's
+/// finished. Off, the service never starts (an existing `Config/retroachievements.toml`
+/// is left alone and unread), no game is tracked, and Settings → RetroAchievements is
+/// greyed out and won't open. `secret-dev` turns it on.
+pub const ACHIEVEMENTS: bool = false;
+
+/// The RetroAchievements service, or one that does nothing while they're switched off.
+pub(crate) fn achievement_service(root: &std::path::Path) -> slot_achievements::Service {
+    match ACHIEVEMENTS {
+        true => slot_achievements::Service::start(root.to_path_buf()),
+        false => slot_achievements::Service::off(),
+    }
+}
 pub mod app;
 pub mod art;
 pub mod audio;
 pub mod baseos;
+pub mod edition;
 pub mod bezel;
 pub mod boot_time;
 pub mod bootlogo;
@@ -19,8 +35,10 @@ pub mod cart_faces;
 pub mod clock;
 pub mod core;
 pub mod core_picker;
+pub mod cpu_governor;
 #[cfg(unix)]
 pub mod crash;
+pub mod hold_picker;
 #[cfg(not(unix))]
 pub mod crash {
     pub fn install() {}
@@ -63,6 +81,7 @@ pub mod state_writer;
 pub mod studio;
 pub mod studio_faces;
 pub mod studio_view;
+pub mod stylus;
 pub mod thumb;
 pub mod unwrap_scene;
 pub mod update;

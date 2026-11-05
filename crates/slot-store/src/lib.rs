@@ -22,6 +22,7 @@ mod scan;
 mod shots;
 mod slot_state;
 mod stamp;
+mod ws;
 mod zone;
 
 pub use atomic::{atomic_write, sweep_temps};
@@ -54,4 +55,5 @@ pub use slot_state::{
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };
+pub use ws::ws_vertical;
 pub use zone::Zone;

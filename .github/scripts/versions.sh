@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
+# slotPlus's versions.json, which a slotPlus card checks for updates: the latest release
+# with a zip for each edition (plus, ultra), and BaseOS as Slot publishes it.
 set -eu
 
 BASEOS_REPO="${BASEOS_REPO:-pvaibhav/BaseOS}"
-LIVE="${LIVE:-https://slot-cfw.fyi/versions.json}"
+LIVE="${LIVE:-https://nelynes.github.io/slotPlus/versions.json}"
 
-slot=$(gh release view --repo "$SLOT_REPO" --json tagName,assets | jq '
+stable=$(gh release view --repo "$SLOT_REPO" --json tagName,assets | jq '
   .tagName as $t | ($t | ltrimstr("v")) as $v
-  | first(.assets[] | select(.name == "slot-\($t)-h700.zip"))
-  | {version: $v, tag: $t, zip: .name, size: .size, sha256: (.digest | ltrimstr("sha256:"))}')
-echo "$slot" | jq -e '.sha256 | test("^[0-9a-f]{64}$")' > /dev/null
+  | def zip($name): first(.assets[] | select(.name == $name))
+      | {zip: .name, size: .size, sha256: (.digest | ltrimstr("sha256:"))};
+  {version: $v, tag: $t, plus: zip("slot-plus.zip"), ultra: zip("slot-plusultra.zip")}')
+echo "$stable" | jq -e '[.plus.sha256, .ultra.sha256] | all(test("^[0-9a-f]{64}$"))' > /dev/null
 
 baseos_release() {
   gh release view --repo "$BASEOS_REPO" --json tagName,isPrerelease,assets | jq -e '
@@ -33,6 +36,6 @@ if ! baseos=$(baseos_release 2>/dev/null); then
   baseos=$(live_baseos 2>/dev/null) || baseos=null
 fi
 
-jq -n --argjson slot "$slot" --argjson baseos "$baseos" \
-  '{stable: $slot} + (if $baseos == null then {} else {baseos: $baseos} end)' > "$OUT"
+jq -n --argjson stable "$stable" --argjson baseos "$baseos" \
+  '{stable: $stable} + (if $baseos == null then {} else {baseos: $baseos} end)' > "$OUT"
 cat "$OUT"

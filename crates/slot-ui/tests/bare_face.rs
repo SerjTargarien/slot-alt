@@ -12,6 +12,7 @@ fn gba(finish: ShellFinish) -> Cart {
             outline: Outline::Auto,
             colour: [0xc2, 0x33, 0x2e],
             finish,
+            back: None,
         }),
         title: "PROBE".into(),
     }
@@ -26,7 +27,8 @@ fn overlay(base: u8, color: u8) -> i32 {
 }
 
 fn neutral_at(x: u32, y: u32) -> [u8; 3] {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/gba_neutral.png");
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/gba_neutral.png");
     let mut dec = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
     dec.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = dec.read_info().unwrap();
@@ -39,7 +41,12 @@ fn neutral_at(x: u32, y: u32) -> [u8; 3] {
 
 fn at(face: &slot_ui::CartFace, x: u32, y: u32) -> [u8; 4] {
     let i = ((y * face.w + x) * 4) as usize;
-    [face.rgba[i], face.rgba[i + 1], face.rgba[i + 2], face.rgba[i + 3]]
+    [
+        face.rgba[i],
+        face.rgba[i + 1],
+        face.rgba[i + 2],
+        face.rgba[i + 3],
+    ]
 }
 
 #[test]

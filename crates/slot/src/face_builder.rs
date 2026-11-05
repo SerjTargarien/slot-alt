@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 
-use slot_store::Cart;
-use slot_ui::{board_face, cart_face_with, cart_interior, padded, CartFace, TURN_PAD};
+use slot_store::{Cart, Platform};
+use slot_ui::{board_face, cart_face_with, cart_interior, lynx_back_face, padded, CartFace, TURN_PAD};
 
 use crate::label_cache::label_art;
 
@@ -33,7 +33,12 @@ impl FaceBuilder {
                     let faces = BuiltFaces {
                         stem: cart.stem.clone(),
                         interior: cart_interior(&cart),
-                        board: board_face(&cart),
+                        // A Lynx cart has no board to show: the hold picker
+                        // turns it over to its back instead.
+                        board: match cart.platform {
+                            Platform::Lynx => lynx_back_face(&cart),
+                            _ => board_face(&cart),
+                        },
                         lid: padded(&cart_face_with(&cart, label_art(&root, &cart)), TURN_PAD),
                     };
                     if outbox.send(faces).is_err() {

@@ -11,8 +11,10 @@ const storage = { setItem: () => {}, removeItem: () => {}, getItem: () => null }
 const src = (...parts: string[]) => readFileSync(resolve(__dirname, '../..', ...parts), 'utf8')
 
 describe('platforms', () => {
-  it('lists GB GBC GBA GBAV', () => {
-    expect([...PLATFORM_TAGS]).toEqual(['GB', 'GBC', 'GBA', 'GBAV'])
+  it('lists GB GBC GBA GBAV and slotPlus systems', () => {
+    expect([...PLATFORM_TAGS]).toEqual([
+      'GB', 'GBC', 'GBA', 'GBAV', 'WS', 'Lynx', 'GG', 'NGP', 'TG16', 'NDS',
+    ])
   })
 
   it('names each tag', () => {

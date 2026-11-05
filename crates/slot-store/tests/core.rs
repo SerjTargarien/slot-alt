@@ -259,6 +259,84 @@ fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
 }
 
 #[test]
-fn the_core_list_has_three_entries() {
-    assert_eq!(Core::ALL.len(), 3);
+fn the_core_list_has_nine_entries() {
+    // slotPlus: Slot's three, then slotPlus's six.
+    assert_eq!(Core::ALL.len(), 9);
+}
+
+#[test]
+fn slotplus_systems_have_one_core_each() {
+    assert_eq!(Core::choices(Platform::Gba), vec![Core::Mgba, Core::Gpsp]);
+    assert_eq!(Core::choices(Platform::Gb), vec![Core::Mgba, Core::Gambatte]);
+    assert_eq!(Core::choices(Platform::Ws), vec![Core::Cygne]);
+    assert_eq!(Core::choices(Platform::Lynx), vec![Core::Lynx]);
+    assert_eq!(Core::choices(Platform::Gg), vec![Core::Gearsystem]);
+    assert_eq!(Core::pair(Platform::Ws), [Core::Cygne, Core::Cygne]);
+}
+
+#[test]
+fn a_lynx_cart_always_gets_beetle_lynx_whatever_the_card_says() {
+    let d = root_with(Some("Chips Challenge = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Chips Challenge", Platform::Lynx, Core::Gambatte),
+        Core::Lynx
+    );
+    assert_eq!(Core::default_for(Platform::Lynx), Core::Lynx);
+    assert!(!Core::Mgba.runs(Platform::Lynx));
+    assert!(!Core::Gambatte.runs(Platform::Ws));
+    assert!(!Core::Lynx.runs(Platform::Gba));
+}
+
+#[test]
+fn a_game_gear_cart_always_gets_gearsystem_whatever_the_card_says() {
+    let d = root_with(Some("Sonic Chaos = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Sonic Chaos", Platform::Gg, Core::Gambatte),
+        Core::Gearsystem
+    );
+    assert_eq!(Core::default_for(Platform::Gg), Core::Gearsystem);
+    assert!(!Core::Mgba.runs(Platform::Gg));
+    assert!(!Core::Gearsystem.runs(Platform::Gb));
+    assert!(!Core::Gearsystem.runs(Platform::Gba));
+}
+
+#[test]
+fn gearsystem_is_named_and_parsed_the_way_its_library_is() {
+    assert_eq!(Core::Gearsystem.as_str(), "gearsystem");
+    assert_eq!(Core::parse("Gearsystem"), Some(Core::Gearsystem));
+    assert_eq!(Core::Gearsystem.text(), "Gearsystem");
+    assert_eq!(Core::ALL[Core::Gearsystem.index()], Core::Gearsystem);
+}
+
+#[test]
+fn a_hucard_always_gets_beetle_pce_fast() {
+    let d = root_with(Some("Bonk = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Bonk", Platform::Tg16, Core::Gambatte),
+        Core::Pce
+    );
+    assert_eq!(Core::default_for(Platform::Tg16), Core::Pce);
+    assert_eq!(Core::choices(Platform::Tg16), vec![Core::Pce]);
+    assert!(!Core::Pce.runs(Platform::Gba));
+    assert_eq!(Core::Pce.as_str(), "pce");
+    assert_eq!(Core::parse("PCE"), Some(Core::Pce));
+    assert_eq!(Core::Pce.text(), "Beetle PCE Fast");
+    assert_eq!(Core::ALL[Core::Pce.index()], Core::Pce);
+}
+
+#[test]
+fn a_neogeo_pocket_cart_always_gets_beetle_neopop() {
+    let d = root_with(Some("Metal Slug = mgba\n"));
+    assert_eq!(
+        core_for_platform(d.path(), "Metal Slug", Platform::Ngp, Core::Gambatte),
+        Core::Ngp
+    );
+    assert_eq!(Core::default_for(Platform::Ngp), Core::Ngp);
+    assert_eq!(Core::choices(Platform::Ngp), vec![Core::Ngp]);
+    assert!(!Core::Ngp.runs(Platform::Gg));
+    assert!(!Core::Gearsystem.runs(Platform::Ngp));
+    assert_eq!(Core::Ngp.as_str(), "ngp");
+    assert_eq!(Core::parse("NGP"), Some(Core::Ngp));
+    assert_eq!(Core::Ngp.text(), "Beetle NeoPop");
+    assert_eq!(Core::ALL[Core::Ngp.index()], Core::Ngp);
 }

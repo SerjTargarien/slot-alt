@@ -168,8 +168,15 @@ pub enum BezelPick {
     Default,
     #[default]
     Ags102,
+    /// One of the bezels slotPlus bundles for a platform under a name of its
+    /// own, such as the TurboGrafx-16's TG16 and PCE.
+    Bundled(String),
     File(String),
 }
+
+/// How a bundled bezel is written in slot.state, ahead of its name. A colon
+/// cannot start a file name a card would hold, so it never reads as a file.
+const BUNDLED: &str = "bundled:";
 
 impl BezelPick {
     pub fn key(&self) -> String {
@@ -177,6 +184,7 @@ impl BezelPick {
             BezelPick::None => "none".to_string(),
             BezelPick::Default => "default".to_string(),
             BezelPick::Ags102 => "ags-102".to_string(),
+            BezelPick::Bundled(name) => format!("{BUNDLED}{name}"),
             BezelPick::File(name) => name.clone(),
         }
     }
@@ -186,6 +194,7 @@ impl BezelPick {
             BezelPick::None => "None".to_string(),
             BezelPick::Default => "Default".to_string(),
             BezelPick::Ags102 => "AGS-102".to_string(),
+            BezelPick::Bundled(name) => name.clone(),
             BezelPick::File(name) => {
                 let stem = name
                     .rsplit_once('.')
@@ -203,7 +212,10 @@ impl BezelPick {
             "none" => BezelPick::None,
             "default" => BezelPick::Default,
             "" | "ags-102" => BezelPick::Ags102,
-            other => BezelPick::File(other.to_string()),
+            other => match other.strip_prefix(BUNDLED) {
+                Some(name) => BezelPick::Bundled(name.to_string()),
+                None => BezelPick::File(other.to_string()),
+            },
         }
     }
 }
@@ -303,6 +315,8 @@ impl Blending {
             Core::Mgba => &Blending::MGBA,
             Core::Gpsp => &Blending::GPSP,
             Core::Gambatte => &Blending::MGBA,
+            // slotPlus's other cores have no frame blending of their own.
+            _ => &[Blending::Off],
         }
     }
 
@@ -362,6 +376,12 @@ pub struct SlotState {
     pub shader_gba: Shader,
     pub shader_gb: Shader,
     pub shader_gbc: Shader,
+    pub shader_ws: Shader,
+    pub shader_lynx: Shader,
+    pub shader_gg: Shader,
+    pub shader_ngp: Shader,
+    pub shader_tg16: Shader,
+    pub shader_nds: Shader,
     pub auto_load: bool,
     pub eject_save: bool,
     pub turbo: bool,
@@ -373,6 +393,9 @@ pub struct SlotState {
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
     pub show_titles: bool,
+    /// Each system with a cart slot of its own shows it on its shelf, in place
+    /// of Slot's.
+    pub bespoke_slot: bool,
     pub wifi_off: bool,
     pub gb_core: Core,
     pub left_stick_dpad: bool,
@@ -380,6 +403,12 @@ pub struct SlotState {
     pub bezel_gba: BezelPick,
     pub bezel_gb: BezelPick,
     pub bezel_gbc: BezelPick,
+    pub bezel_ws: BezelPick,
+    pub bezel_lynx: BezelPick,
+    pub bezel_gg: BezelPick,
+    pub bezel_ngp: BezelPick,
+    pub bezel_tg16: BezelPick,
+    pub bezel_nds: BezelPick,
     pub scale_gba: Scale,
     pub scale_gb: Scale,
     pub scale_gbc: Scale,
@@ -462,6 +491,7 @@ pub enum Shader {
     Dot,
     Simpletex,
     Shimmerless,
+    Transparent,
 }
 
 impl Shader {
@@ -473,13 +503,35 @@ impl Shader {
         Shader::Shimmerless,
     ];
     pub const GBA_3_2: [Shader; 4] = [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot];
-    pub const GB: [Shader; 5] = [
+    /// The Game Boy and Game Boy Color list, Transparent among them.
+    pub const GB: [Shader; 6] = [
+        Shader::Off,
+        Shader::Lcd3x,
+        Shader::Grid,
+        Shader::Simpletex,
+        Shader::Shimmerless,
+        Shader::Transparent,
+    ];
+    /// The WonderSwan picks from the Game Boy's filters bar Transparent, which
+    /// is made for the Game Boy's unlit screen, and the Lynx from the GBA's.
+    pub const WS: [Shader; 5] = [
         Shader::Off,
         Shader::Lcd3x,
         Shader::Grid,
         Shader::Simpletex,
         Shader::Shimmerless,
     ];
+    pub const LYNX: [Shader; 5] = Shader::GBA;
+    /// The Game Gear's 160x144 screen sits at 3x like the Game Boy's, so it
+    /// picks from the WonderSwan's list: the Game Boy's filters bar Transparent.
+    pub const GG: [Shader; 5] = Shader::WS;
+    /// The NeoGeo Pocket's 160x152 screen sits at 3x like the Game Boy's, so
+    /// it picks from the same list as the Game Gear.
+    pub const NGP: [Shader; 5] = Shader::WS;
+    /// The TurboExpress's colour LCD picks from the same list as the Lynx's.
+    pub const TG16: [Shader; 5] = Shader::GBA;
+    /// The DS's two screens pick from the GBA's list, as the TurboExpress does.
+    pub const NDS: [Shader; 5] = Shader::GBA;
 
     pub fn name(self) -> &'static str {
         match self {
@@ -489,6 +541,7 @@ impl Shader {
             Shader::Dot => "dot",
             Shader::Simpletex => "simpletex",
             Shader::Shimmerless => "shimmerless",
+            Shader::Transparent => "transparent",
         }
     }
 
@@ -500,6 +553,7 @@ impl Shader {
             Shader::Dot,
             Shader::Simpletex,
             Shader::Shimmerless,
+            Shader::Transparent,
         ]
         .into_iter()
         .find(|s| s.name() == name)
@@ -543,6 +597,12 @@ impl Default for SlotState {
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             shader_gbc: Shader::Simpletex,
+            shader_ws: Shader::Simpletex,
+            shader_lynx: Shader::Grid,
+            shader_gg: Shader::Simpletex,
+            shader_ngp: Shader::Simpletex,
+            shader_tg16: Shader::Grid,
+            shader_nds: Shader::Off,
             auto_load: true,
             eject_save: true,
             turbo: true,
@@ -554,6 +614,7 @@ impl Default for SlotState {
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
             show_titles: false,
+            bespoke_slot: false,
             wifi_off: false,
             gb_core: Core::Gambatte,
             left_stick_dpad: true,
@@ -561,6 +622,13 @@ impl Default for SlotState {
             bezel_gba: BezelPick::Ags102,
             bezel_gb: BezelPick::Ags102,
             bezel_gbc: BezelPick::Ags102,
+            bezel_ws: BezelPick::None,
+            bezel_lynx: BezelPick::None,
+            bezel_gg: BezelPick::None,
+            bezel_ngp: BezelPick::None,
+            bezel_tg16: BezelPick::None,
+            // nelynes's DS Lite set, bundled in slot-ui (slot_ui::DS_LITE_BEZEL).
+            bezel_nds: BezelPick::Bundled(String::from("DS Lite")),
             scale_gba: Scale::Fit,
             scale_gb: Scale::SpFrame,
             scale_gbc: Scale::SpFrame,
@@ -661,11 +729,18 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     ));
     text.push_str(&format!("shader_gbc={}\n", s.shader_gbc.name()));
     text.push_str(&format!("dim={}\n", s.dim));
+    text.push_str(&format!("shader_ws={}\n", s.shader_ws.name()));
+    text.push_str(&format!("shader_lynx={}\n", s.shader_lynx.name()));
+    text.push_str(&format!("shader_gg={}\n", s.shader_gg.name()));
+    text.push_str(&format!("shader_ngp={}\n", s.shader_ngp.name()));
+    text.push_str(&format!("shader_tg16={}\n", s.shader_tg16.name()));
+    text.push_str(&format!("shader_nds={}\n", s.shader_nds.name()));
     text.push_str(&format!("saturation={}\n", s.saturation));
     text.push_str(&format!("contrast={}\n", s.contrast));
     text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
     text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
     text.push_str(&format!("show_titles={}\n", s.show_titles as u8));
+    text.push_str(&format!("bespoke_slot={}\n", s.bespoke_slot as u8));
     if s.wifi_off {
         text.push_str("wifi_off=1\n");
     }
@@ -678,6 +753,12 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("bezel_gba={}\n", s.bezel_gba.key()));
     text.push_str(&format!("bezel_gb={}\n", s.bezel_gb.key()));
     text.push_str(&format!("bezel_gbc={}\n", s.bezel_gbc.key()));
+    text.push_str(&format!("bezel_ws={}\n", s.bezel_ws.key()));
+    text.push_str(&format!("bezel_lynx={}\n", s.bezel_lynx.key()));
+    text.push_str(&format!("bezel_gg={}\n", s.bezel_gg.key()));
+    text.push_str(&format!("bezel_ngp={}\n", s.bezel_ngp.key()));
+    text.push_str(&format!("bezel_tg16={}\n", s.bezel_tg16.key()));
+    text.push_str(&format!("bezel_nds={}\n", s.bezel_nds.key()));
     text.push_str(&format!("scale_gba={}\n", s.scale_gba.name()));
     text.push_str(&format!("scale_gb={}\n", s.scale_gb.name()));
     text.push_str(&format!("scale_gbc={}\n", s.scale_gbc.name()));
@@ -729,6 +810,12 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut shader_gba = None;
     let mut shader_gb = None;
     let mut shader_gbc = None;
+    let mut shader_ws = None;
+    let mut shader_lynx = None;
+    let mut shader_gg = None;
+    let mut shader_ngp = None;
+    let mut shader_tg16 = None;
+    let mut shader_nds = None;
     let mut auto_load = None;
     let mut eject_save = None;
     let mut turbo = None;
@@ -740,6 +827,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut wallpaper_tint = None;
     let mut show_recents = None;
     let mut show_titles = None;
+    let mut bespoke_slot = None;
     let mut wifi_off = None;
     let mut gb_core = None;
     let mut left_stick_dpad = None;
@@ -747,6 +835,12 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut bezel_gba = None;
     let mut bezel_gb = None;
     let mut bezel_gbc = None;
+    let mut bezel_ws = None;
+    let mut bezel_lynx = None;
+    let mut bezel_gg = None;
+    let mut bezel_ngp = None;
+    let mut bezel_tg16 = None;
+    let mut bezel_nds = None;
     let mut scale_gba = None;
     let mut scale_gb = None;
     let mut scale_gbc = None;
@@ -799,6 +893,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
             "show_recents" => show_recents = flag(value),
             "show_titles" => show_titles = flag(value),
+            "bespoke_slot" => bespoke_slot = flag(value),
             "wifi_off" => wifi_off = flag(value),
             "gb_core" => gb_core = Core::parse(value).filter(|c| c.runs(Platform::Gb)),
             "left_stick_dpad" => left_stick_dpad = flag(value),
@@ -806,6 +901,12 @@ fn parse(text: &str) -> Option<SlotState> {
             "bezel_gba" => bezel_gba = Some(BezelPick::parse(value)),
             "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
             "bezel_gbc" => bezel_gbc = Some(BezelPick::parse(value)),
+            "bezel_ws" => bezel_ws = Some(BezelPick::parse(value)),
+            "bezel_lynx" => bezel_lynx = Some(BezelPick::parse(value)),
+            "bezel_gg" => bezel_gg = Some(BezelPick::parse(value)),
+            "bezel_ngp" => bezel_ngp = Some(BezelPick::parse(value)),
+            "bezel_tg16" => bezel_tg16 = Some(BezelPick::parse(value)),
+            "bezel_nds" => bezel_nds = Some(BezelPick::parse(value)),
             "scale_gba" => scale_gba = Scale::parse(value),
             "scale_gb" => scale_gb = Scale::parse(value),
             "scale_gbc" => scale_gbc = Scale::parse(value),
@@ -820,6 +921,16 @@ fn parse(text: &str) -> Option<SlotState> {
             "shelf_cart" => shelf_cart = recent_value(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             "shader_gbc" => shader_gbc = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
+            "shader_ws" => shader_ws = Shader::parse(value).filter(|s| Shader::WS.contains(s)),
+            "shader_gg" => shader_gg = Shader::parse(value).filter(|s| Shader::GG.contains(s)),
+            "shader_ngp" => shader_ngp = Shader::parse(value).filter(|s| Shader::NGP.contains(s)),
+            "shader_tg16" => {
+                shader_tg16 = Shader::parse(value).filter(|s| Shader::TG16.contains(s))
+            }
+            "shader_nds" => shader_nds = Shader::parse(value).filter(|s| Shader::NDS.contains(s)),
+            "shader_lynx" => {
+                shader_lynx = Shader::parse(value).filter(|s| Shader::LYNX.contains(s))
+            }
             _ => {}
         }
     }
@@ -857,6 +968,23 @@ fn parse(text: &str) -> Option<SlotState> {
         shader_gba: shader_gba.unwrap_or(fallback.shader_gba),
         shader_gb: shader_gb.unwrap_or(fallback.shader_gb),
         shader_gbc: shader_gbc.or(shader_gb).unwrap_or(fallback.shader_gbc),
+        // A card from before the WonderSwan and Lynx had shaders of their own
+        // keeps what they used: the Game Boy's and the GBA's.
+        shader_ws: shader_ws
+            .or(shader_gb.filter(|s| Shader::WS.contains(s)))
+            .unwrap_or(fallback.shader_ws),
+        shader_lynx: shader_lynx.or(shader_gba).unwrap_or(fallback.shader_lynx),
+        // The Game Gear shared the Game Boy's shader before it had its own.
+        shader_gg: shader_gg
+            .or(shader_gb.filter(|s| Shader::GG.contains(s)))
+            .unwrap_or(fallback.shader_gg),
+        // A card from before the NeoGeo Pocket starts it on the Game Boy's
+        // shader, if that is one the Pocket has.
+        shader_ngp: shader_ngp
+            .or(shader_gb.filter(|s| Shader::NGP.contains(s)))
+            .unwrap_or(fallback.shader_ngp),
+        shader_tg16: shader_tg16.unwrap_or(fallback.shader_tg16),
+        shader_nds: shader_nds.unwrap_or(fallback.shader_nds),
         auto_load: auto_load.unwrap_or(fallback.auto_load),
         eject_save: eject_save.unwrap_or(fallback.eject_save),
         turbo: turbo.unwrap_or(fallback.turbo),
@@ -868,6 +996,7 @@ fn parse(text: &str) -> Option<SlotState> {
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
         show_recents: show_recents.unwrap_or(fallback.show_recents),
         show_titles: show_titles.unwrap_or(fallback.show_titles),
+        bespoke_slot: bespoke_slot.unwrap_or(fallback.bespoke_slot),
         wifi_off: wifi_off.unwrap_or(fallback.wifi_off),
         gb_core: gb_core.unwrap_or(Core::Mgba),
         left_stick_dpad: left_stick_dpad.unwrap_or(fallback.left_stick_dpad),
@@ -875,6 +1004,12 @@ fn parse(text: &str) -> Option<SlotState> {
         bezel_gba: bezel_gba.unwrap_or(fallback.bezel_gba),
         bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),
         bezel_gbc: bezel_gbc.unwrap_or(fallback.bezel_gbc),
+        bezel_ws: bezel_ws.unwrap_or(fallback.bezel_ws),
+        bezel_lynx: bezel_lynx.unwrap_or(fallback.bezel_lynx),
+        bezel_gg: bezel_gg.unwrap_or(fallback.bezel_gg),
+        bezel_ngp: bezel_ngp.unwrap_or(fallback.bezel_ngp),
+        bezel_tg16: bezel_tg16.unwrap_or(fallback.bezel_tg16),
+        bezel_nds: bezel_nds.unwrap_or(fallback.bezel_nds),
         scale_gba: scale_gba.unwrap_or(fallback.scale_gba),
         scale_gb: scale_gb.unwrap_or(fallback.scale_gb),
         scale_gbc: scale_gbc.unwrap_or(fallback.scale_gbc),

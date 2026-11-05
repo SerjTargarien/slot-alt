@@ -1,8 +1,11 @@
 use slot_gfx::{shift, Canvas, Draw, TexId, OUT_H};
 use slot_store::{Cart, Platform};
 
+use crate::bitmaps::Mould;
 use crate::board::{board_in, Placed};
-use crate::cart::{cart_box, label_colour, label_rect, label_text, shelf_shape, CART_H, CART_W};
+use crate::cart::{
+    cart_box, label_colour, label_text, mould_label_rect, shelf_shape, CART_H, CART_W,
+};
 use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
@@ -29,6 +32,8 @@ pub fn box_size(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba | Platform::Gbav => (318, 282),
         Platform::Gb | Platform::Gbc => (312, 277),
+        // slotPlus's systems come without a box: the cart's own size.
+        other => crate::cart::cart_box(other),
     }
 }
 
@@ -55,12 +60,10 @@ pub struct Shelf {
     faces: Vec<Option<TexId>>,
     wrapped: Vec<Option<TexId>>,
     interiors: Vec<Option<TexId>>,
-    shadow: Option<TexId>,
-    gb_shadow: Option<TexId>,
-    gbc_shadow: Option<TexId>,
-    backing: Option<TexId>,
-    gb_backing: Option<TexId>,
-    gbc_backing: Option<TexId>,
+    /// slotPlus: each mould's shadow and the board its clear carts are drawn over, by
+    /// `Mould::index`.
+    shadows: [Option<TexId>; Mould::ALL.len()],
+    backings: [Option<TexId>; Mould::ALL.len()],
     hearted: Vec<bool>,
     heart: Option<(TexId, f32, f32)>,
     ride: f32,
@@ -79,15 +82,28 @@ impl Shelf {
             carts,
             index: 0,
             scroll: 0.0,
-            shadow: None,
-            gb_shadow: None,
-            gbc_shadow: None,
-            backing: None,
-            gb_backing: None,
-            gbc_backing: None,
+            shadows: [None; Mould::ALL.len()],
+            backings: [None; Mould::ALL.len()],
             ride: 0.0,
             vel: 0.0,
             held: None,
+        }
+    }
+
+    /// slotPlus: the cart's mould, from the header index like `shell`, so the shelf never
+    /// reads a ROM.
+    fn mould(&self, i: usize) -> Mould {
+        let Some(cart) = self.carts.get(i) else {
+            return Mould::Gba;
+        };
+        match cart.platform {
+            Platform::Gb | Platform::Gbc | Platform::Gba | Platform::Gbav => match shelf_shape(cart).0 {
+                None => Mould::Gba,
+                Some(GbShell::Notched) => Mould::Notched,
+                Some(GbShell::Rounded) => Mould::Rounded,
+            },
+            // slotPlus's systems: one mould each.
+            other => crate::cart::mould_for(other),
         }
     }
 
@@ -131,25 +147,33 @@ impl Shelf {
         self.hearted = self.carts.iter().map(hearted).collect();
     }
 
+    pub fn set_mould_shadow(&mut self, mould: Mould, face: TexId) {
+        self.shadows[mould.index()] = Some(face);
+    }
+
+    pub fn set_mould_backing(&mut self, mould: Mould, face: TexId) {
+        self.backings[mould.index()] = Some(face);
+    }
+
     pub fn set_shadow(&mut self, face: TexId) {
-        self.shadow = Some(face);
+        self.set_mould_shadow(Mould::Gba, face);
     }
 
     pub fn set_gb_shadow(&mut self, shell: GbShell, face: TexId) {
         match shell {
-            GbShell::Notched => self.gb_shadow = Some(face),
-            GbShell::Rounded => self.gbc_shadow = Some(face),
+            GbShell::Notched => self.set_mould_shadow(Mould::Notched, face),
+            GbShell::Rounded => self.set_mould_shadow(Mould::Rounded, face),
         }
     }
 
     pub fn set_backing(&mut self, face: TexId) {
-        self.backing = Some(face);
+        self.set_mould_backing(Mould::Gba, face);
     }
 
     pub fn set_gb_backing(&mut self, shell: GbShell, face: TexId) {
         match shell {
-            GbShell::Notched => self.gb_backing = Some(face),
-            GbShell::Rounded => self.gbc_backing = Some(face),
+            GbShell::Notched => self.set_mould_backing(Mould::Notched, face),
+            GbShell::Rounded => self.set_mould_backing(Mould::Rounded, face),
         }
     }
 
@@ -218,11 +242,7 @@ impl Shelf {
         if !self.clear(i) || self.face(i).is_none() {
             return [None, None];
         }
-        let board = match self.shell(i) {
-            None => self.backing,
-            Some(GbShell::Notched) => self.gb_backing,
-            Some(GbShell::Rounded) => self.gbc_backing,
-        };
+        let board = self.backings[self.mould(i).index()];
         [self.interiors.get(i).copied().flatten(), board]
     }
 
@@ -440,12 +460,8 @@ impl Shelf {
     fn layers(&self, i: usize, rect: [f32; 4], alpha: f32, out: &mut Vec<Draw>) {
         let [x, y, w, h] = rect;
         if self.clear(i) && self.face(i).is_some() {
-            let board = match self.shell(i) {
-                None => self.backing,
-                Some(GbShell::Notched) => self.gb_backing,
-                Some(GbShell::Rounded) => self.gbc_backing,
-            };
-            let gba = self.shell(i).is_none();
+            let board = self.backings[self.mould(i).index()];
+            let gba = self.mould(i) == Mould::Gba;
             // A GBA cart's board and back shell fill the cart's box, exactly where the
             // picker lifts them from; a Game Boy pak's backing fills its box.
             let Placed {
@@ -560,11 +576,7 @@ impl Shelf {
                 continue;
             }
             if alpha < 1.0 {
-                let backing = match self.shell(i) {
-                    None => self.shadow,
-                    Some(GbShell::Notched) => self.gb_shadow,
-                    Some(GbShell::Rounded) => self.gbc_shadow,
-                };
+                let backing = self.shadows[self.mould(i).index()];
                 if let Some(tex) = backing {
                     out.push(Draw::Tex {
                         x,
@@ -578,7 +590,7 @@ impl Shelf {
             }
             self.layers(i, [x, y, w, h], alpha * dim, out);
             if let (Some(true), Some((tex, sw, sh))) = (self.hearted.get(i), self.heart) {
-                let (lx, ly, lw, _) = label_rect(self.shell(i));
+                let (lx, ly, lw, _) = mould_label_rect(self.mould(i));
                 out.push(Draw::Tex {
                     x: (x + (lx + lw) * w - sw - HEART_INSET).round(),
                     y: (y + ly * h + HEART_INSET).round(),

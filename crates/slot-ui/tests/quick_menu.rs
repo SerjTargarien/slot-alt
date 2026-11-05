@@ -82,7 +82,15 @@ fn the_fast_forward_row_offers_off_a_slow_speed_and_the_four_ceilings() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Gameplay", "Controls", "Tools", "About"]
+        [
+            "General",
+            "Screen",
+            "Gameplay",
+            "Controls",
+            "Tools",
+            "RetroAchievements",
+            "About"
+        ]
     );
     assert_eq!(
         QuickRow::GENERAL.map(QuickRow::label),
@@ -92,6 +100,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Wallpaper Tint",
             "Recents",
             "Game Titles",
+            "Cart Slot",
             "Lid Power Off",
             "Date & Time",
             "Wi-Fi"
@@ -111,8 +120,45 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
-        ["General", "Game Boy Advance", "Game Boy Color", "Game Boy"]
+        [
+            "General",
+            "Game Boy Advance",
+            "Game Boy Color",
+            "Game Boy",
+            "WonderSwan",
+            "Atari Lynx",
+            "Game Gear",
+            "NeoGeo Pocket",
+            "TurboGrafx-16",
+            "Nintendo DS"
+        ]
     );
+    assert_eq!(
+        QuickRow::SCREEN_WS.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_LYNX.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_GG.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_NGP.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(
+        QuickRow::SCREEN_TG16.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(QuickRow::ScreenTg16.label(), "TurboGrafx-16");
+    assert_eq!(
+        QuickRow::SCREEN_NDS.map(QuickRow::label),
+        ["Shader", "Bezel"]
+    );
+    assert_eq!(QuickRow::ScreenNds.label(), "Nintendo DS");
     assert_eq!(
         QuickRow::SCREEN_GENERAL.map(QuickRow::label),
         ["Brightness", "Blue Light", "Saturation", "Contrast"]
@@ -182,6 +228,12 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenGba,
             QuickRow::ScreenGbc,
             QuickRow::ScreenGb,
+            QuickRow::ScreenWs,
+            QuickRow::ScreenLynx,
+            QuickRow::ScreenGg,
+            QuickRow::ScreenNgp,
+            QuickRow::ScreenTg16,
+            QuickRow::ScreenNds,
             QuickRow::General,
             QuickRow::PlayControls,
             QuickRow::Shortcuts,
@@ -198,6 +250,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Networks,
             QuickRow::CheckUpdates,
             QuickRow::Server,
+            QuickRow::Achievements,
+            QuickRow::RaUsername,
+            QuickRow::RaPassword,
             QuickRow::Romm,
             QuickRow::RommServer,
             QuickRow::RommPort,
@@ -219,6 +274,11 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::SCREEN_GBA[..],
         &QuickRow::SCREEN_GBC[..],
         &QuickRow::SCREEN_GB[..],
+        &QuickRow::SCREEN_WS[..],
+        &QuickRow::SCREEN_LYNX[..],
+        &QuickRow::SCREEN_GG[..],
+        &QuickRow::SCREEN_NGP[..],
+        &QuickRow::SCREEN_TG16[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -266,6 +326,7 @@ fn the_values_read_as_the_menu_prints_them() {
             "25%",
             "45%",
             "65%",
+            "Transparent",
             "1 min",
             "3 min",
             "5 min",
@@ -282,6 +343,8 @@ fn the_values_read_as_the_menu_prints_them() {
             "7",
             "8",
             "9",
+            "Default",
+            "Bespoke",
             "10",
             "11",
             "12",
@@ -581,6 +644,11 @@ fn screen_opens_a_page_per_console_and_each_backs_out_to_its_console() {
         (QuickRow::ScreenGba, &QuickRow::SCREEN_GBA[..]),
         (QuickRow::ScreenGbc, &QuickRow::SCREEN_GBC[..]),
         (QuickRow::ScreenGb, &QuickRow::SCREEN_GB[..]),
+        (QuickRow::ScreenWs, &QuickRow::SCREEN_WS[..]),
+        (QuickRow::ScreenLynx, &QuickRow::SCREEN_LYNX[..]),
+        (QuickRow::ScreenGg, &QuickRow::SCREEN_GG[..]),
+        (QuickRow::ScreenNgp, &QuickRow::SCREEN_NGP[..]),
+        (QuickRow::ScreenTg16, &QuickRow::SCREEN_TG16[..]),
     ] {
         assert_eq!(console.parent(), Some(QuickRow::Screen));
         assert_eq!(console.child(), Some(page[0]));
@@ -666,7 +734,7 @@ fn server_sits_first_on_the_tools_page() {
     assert_eq!(QuickRow::NETWORK[0], QuickRow::Server);
     assert!(!QuickRow::MAIN.contains(&QuickRow::Server));
     assert_eq!(QuickRow::Server.parent(), Some(QuickRow::Network));
-    assert_eq!(QuickRow::MAIN.len(), 6);
+    assert_eq!(QuickRow::MAIN.len(), 7);
     assert_eq!(QuickRow::NETWORK.len(), 4);
     assert_eq!(QuickRow::Server.label(), "Gamebit");
     assert!(QuickRow::Server.opens());

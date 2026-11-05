@@ -8,16 +8,30 @@ use slot::update::{
 
 const DIGEST: &str = "e78b2771abbc41a07774fe870e08d3d870c1a06c6db42a1d799626190156aba5";
 
+/// slotPlus's versions.json: one release, with a zip for each edition. Slot's own
+/// `slot-v<version>-h700.zip` name stands for this edition's zip.
 fn release_json(tag: &str, zip: &str, sha256: &str) -> String {
     let version = tag.trim_start_matches('v');
+    let zip = match zip == format!("slot-v{version}-h700.zip") {
+        true => slot::edition::ZIP,
+        false => zip,
+    };
+    // The zip under test goes in this build's own edition; the other keeps its own.
+    let (plus, ultra) = match slot::edition::KEY {
+        "plus" => (zip, "slot-plusultra.zip"),
+        _ => ("slot-plus.zip", zip),
+    };
+    let (plus_size, ultra_size) = match slot::edition::KEY {
+        "plus" => (6919551, 26996984),
+        _ => (26996984, 6919551),
+    };
     format!(
         r#"{{
   "stable": {{
     "version": "{version}",
     "tag": "{tag}",
-    "zip": "{zip}",
-    "size": 6919551,
-    "sha256": "{sha256}"
+    "plus": {{ "zip": "{plus}", "size": {plus_size}, "sha256": "{sha256}" }},
+    "ultra": {{ "zip": "{ultra}", "size": {ultra_size}, "sha256": "{sha256}" }}
   }}
 }}"#
     )
@@ -166,7 +180,10 @@ fn parse_release_reads_the_version_url_and_digest() {
     assert_eq!(r.version, "1.11.0");
     assert_eq!(
         r.url,
-        "https://github.com/BrandonKowalski/slot/releases/download/v1.11.0/slot-v1.11.0-h700.zip"
+        format!(
+            "https://github.com/nelynes/slotPlus/releases/download/v1.11.0/{}",
+            slot::edition::ZIP
+        )
     );
     assert_eq!(r.size, 6919551);
     assert_eq!(&r.sha256[..2], &[0xe7, 0x8b]);
@@ -187,6 +204,23 @@ fn parse_release_refuses_a_manifest_without_stable() {
 fn parse_release_refuses_a_release_with_a_short_digest() {
     let json = release_json("v1.11.0", "slot-v1.11.0-h700.zip", "e78b27");
     assert_eq!(parse_release(&json), Err(UpdateFail::Bad));
+}
+
+#[test]
+fn a_slotplus_version_is_newer_than_the_slot_it_is_built_on() {
+    assert!(newer("1.13.0-plus2.5", "1.13.0"));
+    assert!(newer("1.13.0-plus2.5", "1.12.0-plus2.5"));
+    assert!(newer("1.13.0-plus2.6", "1.13.0-plus2.5"));
+    assert!(!newer("1.13.0-plus2.5", "1.13.0-plus2.5"));
+    assert!(!newer("1.12.0-plus2.5", "1.13.0-plus2.5"));
+}
+
+#[test]
+fn an_update_comes_from_slotplus_and_never_from_slot() {
+    assert_eq!(slot::update::LATEST, "https://nelynes.github.io/slotPlus/versions.json");
+    let r = parse_release(&release_json("v1.13.0-plus2.5", slot::edition::ZIP, DIGEST)).unwrap();
+    assert_eq!(r.version, "1.13.0-plus2.5");
+    assert!(r.url.starts_with("https://github.com/nelynes/slotPlus/releases/download/v1.13.0-plus2.5/"));
 }
 
 #[test]

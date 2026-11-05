@@ -16,7 +16,9 @@ fn neutrals_run_white_to_black() {
 #[test]
 fn colors_start_with_red() {
     let (_, colors) = arranged();
-    assert_eq!(name(colors[0]), "Pokémon Red");
+    // slotPlus: the Famicom Mini's deep red sorts just ahead of Pokémon Red.
+    assert_eq!(name(colors[0]), "Famicom Mini red and white");
+    assert_eq!(name(colors[1]), "Pokémon Red");
     assert_eq!(colors.len(), shell_presets().len() - 9);
 }
 
@@ -58,7 +60,9 @@ fn headings_keep_one_size_whatever_their_length() {
     let tall = |label: &str| {
         let face = slot_ui::heading_face(label);
         (0..face.h as usize)
-            .filter(|y| (0..face.w as usize).any(|x| face.rgba[(y * face.w as usize + x) * 4 + 3] > 128))
+            .filter(|y| {
+                (0..face.w as usize).any(|x| face.rgba[(y * face.w as usize + x) * 4 + 3] > 128)
+            })
             .count()
     };
     assert!(tall("Finish").abs_diff(tall("Label Printer")) <= 2);

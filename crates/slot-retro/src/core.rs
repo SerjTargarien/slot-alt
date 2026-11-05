@@ -23,6 +23,118 @@ impl ButtonMask {
     pub const X: u16 = 1 << 9;
     pub const L: u16 = 1 << 10;
     pub const R: u16 = 1 << 11;
+    pub const L2: u16 = 1 << 12;
+    pub const R2: u16 = 1 << 13;
+
+    /// The same buttons with SELECT let go, for a game that never sees it.
+    pub fn without_select(self) -> ButtonMask {
+        ButtonMask(self.0 & !Self::SELECT)
+    }
+
+    /// WonderSwan has two four-way pads. The X pad is the D-pad as usual; the
+    /// Y pad is reached through a shoulder-button modifier, because the SP has
+    /// no spare buttons for it. Cygne reads the Y pad as R2 (up), R (right),
+    /// L2 (down) and L (left).
+    ///
+    /// - L held: the D-pad drives the Y pad instead of the X pad.
+    /// - R held: the face diamond (X up, A right, B down, Y left) drives the Y
+    ///   pad instead of acting as A, B and the turbo buttons.
+    ///
+    /// L and R are modifiers only and never reach the core as themselves.
+    pub fn wonderswan(self) -> ButtonMask {
+        let held = |bit: u16| self.0 & bit != 0;
+        let mut out = self.0 & !(Self::L | Self::R);
+        if held(Self::L) {
+            out &= !(Self::UP | Self::DOWN | Self::LEFT | Self::RIGHT);
+            for (from, to) in [
+                (Self::UP, Self::R2),
+                (Self::RIGHT, Self::R),
+                (Self::DOWN, Self::L2),
+                (Self::LEFT, Self::L),
+            ] {
+                if held(from) {
+                    out |= to;
+                }
+            }
+        }
+        if held(Self::R) {
+            out &= !(Self::X | Self::A | Self::B | Self::Y);
+            for (from, to) in [
+                (Self::X, Self::R2),
+                (Self::A, Self::R),
+                (Self::B, Self::L2),
+                (Self::Y, Self::L),
+            ] {
+                if held(from) {
+                    out |= to;
+                }
+            }
+        }
+        ButtonMask(out)
+    }
+
+    /// The WonderSwan remap for a game laid out `layout`. Horizontal games
+    /// use the shoulder-modifier scheme above and never see SELECT, so the
+    /// core cannot rotate them. Vertical games drop the
+    /// modifiers: the D-pad is the Y pad, the face diamond is the X pad and
+    /// the shoulders are A (L) and B (R), as in the core's own portrait map.
+    /// The core is told to read the landscape map, so this is the only mapping.
+    pub fn wonderswan_for(self, layout: WsLayout) -> ButtonMask {
+        let held = |bit: u16| self.0 & bit != 0;
+        let sideways = match layout {
+            // A horizontal game has nothing to gain from turning the picture, and
+            // the buttons would not follow it, so SELECT does nothing.
+            WsLayout::Horizontal => return ButtonMask(self.wonderswan().0 & !Self::SELECT),
+            WsLayout::Upright => false,
+            WsLayout::Sideways => true,
+        };
+        let mut out = self.0 & (Self::SELECT | Self::START);
+        // Y pad is R2 (up), R (right), L2 (down), L (left) as the core sees it.
+        // Turned upright, the game's up is the hardware's Y-right, and so on.
+        let (dpad, face) = if sideways {
+            (
+                [
+                    (Self::UP, Self::R2),
+                    (Self::RIGHT, Self::R),
+                    (Self::DOWN, Self::L2),
+                    (Self::LEFT, Self::L),
+                ],
+                [
+                    (Self::X, Self::UP),
+                    (Self::A, Self::RIGHT),
+                    (Self::B, Self::DOWN),
+                    (Self::Y, Self::LEFT),
+                ],
+            )
+        } else {
+            (
+                [
+                    (Self::UP, Self::R),
+                    (Self::RIGHT, Self::L2),
+                    (Self::DOWN, Self::L),
+                    (Self::LEFT, Self::R2),
+                ],
+                [
+                    (Self::X, Self::RIGHT),
+                    (Self::A, Self::DOWN),
+                    (Self::B, Self::LEFT),
+                    (Self::Y, Self::UP),
+                ],
+            )
+        };
+        for (from, to) in dpad.into_iter().chain(face) {
+            if held(from) {
+                out |= to;
+            }
+        }
+        if held(Self::L) {
+            out |= Self::A;
+        }
+        if held(Self::R) {
+            out |= Self::B;
+        }
+        ButtonMask(out)
+    }
 
     pub fn without_turbo(self) -> ButtonMask {
         ButtonMask(self.0 & !(Self::X | Self::Y))
@@ -40,6 +152,18 @@ impl ButtonMask {
         }
         ButtonMask(mask)
     }
+}
+
+/// How a WonderSwan game wants to be played.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum WsLayout {
+    /// A horizontal game.
+    Horizontal,
+    /// A vertical game shown upright on a device that stays upright.
+    Upright,
+    /// A vertical game shown sideways on a device turned 90 degrees
+    /// counter-clockwise.
+    Sideways,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -75,8 +199,20 @@ impl From<std::io::Error> for CoreError {
     }
 }
 
+/// Where a touch screen is being pointed at, as libretro's pointer gives it:
+/// -0x7fff to 0x7fff across and down the core's whole frame.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Pointer {
+    pub x: i16,
+    pub y: i16,
+    pub pressed: bool,
+}
+
 pub trait RetroCore: Send {
     fn load(&mut self, rom: &Path) -> Result<(), CoreError>;
+    /// The pointer for the next frames, or none at all. Only a core with a
+    /// touch screen reads it.
+    fn set_pointer(&mut self, _pointer: Option<Pointer>) {}
     fn run_frame(&mut self, input: ButtonMask);
     fn reset(&mut self) {}
     fn run_frame_linked(&mut self, p1: ButtonMask, _p2: ButtonMask) {
@@ -84,7 +220,21 @@ pub trait RetroCore: Send {
     }
     fn set_option(&mut self, _key: &str, _value: &str) {}
     fn set_frame_skip(&mut self, _skip: bool) {}
+    /// Copies memory into a buffer of ACHIEVEMENT_RAM_SIZE, indexed by RetroAchievements
+    /// addresses, and returns the valid spans; absent memory is never treated as zero RAM.
+    /// Called only on the emulator thread, between frames.
+    fn achievement_memory(&self, _ram: &mut [u8]) -> crate::AchievementMemory {
+        crate::AchievementMemory::default()
+    }
     fn video_xrgb8888(&self) -> &[u8];
+    /// Width and height of the buffer `video_xrgb8888` returns.
+    fn video_size(&self) -> (u32, u32) {
+        (GBA_W, GBA_H)
+    }
+    /// Width and height of the picture the core last drew inside that buffer.
+    fn frame_size(&self) -> (u32, u32) {
+        self.video_size()
+    }
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;
     fn unserialize(&mut self, data: &[u8]) -> Result<(), CoreError>;

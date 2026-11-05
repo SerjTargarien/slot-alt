@@ -6,24 +6,33 @@ vars:
   GAMBATTE_HOST: vendor/gambatte_libretro.dylib
   MGBA_COMMIT: e31759b24e7a4e3899285ff720d7b573ac328ae7
   GPSP_COMMIT: 7b2dd37394e2822110cacef321e9bb291a305b77
+  CYGNE_COMMIT: 4b01295838ea89e3f1355bbe4cb5cf98aa6108cd
+  LYNX_COMMIT: fcdefcfb3c11d6d2e71be076a5d3df2e88ab73ed
+  # Gearsystem 3.9.22
+  GEARSYSTEM_COMMIT: 517ddaaafbab1af7a312c2b6b6f6043275f58500
   GAMBATTE_COMMIT: 77f2567d718b8973d02caa2daa8dce4953faf811
   EXFATPROGS_VERSION: 1.4.3
   EXFATPROGS_SHA256: 4b5052cba6ff9f6dcb1c63eeeac328620472c5b0b3caf3d38e4ada50e75469d3
   SLOT_IN_PROCESS: >-
-    --test bios --test core --test core_options --test e2e --test emu --test gb_palette_recolour --test gpsp --test gambatte_save
+    --test bios --test core --test core_options --test e2e --test emu --test gb_palette_recolour --test gg_core --test gpsp --test ngp_core --test pce_core --test gambatte_save
     --test link_ui --test mgba_gb_link --test mgba_link --test render_colour_correction
     --test render_gb_palette --test render_picture_modes --test render
     --test render_in_game_menu --test render_power_wake --test render_quick_menu
     --test render_shelf --test render_shelves --test render_screenshot --test render_gallery_stress --test render_clock
   IN_PROCESS: >-
     (package(slot) & (binary(bios) | binary(core) | binary(core_options) | binary(e2e) | binary(emu)
-    | binary(gb_palette_recolour) | binary(gpsp) | binary(gambatte_save) | binary(link_ui) | binary(mgba_gb_link)
+    | binary(gb_palette_recolour) | binary(gg_core) | binary(gpsp) | binary(gambatte_save) | binary(ngp_core) | binary(pce_core) | binary(link_ui) | binary(mgba_gb_link)
     | binary(mgba_link) | binary(render_colour_correction) | binary(render_gb_palette)
     | binary(render_picture_modes) | binary(render) | binary(render_in_game_menu)
     | binary(render_power_wake) | binary(render_quick_menu) | binary(render_shelf)
     | binary(render_shelves) | binary(render_screenshot) | binary(render_gallery_stress) | binary(render_clock)))
     | (package(slot-gfx) & binary(pipeline)) | (package(slot-ui) & binary(render_row_edges))
     | (package(slot-retro) & (binary(options) | binary(netpacket) | binary(libretro)))
+  NGP_COMMIT: a50d5ac288a81f2104ddf43195a4efdd15c72227
+  PCE_COMMIT: 3f946f277aef3aa99a95551618bbcd1dd2bda0d9
+  # Nintendo DS: DSperate's libretro wrapper, and the DSperate commit it pins (v3.0.5)
+  DSPERATE_LR_COMMIT: 093d50fcbd10531273e0cc22a23c6644a26b9b71
+  DSPERATE_COMMIT: ddf2910e6d80220c6b22b4df61f0786ac9879cda
 
 tasks:
   default:
@@ -191,7 +200,8 @@ tasks:
       ROOT: '{{.ROOT | default "./sdcard"}}'
     cmds:
       - ./target/debug/slot --init-root {{.ROOT}}
-      - 'echo "content root ready at {{.ROOT}}: roms in Games/GBA, Games/GB or Games/GBC, labels in the matching Labels/GBA, Labels/GB or Labels/GBC, battery saves in the matching Saves/GBA, Saves/GB or Saves/GBC, save states under the matching States/GBA, States/GB or States/GBC, gba_bios.bin in BIOS, pngs in Wallpapers"'
+      - 'echo "content root ready at {{.ROOT}}: roms in Games/GBA, Games/GBAV, Games/GB, Games/GBC, Games/WS, Games/Lynx, Games/GG, Games/NGP or Games/TG16, labels in the matching Labels/GBA, Labels/GBAV, Labels/GB, Labels/GBC, Labels/WS, Labels/Lynx, Labels/GG, Labels/NGP or Labels/TG16, battery saves in the matching Saves/GBA, Saves/GBAV, Saves/GB, Saves/GBC, Saves/WS, Saves/Lynx, Saves/GG, Saves/NGP or Saves/TG16, save states under the matching States/GBA, States/GBAV, States/GB, States/GBC, States/WS, States/Lynx, States/GG, States/NGP or States/TG16, gba_bios.bin and lynxboot.img in BIOS, pngs in Wallpapers"'
+      - 'echo "nothing is moved for you: a file loose at the top of Games/, Saves/, Labels/ or States/ is left where it is and never reaches the shelf"'
 
   run:
     desc: >-
@@ -322,6 +332,189 @@ tasks:
         rm -f vendor/gpsp_libretro.so vendor/gpsp_libretro.so.meta vendor/gpsp-src.tar.gz
         vendor/gpsp-src.sha vendor/gpsp-src.meta
       - task: core:gpsp
+  
+  core:cygne:
+    desc: >-
+        Build the aarch64 linux Beetle WonderSwan (Cygne) core from its pinned source archive,
+        which ships beside it as its GPL-2.0 corresponding source
+    status:
+      - test -f vendor/cygne_libretro.so
+      - test -f vendor/cygne-src.tar.gz
+      - test "$(cat vendor/cygne-src.sha 2>/dev/null)" = "{{.CYGNE_COMMIT}}"
+      - test "$(cat vendor/cygne_libretro.so.meta 2>/dev/null)" = "$(sh cores/cygne/build.sh stamp {{.CYGNE_COMMIT}})"
+      - test "$(cat vendor/cygne-src.meta 2>/dev/null)" = "$(sh cores/cygne/build.sh stamp {{.CYGNE_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/cygne_libretro.so vendor/cygne_libretro.so.meta \
+              vendor/cygne-src.tar.gz vendor/cygne-src.sha vendor/cygne-src.meta
+        curl -fsSL -o vendor/cygne-src.tar.gz \
+          "https://github.com/libretro/beetle-wswan-libretro/archive/{{.CYGNE_COMMIT}}.tar.gz"
+        tar -tzf vendor/cygne-src.tar.gz | grep "^beetle-wswan-libretro-{{.CYGNE_COMMIT}}/Makefile$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/cygne/build.sh build {{.CYGNE_COMMIT}} vendor/cygne-src.tar.gz
+            target-device/cygne vendor/cygne_libretro.so
+      - file vendor/cygne_libretro.so | grep -q aarch64
+      - echo "{{.CYGNE_COMMIT}}" > vendor/cygne-src.sha
+      - cp vendor/cygne_libretro.so.meta vendor/cygne-src.meta
+      - 'echo "built vendor/cygne_libretro.so from vendor/cygne-src.tar.gz @ {{.CYGNE_COMMIT}}"'
+
+  core:lynx:
+    desc: >-
+        Build the aarch64 linux Beetle Lynx core from its pinned source archive,
+        which ships beside it as its GPL-2.0 corresponding source
+    status:
+      - test -f vendor/lynx_libretro.so
+      - test -f vendor/lynx-src.tar.gz
+      - test "$(cat vendor/lynx-src.sha 2>/dev/null)" = "{{.LYNX_COMMIT}}"
+      - test "$(cat vendor/lynx_libretro.so.meta 2>/dev/null)" = "$(sh cores/lynx/build.sh stamp {{.LYNX_COMMIT}})"
+      - test "$(cat vendor/lynx-src.meta 2>/dev/null)" = "$(sh cores/lynx/build.sh stamp {{.LYNX_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/lynx_libretro.so vendor/lynx_libretro.so.meta \
+              vendor/lynx-src.tar.gz vendor/lynx-src.sha vendor/lynx-src.meta
+        curl -fsSL -o vendor/lynx-src.tar.gz \
+          "https://github.com/libretro/beetle-lynx-libretro/archive/{{.LYNX_COMMIT}}.tar.gz"
+        tar -tzf vendor/lynx-src.tar.gz | grep "^beetle-lynx-libretro-{{.LYNX_COMMIT}}/Makefile$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/lynx/build.sh build {{.LYNX_COMMIT}} vendor/lynx-src.tar.gz
+            target-device/lynx vendor/lynx_libretro.so
+      - file vendor/lynx_libretro.so | grep -q aarch64
+      - echo "{{.LYNX_COMMIT}}" > vendor/lynx-src.sha
+      - cp vendor/lynx_libretro.so.meta vendor/lynx-src.meta
+      - 'echo "built vendor/lynx_libretro.so from vendor/lynx-src.tar.gz @ {{.LYNX_COMMIT}}"'
+
+  core:gearsystem:
+    desc: >-
+        Build the aarch64 linux Gearsystem (Game Gear) core from its pinned source archive,
+        which ships beside it as its GPL-3.0 corresponding source
+    status:
+      - test -f vendor/gearsystem_libretro.so
+      - test -f vendor/gearsystem-src.tar.gz
+      - test "$(cat vendor/gearsystem-src.sha 2>/dev/null)" = "{{.GEARSYSTEM_COMMIT}}"
+      - test "$(cat vendor/gearsystem_libretro.so.meta 2>/dev/null)" = "$(sh cores/gearsystem/build.sh stamp {{.GEARSYSTEM_COMMIT}})"
+      - test "$(cat vendor/gearsystem-src.meta 2>/dev/null)" = "$(sh cores/gearsystem/build.sh stamp {{.GEARSYSTEM_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/gearsystem_libretro.so vendor/gearsystem_libretro.so.meta \
+              vendor/gearsystem-src.tar.gz vendor/gearsystem-src.sha vendor/gearsystem-src.meta
+        curl -fsSL -o vendor/gearsystem-src.tar.gz \
+          "https://github.com/drhelius/Gearsystem/archive/{{.GEARSYSTEM_COMMIT}}.tar.gz"
+        tar -tzf vendor/gearsystem-src.tar.gz | grep "^Gearsystem-{{.GEARSYSTEM_COMMIT}}/platforms/libretro/Makefile$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/gearsystem/build.sh build {{.GEARSYSTEM_COMMIT}} vendor/gearsystem-src.tar.gz
+            target-device/gearsystem vendor/gearsystem_libretro.so
+      - file vendor/gearsystem_libretro.so | grep -q aarch64
+      - echo "{{.GEARSYSTEM_COMMIT}}" > vendor/gearsystem-src.sha
+      - cp vendor/gearsystem_libretro.so.meta vendor/gearsystem-src.meta
+      - 'echo "built vendor/gearsystem_libretro.so from vendor/gearsystem-src.tar.gz @ {{.GEARSYSTEM_COMMIT}}"'
+
+  core:ngp:
+    desc: >-
+        Build the aarch64 linux Beetle NeoPop (NeoGeo Pocket) core from its pinned source archive,
+        which ships beside it as its GPL-2.0 corresponding source
+    status:
+      - test -f vendor/ngp_libretro.so
+      - test -f vendor/ngp-src.tar.gz
+      - test "$(cat vendor/ngp-src.sha 2>/dev/null)" = "{{.NGP_COMMIT}}"
+      - test "$(cat vendor/ngp_libretro.so.meta 2>/dev/null)" = "$(sh cores/ngp/build.sh stamp {{.NGP_COMMIT}})"
+      - test "$(cat vendor/ngp-src.meta 2>/dev/null)" = "$(sh cores/ngp/build.sh stamp {{.NGP_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/ngp_libretro.so vendor/ngp_libretro.so.meta \
+              vendor/ngp-src.tar.gz vendor/ngp-src.sha vendor/ngp-src.meta
+        curl -fsSL -o vendor/ngp-src.tar.gz \
+          "https://github.com/libretro/beetle-ngp-libretro/archive/{{.NGP_COMMIT}}.tar.gz"
+        tar -tzf vendor/ngp-src.tar.gz | grep "^beetle-ngp-libretro-{{.NGP_COMMIT}}/Makefile$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/ngp/build.sh build {{.NGP_COMMIT}} vendor/ngp-src.tar.gz
+            target-device/ngp vendor/ngp_libretro.so
+      - file vendor/ngp_libretro.so | grep -q aarch64
+      - echo "{{.NGP_COMMIT}}" > vendor/ngp-src.sha
+      - cp vendor/ngp_libretro.so.meta vendor/ngp-src.meta
+      - 'echo "built vendor/ngp_libretro.so from vendor/ngp-src.tar.gz @ {{.NGP_COMMIT}}"'
+
+  core:pce:
+    desc: >-
+        Build the aarch64 linux Beetle PCE Fast (TurboGrafx-16) core from its pinned source archive,
+        which ships beside it as its GPL-2.0 corresponding source
+    status:
+      - test -f vendor/pce_libretro.so
+      - test -f vendor/pce-src.tar.gz
+      - test "$(cat vendor/pce-src.sha 2>/dev/null)" = "{{.PCE_COMMIT}}"
+      - test "$(cat vendor/pce_libretro.so.meta 2>/dev/null)" = "$(sh cores/pce/build.sh stamp {{.PCE_COMMIT}})"
+      - test "$(cat vendor/pce-src.meta 2>/dev/null)" = "$(sh cores/pce/build.sh stamp {{.PCE_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/pce_libretro.so vendor/pce_libretro.so.meta \
+              vendor/pce-src.tar.gz vendor/pce-src.sha vendor/pce-src.meta
+        curl -fsSL -o vendor/pce-src.tar.gz \
+          "https://github.com/libretro/beetle-pce-fast-libretro/archive/{{.PCE_COMMIT}}.tar.gz"
+        tar -tzf vendor/pce-src.tar.gz | grep "^beetle-pce-fast-libretro-{{.PCE_COMMIT}}/Makefile$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/pce/build.sh build {{.PCE_COMMIT}} vendor/pce-src.tar.gz
+            target-device/pce vendor/pce_libretro.so
+      - file vendor/pce_libretro.so | grep -q aarch64
+      - echo "{{.PCE_COMMIT}}" > vendor/pce-src.sha
+      - cp vendor/pce_libretro.so.meta vendor/pce-src.meta
+      - 'echo "built vendor/pce_libretro.so from vendor/pce-src.tar.gz @ {{.PCE_COMMIT}}"'
+
+  core:dsperate:
+    desc: >-
+        Build the aarch64 linux DSperate (Nintendo DS) libretro core from its two pinned source
+        archives, the wrapper and DSperate itself, which ship beside it as its GPL-3.0 corresponding
+        source
+    status:
+      - test -f vendor/dsperate_libretro.so
+      - test -f vendor/dsperate-src.tar.gz
+      - test -f vendor/dsperatecore-src.tar.gz
+      - test "$(cat vendor/dsperate-src.sha 2>/dev/null)" = "{{.DSPERATE_LR_COMMIT}}"
+      - test "$(cat vendor/dsperatecore-src.sha 2>/dev/null)" = "{{.DSPERATE_COMMIT}}"
+      - test "$(cat vendor/dsperate_libretro.so.meta 2>/dev/null)" = "$(sh cores/dsperate/build.sh stamp {{.DSPERATE_LR_COMMIT}} {{.DSPERATE_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/dsperate_libretro.so vendor/dsperate_libretro.so.meta \
+              vendor/dsperate-src.tar.gz vendor/dsperate-src.sha vendor/dsperate-src.meta \
+              vendor/dsperatecore-src.tar.gz vendor/dsperatecore-src.sha vendor/dsperatecore-src.meta
+        curl -fsSL -o vendor/dsperate-src.tar.gz \
+          "https://github.com/thwonp/dsperate-lr/archive/{{.DSPERATE_LR_COMMIT}}.tar.gz"
+        curl -fsSL -o vendor/dsperatecore-src.tar.gz \
+          "https://github.com/beebono/DSperate/archive/{{.DSPERATE_COMMIT}}.tar.gz"
+        tar -tzf vendor/dsperate-src.tar.gz | grep "^dsperate-lr-{{.DSPERATE_LR_COMMIT}}/CMakeLists.txt$" > /dev/null
+        tar -tzf vendor/dsperatecore-src.tar.gz | grep "^DSperate-{{.DSPERATE_COMMIT}}/CMakeLists.txt$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/dsperate/build.sh build {{.DSPERATE_LR_COMMIT}} {{.DSPERATE_COMMIT}}
+            vendor/dsperate-src.tar.gz vendor/dsperatecore-src.tar.gz
+            target-device/dsperate vendor/dsperate_libretro.so
+      - file vendor/dsperate_libretro.so | grep -q aarch64
+      - echo "{{.DSPERATE_LR_COMMIT}}" > vendor/dsperate-src.sha
+      - echo "{{.DSPERATE_COMMIT}}" > vendor/dsperatecore-src.sha
+      - cp vendor/dsperate_libretro.so.meta vendor/dsperate-src.meta
+      - cp vendor/dsperate_libretro.so.meta vendor/dsperatecore-src.meta
+      - 'echo "built vendor/dsperate_libretro.so from dsperate-lr @ {{.DSPERATE_LR_COMMIT}} and DSperate @ {{.DSPERATE_COMMIT}}"'
 
   core:gambatte:
     desc: >-
@@ -430,7 +623,7 @@ tasks:
 
   dist:device:
     desc: Build the SD2 tree for an H700 device, OUT defaults to ./dist-device
-    deps: [ core:device, core:gpsp, core:gambatte, fsck:exfat, build:device, web ]
+    deps: [core:device, core:gpsp, core:gambatte, core:cygne, core:lynx, core:gearsystem, core:ngp, core:pce, core:dsperate, fsck:exfat, build:device, web]
     vars:
       OUT: '{{.OUT | default "dist-device"}}'
     cmds:
@@ -440,13 +633,26 @@ tasks:
           CMD: ./target-device/device/slot --init-root {{.OUT}}
       - cp target-device/device/slot {{.OUT}}/System/slot
       - cp -R card/System/* {{.OUT}}/System/
+      - cp crates/slot-achievements/retroachievements.toml.example {{.OUT}}/Config/
       - cp -R web/dist {{.OUT}}/System/web
       - for d in Bezels Labels Wallpapers; do cp card/$d/README.txt {{.OUT}}/$d/; done
       - file vendor/mgba_libretro.so | grep -q aarch64
       - file vendor/gpsp_libretro.so | grep -q aarch64
+      - file vendor/cygne_libretro.so | grep -q aarch64
+      - file vendor/lynx_libretro.so | grep -q aarch64
+      - file vendor/gearsystem_libretro.so | grep -q aarch64
+      - file vendor/ngp_libretro.so | grep -q aarch64
+      - file vendor/pce_libretro.so | grep -q aarch64
+      - file vendor/dsperate_libretro.so | grep -q aarch64
       - file vendor/gambatte_libretro.so | grep -q aarch64
       - cp vendor/mgba_libretro.so {{.OUT}}/System/
       - cp vendor/gpsp_libretro.so {{.OUT}}/System/
+      - cp vendor/cygne_libretro.so {{.OUT}}/System/
+      - cp vendor/lynx_libretro.so {{.OUT}}/System/
+      - cp vendor/gearsystem_libretro.so {{.OUT}}/System/
+      - cp vendor/ngp_libretro.so {{.OUT}}/System/
+      - cp vendor/pce_libretro.so {{.OUT}}/System/
+      - cp vendor/dsperate_libretro.so {{.OUT}}/System/
       - cp vendor/gambatte_libretro.so {{.OUT}}/System/
       - cp vendor/fsck.exfat {{.OUT}}/System/
       - cp -r licenses {{.OUT}}/System/licenses
@@ -475,6 +681,43 @@ tasks:
           cp "$p" "{{.OUT}}/System/licenses/mgba-$(basename "$p")"
         done
       - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/cygne-src.sha)"
+        cp vendor/cygne-src.tar.gz "{{.OUT}}/System/licenses/cygne-${sha}.tar.gz"
+        cp vendor/cygne-src.meta "{{.OUT}}/System/licenses/cygne-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/lynx-src.sha)"
+        cp vendor/lynx-src.tar.gz "{{.OUT}}/System/licenses/lynx-${sha}.tar.gz"
+        cp vendor/lynx-src.meta "{{.OUT}}/System/licenses/lynx-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/gearsystem-src.sha)"
+        cp vendor/gearsystem-src.tar.gz "{{.OUT}}/System/licenses/gearsystem-${sha}.tar.gz"
+        cp vendor/gearsystem-src.meta "{{.OUT}}/System/licenses/gearsystem-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/ngp-src.sha)"
+        cp vendor/ngp-src.tar.gz "{{.OUT}}/System/licenses/ngp-${sha}.tar.gz"
+        cp vendor/ngp-src.meta "{{.OUT}}/System/licenses/ngp-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/pce-src.sha)"
+        cp vendor/pce-src.tar.gz "{{.OUT}}/System/licenses/pce-${sha}.tar.gz"
+        cp vendor/pce-src.meta "{{.OUT}}/System/licenses/pce-${sha}.meta"
+      - |
+        set -euo pipefail
+        for name in dsperate dsperatecore; do
+          sha="$(cat vendor/${name}-src.sha)"
+          cp vendor/${name}-src.tar.gz "{{.OUT}}/System/licenses/${name}-${sha}.tar.gz"
+          cp vendor/${name}-src.meta "{{.OUT}}/System/licenses/${name}-${sha}.meta"
+        done
+        for p in cores/dsperate/*.patch; do
+          [ -e "$p" ] || continue
+          cp "$p" "{{.OUT}}/System/licenses/dsperate-$(basename "$p")"
+        done
+      - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
 
   dist:rocknix:
     desc: >-
@@ -491,14 +734,14 @@ tasks:
 
   deploy:device:
     desc: Build and push onto a device over adb, then restart it. SD defaults to /mnt/sdcard
-    deps: [ core:device, core:gpsp, core:gambatte, fsck:exfat, build:device ]
+    deps: [core:device, core:gpsp, core:gambatte, core:cygne, core:lynx, core:gearsystem, core:ngp, core:pce, fsck:exfat, build:device]
     cmds:
       - task: deploy:push
         vars: { SD: '{{.SD}}' }
 
   deploy:all:
     desc: Build and push onto every attached adb device, then restart each. SD defaults to /mnt/sdcard
-    deps: [ core:device, core:gpsp, core:gambatte, fsck:exfat, build:device ]
+    deps: [core:device, core:gpsp, core:gambatte, core:cygne, core:lynx, core:gearsystem, core:ngp, core:pce, fsck:exfat, build:device]
     vars:
       SERIALS:
         sh: adb devices | awk 'NR > 1 && $2 == "device" {print $1}'
@@ -519,11 +762,21 @@ tasks:
       - "{{.ADB}} wait-for-device"
       - file vendor/mgba_libretro.so | grep -q aarch64
       - file vendor/gpsp_libretro.so | grep -q aarch64
+      - file vendor/cygne_libretro.so | grep -q aarch64
+      - file vendor/lynx_libretro.so | grep -q aarch64
+      - file vendor/gearsystem_libretro.so | grep -q aarch64
+      - file vendor/ngp_libretro.so | grep -q aarch64
+      - file vendor/pce_libretro.so | grep -q aarch64
       - file vendor/gambatte_libretro.so | grep -q aarch64
       - "{{.ADB}} push target-device/device/slot '{{.SD}}/System/slot'"
       - for f in card/System/*; do {{.ADB}} push "$f" '{{.SD}}/System/'; done
       - "{{.ADB}} push vendor/mgba_libretro.so '{{.SD}}/System/mgba_libretro.so'"
       - "{{.ADB}} push vendor/gpsp_libretro.so '{{.SD}}/System/gpsp_libretro.so'"
+      - "{{.ADB}} push vendor/cygne_libretro.so '{{.SD}}/System/cygne_libretro.so'"
+      - "{{.ADB}} push vendor/lynx_libretro.so '{{.SD}}/System/lynx_libretro.so'"
+      - "{{.ADB}} push vendor/gearsystem_libretro.so '{{.SD}}/System/gearsystem_libretro.so'"
+      - "{{.ADB}} push vendor/ngp_libretro.so '{{.SD}}/System/ngp_libretro.so'"
+      - "{{.ADB}} push vendor/pce_libretro.so '{{.SD}}/System/pce_libretro.so'"
       - "{{.ADB}} push vendor/gambatte_libretro.so '{{.SD}}/System/gambatte_libretro.so'"
       - "{{.ADB}} push vendor/fsck.exfat '{{.SD}}/System/fsck.exfat'"
       - "{{.ADB}} push licenses '{{.SD}}/System/'"
@@ -551,6 +804,31 @@ tasks:
         for p in cores/mgba/*.patch; do
           {{.ADB}} push "$p" "{{.SD}}/System/licenses/mgba-$(basename "$p")"
         done
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/cygne-src.sha)"
+        {{.ADB}} push vendor/cygne-src.tar.gz "{{.SD}}/System/licenses/cygne-${sha}.tar.gz"
+        {{.ADB}} push vendor/cygne-src.meta "{{.SD}}/System/licenses/cygne-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/lynx-src.sha)"
+        {{.ADB}} push vendor/lynx-src.tar.gz "{{.SD}}/System/licenses/lynx-${sha}.tar.gz"
+        {{.ADB}} push vendor/lynx-src.meta "{{.SD}}/System/licenses/lynx-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/gearsystem-src.sha)"
+        {{.ADB}} push vendor/gearsystem-src.tar.gz "{{.SD}}/System/licenses/gearsystem-${sha}.tar.gz"
+        {{.ADB}} push vendor/gearsystem-src.meta "{{.SD}}/System/licenses/gearsystem-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/ngp-src.sha)"
+        {{.ADB}} push vendor/ngp-src.tar.gz "{{.SD}}/System/licenses/ngp-${sha}.tar.gz"
+        {{.ADB}} push vendor/ngp-src.meta "{{.SD}}/System/licenses/ngp-${sha}.meta"
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/pce-src.sha)"
+        {{.ADB}} push vendor/pce-src.tar.gz "{{.SD}}/System/licenses/pce-${sha}.tar.gz"
+        {{.ADB}} push vendor/pce-src.meta "{{.SD}}/System/licenses/pce-${sha}.meta"
       - "{{.ADB}} shell 'chmod +x {{.SD}}/System/slot && sync'"
       - "{{.ADB}} reboot"
       - "{{.ADB}} wait-for-device"

@@ -6,12 +6,15 @@ fn a_choice_reads_back_as_itself() {
     for outline in [Outline::Auto, Outline::Notched, Outline::Rounded] {
         for finish in [ShellFinish::Solid, ShellFinish::Clear, ShellFinish::Glitter] {
             for colour in [[0, 0, 0], [0xff, 0xff, 0xff], [0x86, 0xb9, 0xbf]] {
-                let c = ShellChoice {
-                    outline,
-                    colour,
-                    finish,
-                };
-                assert_eq!(ShellChoice::parse(&c.to_value()), Some(c));
+                for back in [None, Some([0xe2, 0xdb, 0xc8])] {
+                    let c = ShellChoice {
+                        outline,
+                        colour,
+                        finish,
+                        back,
+                    };
+                    assert_eq!(ShellChoice::parse(&c.to_value()), Some(c));
+                }
             }
         }
     }
@@ -24,12 +27,23 @@ fn a_choice_reads_back_as_itself() {
 }
 
 #[test]
+fn a_two_tone_choice_keeps_its_back() {
+    let c = ShellChoice::parse("auto 8e1b2b solid E2DBC8").unwrap();
+    assert_eq!(c.colour, [0x8e, 0x1b, 0x2b]);
+    assert_eq!(c.back, Some([0xe2, 0xdb, 0xc8]));
+    assert_eq!(c.to_value(), "auto 8e1b2b solid e2dbc8");
+    assert_eq!(ShellChoice::parse("auto 8e1b2b solid").unwrap().back, None);
+}
+
+#[test]
 fn anything_else_is_no_choice() {
     for bad in [
         "",
         "auto",
         "auto 86b9bf",
         "auto 86b9bf solid extra",
+        "auto 86b9bf solid e2dbc8 extra",
+        "auto 86b9bf solid e2dbc",
         "square 86b9bf solid",
         "auto 86b9b solid",
         "auto 86b9bg solid",
@@ -164,6 +178,7 @@ mod writes {
         outline: Outline::Notched,
         colour: [0xec, 0x94, 0xb4],
         finish: ShellFinish::Clear,
+        back: None,
     };
 
     fn card() -> tempfile::TempDir {
@@ -178,7 +193,10 @@ mod writes {
     }
 
     fn seen(d: &tempfile::TempDir) -> std::collections::HashMap<String, ShellChoice> {
-        layered(&read(d, "Config/cart_shell.txt"), &read(d, "Labels/cart_shell.txt"))
+        layered(
+            &read(d, "Config/cart_shell.txt"),
+            &read(d, "Labels/cart_shell.txt"),
+        )
     }
 
     #[test]
@@ -201,7 +219,11 @@ mod writes {
     #[test]
     fn other_lines_survive() {
         let d = card();
-        std::fs::write(d.path().join("Labels/cart_shell.txt"), "Other = auto 112233 solid\n").unwrap();
+        std::fs::write(
+            d.path().join("Labels/cart_shell.txt"),
+            "Other = auto 112233 solid\n",
+        )
+        .unwrap();
         write_choice(d.path(), "Kirby", Some(&PINK)).unwrap();
         assert!(seen(&d).contains_key("Other"));
         assert!(seen(&d).contains_key("Kirby"));
@@ -210,7 +232,11 @@ mod writes {
     #[test]
     fn auto_over_a_config_entry_writes_auto() {
         let d = card();
-        std::fs::write(d.path().join("Config/cart_shell.txt"), "Kirby = auto 112233 solid\n").unwrap();
+        std::fs::write(
+            d.path().join("Config/cart_shell.txt"),
+            "Kirby = auto 112233 solid\n",
+        )
+        .unwrap();
         write_choice(d.path(), "Kirby", None).unwrap();
         assert!(!seen(&d).contains_key("Kirby"));
         assert!(read(&d, "Labels/cart_shell.txt").contains("auto"));
@@ -227,9 +253,19 @@ mod writes {
     #[test]
     fn an_nfd_stem_is_replaced_not_doubled() {
         let d = card();
-        std::fs::write(d.path().join("Labels/cart_shell.txt"), "Poke\u{301}mon = auto 112233 solid\n").unwrap();
+        std::fs::write(
+            d.path().join("Labels/cart_shell.txt"),
+            "Poke\u{301}mon = auto 112233 solid\n",
+        )
+        .unwrap();
         write_choice(d.path(), "Pok\u{e9}mon", Some(&PINK)).unwrap();
-        assert_eq!(read(&d, "Labels/cart_shell.txt").lines().filter(|l| l.contains('=')).count(), 1);
+        assert_eq!(
+            read(&d, "Labels/cart_shell.txt")
+                .lines()
+                .filter(|l| l.contains('='))
+                .count(),
+            1
+        );
         assert_eq!(seen(&d).get("Pok\u{e9}mon"), Some(&PINK));
     }
 }

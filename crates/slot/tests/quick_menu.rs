@@ -244,6 +244,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Game,
         QuickRow::Controls,
         QuickRow::Network,
+        QuickRow::Achievements,
         QuickRow::About,
         QuickRow::General,
     ] {
@@ -386,6 +387,12 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        QuickRow::ScreenWs,
+        QuickRow::ScreenLynx,
+        QuickRow::ScreenGg,
+        QuickRow::ScreenNgp,
+        QuickRow::ScreenTg16,
+        QuickRow::ScreenNds,
         QuickRow::ScreenGeneral,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
@@ -509,7 +516,20 @@ fn each_platform_keeps_its_own_shader_wraps_and_starts_on_grid_and_simpletex() {
     let s = read_slot_state(d.path());
     assert_eq!(
         (s.shader_gba, s.shader_gb, s.shader_gbc),
-        (Shader::Off, Shader::Grid, Shader::Shimmerless)
+        (Shader::Off, Shader::Grid, Shader::Shimmerless),
+        "GBC steps from Simpletex to Shimmerless"
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_gbc,
+        Shader::Transparent,
+        "GBC steps from Shimmerless to Transparent"
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_gbc,
+        Shader::Off,
+        "it did not wrap"
     );
 }
 
@@ -589,7 +609,9 @@ fn select_start_on_about_still_restarts() {
 fn network_sits_between_controls_and_about() {
     let at = |row| QuickRow::MAIN.iter().position(|r| *r == row);
     assert_eq!(at(QuickRow::Network), at(QuickRow::Controls).map(|i| i + 1));
-    assert_eq!(at(QuickRow::About), at(QuickRow::Network).map(|i| i + 1));
+    // slotPlus: RetroAchievements sits between Tools and About.
+    assert_eq!(at(QuickRow::Achievements), at(QuickRow::Network).map(|i| i + 1));
+    assert_eq!(at(QuickRow::About), at(QuickRow::Achievements).map(|i| i + 1));
     assert_eq!(QuickRow::Network.label(), "Tools");
     assert_eq!(
         QuickRow::NETWORK,
@@ -863,6 +885,16 @@ fn fake_faces(a: &mut App) {
         labels: (0..QuickRow::ALL.len())
             .map(|i| [(id(1000 + i), 200, 40), (id(1500 + i), 200, 40)])
             .collect(),
+        ws_turbo_labels: [
+            [
+                (TexId::from_raw(3000), 200, 40),
+                (TexId::from_raw(3001), 200, 40),
+            ],
+            [
+                (TexId::from_raw(3002), 200, 40),
+                (TexId::from_raw(3003), 200, 40),
+            ],
+        ],
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
             .map(|i| [(id(2000 + i), 60, 40), (id(2100 + i), 60, 40)])
@@ -1035,8 +1067,10 @@ fn the_legend_says_change_on_a_value_row_and_open_on_a_row_that_opens() {
         assert_eq!(a.quick_menu(), Some(row));
         let out = frame(&a);
         assert!(drawn(&out, 400), "no B BACK on {row:?}");
-        assert_eq!(drawn(&out, 401), !row.opens(), "CHANGE on {row:?}");
-        assert_eq!(drawn(&out, 402), row.opens(), "OPEN on {row:?}");
+        // A greyed-out row (RetroAchievements, switched off) has neither.
+        let live = !a.disabled_rows().contains(&row);
+        assert_eq!(drawn(&out, 401), live && !row.opens(), "CHANGE on {row:?}");
+        assert_eq!(drawn(&out, 402), live && row.opens(), "OPEN on {row:?}");
         press(&mut a, Btn::Down);
     }
 }
@@ -1089,7 +1123,9 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
             .collect();
         assert_eq!(pointers.len(), 1, "{row:?}: {} pointers", pointers.len());
         let [px, py, pw, ph] = placed(&out, 700).expect("the pointer");
-        let [lx, ly, _, lh] = placed(&out, label(row, true)).expect("the lit label");
+        // A greyed-out row keeps its dim label under the pointer.
+        let lit = !a.disabled_rows().contains(&row);
+        let [lx, ly, _, lh] = placed(&out, label(row, lit)).expect("the lit label");
         assert!(
             px + pw <= lx + MENU_PAD as f32,
             "{row:?}: the pointer runs into its label"
@@ -1315,6 +1351,16 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
                 [(id(1000 + i), w, 40), (id(1100 + i), w, 40)]
             })
             .collect(),
+        ws_turbo_labels: [
+            [
+                (TexId::from_raw(3000), 200, 40),
+                (TexId::from_raw(3001), 200, 40),
+            ],
+            [
+                (TexId::from_raw(3002), 200, 40),
+                (TexId::from_raw(3003), 200, 40),
+            ],
+        ],
         pointer: (id(700), 32, 48),
         values: QuickValue::ALL
             .iter()
@@ -1599,6 +1645,238 @@ fn a_frame_file_that_is_gone_reads_back_as_none() {
 }
 
 #[test]
+fn the_wonderswan_and_the_lynx_each_have_a_screen_page_with_their_own_shader() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::WsShader);
+    assert_eq!(
+        a.quick_value(QuickRow::WsShader),
+        Some(QuickValue::Simpletex)
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).shader_ws, Shader::Shimmerless);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_ws,
+        Shader::Off,
+        "it did not wrap"
+    );
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenWs));
+
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
+    }
+    open_at(&mut a, QuickRow::LynxShader);
+    press(&mut a, Btn::Left);
+    let s = read_slot_state(d.path());
+    assert_eq!(s.shader_lynx, Shader::Lcd3x);
+    assert_eq!(
+        (s.shader_gba, s.shader_gb, s.shader_gbc),
+        (Shader::Grid, Shader::Simpletex, Shader::Simpletex),
+        "a WonderSwan or Lynx row moved another console's shader"
+    );
+}
+
+#[test]
+fn a_wonderswan_bezel_cycles_through_the_cards_own_pngs_and_none() {
+    let (d, mut a, _) = on_carousel();
+    let dir = d.path().join("Bezels").join("WS");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Swan.png"), b"png").unwrap();
+    open_at(&mut a, QuickRow::WsBezel);
+    assert_eq!(a.resolved_bezel(slot_store::Platform::Ws), BezelPick::None);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).bezel_ws,
+        BezelPick::File("Swan.png".into())
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_ws, BezelPick::None);
+    assert!(
+        !a.bezel_files(slot_store::Platform::Lynx)
+            .contains(&"Swan.png".into()),
+        "the Lynx read the WonderSwan's bezels"
+    );
+}
+
+#[test]
+fn the_game_gear_has_a_screen_page_with_its_own_shader_and_no_transparent() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::GgShader);
+    assert_eq!(
+        a.quick_value(QuickRow::GgShader),
+        Some(QuickValue::Simpletex)
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).shader_gg, Shader::Shimmerless);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_gg,
+        Shader::Off,
+        "it went on to Transparent instead of wrapping"
+    );
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    let s = read_slot_state(d.path());
+    assert_eq!(s.shader_gg, Shader::Grid);
+    assert_eq!(
+        (s.shader_gb, s.shader_gbc, s.shader_ws),
+        (Shader::Simpletex, Shader::Simpletex, Shader::Simpletex),
+        "the Game Gear row moved another console's shader"
+    );
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenGg));
+}
+
+#[test]
+fn a_game_gear_bezel_cycles_through_default_the_cards_own_pngs_and_none() {
+    let (d, mut a, _) = on_carousel();
+    let dir = d.path().join("Bezels").join("GG");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Gear.png"), b"png").unwrap();
+    open_at(&mut a, QuickRow::GgBezel);
+    assert_eq!(a.resolved_bezel(slot_store::Platform::Gg), BezelPick::None);
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_gg, BezelPick::Default);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).bezel_gg,
+        BezelPick::File("Gear.png".into())
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_gg, BezelPick::None);
+}
+
+#[test]
+fn the_neogeo_pocket_has_a_screen_page_with_its_own_shader_and_bezel() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::NgpShader);
+    assert_eq!(
+        a.quick_value(QuickRow::NgpShader),
+        Some(QuickValue::Simpletex)
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).shader_ngp, Shader::Shimmerless);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_ngp,
+        Shader::Off,
+        "it went on to Transparent instead of wrapping"
+    );
+    assert_eq!(read_slot_state(d.path()).shader_gg, Shader::Simpletex);
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenNgp));
+
+    let dir = d.path().join("Bezels").join("NGP");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Pocket.png"), b"png").unwrap();
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
+    }
+    open_at(&mut a, QuickRow::NgpBezel);
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_ngp, BezelPick::Default);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).bezel_ngp,
+        BezelPick::File("Pocket.png".into())
+    );
+}
+
+#[test]
+fn the_turbografx_16_has_a_screen_page_with_its_own_shader_and_bezel() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Tg16Shader);
+    assert_eq!(a.quick_value(QuickRow::Tg16Shader), Some(QuickValue::Grid));
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).shader_tg16, Shader::Dot);
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).shader_tg16, Shader::Shimmerless);
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).shader_tg16,
+        Shader::Off,
+        "it went past Shimmerless instead of wrapping"
+    );
+    assert_eq!(read_slot_state(d.path()).shader_ngp, Shader::Simpletex);
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenTg16));
+
+    let dir = d.path().join("Bezels").join("TG16");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Express.png"), b"png").unwrap();
+    while a.quick_menu().is_some() {
+        press(&mut a, Btn::B);
+    }
+    open_at(&mut a, QuickRow::Tg16Bezel);
+    assert_eq!(
+        a.resolved_bezel(slot_store::Platform::Tg16),
+        BezelPick::None
+    );
+    // The two bundled under their own names come first, then the card's own.
+    for want in [
+        BezelPick::Bundled("TG16".into()),
+        BezelPick::Bundled("TG16 Wide".into()),
+        BezelPick::Bundled("PCE".into()),
+        BezelPick::Bundled("PCE Wide".into()),
+        BezelPick::File("Express.png".into()),
+        BezelPick::None,
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(read_slot_state(d.path()).bezel_tg16, want);
+    }
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).bezel_tg16,
+        BezelPick::Bundled("TG16".into()),
+        "the list did not wrap round"
+    );
+}
+
+#[test]
+fn the_game_gear_bezel_offers_its_bundled_default() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::GgBezel);
+    assert_eq!(a.resolved_bezel(slot_store::Platform::Gg), BezelPick::None);
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_gg, BezelPick::Default);
+    assert_eq!(
+        a.resolved_bezel(slot_store::Platform::Gg),
+        BezelPick::Default
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(read_slot_state(d.path()).bezel_gg, BezelPick::None);
+}
+
+#[test]
+fn the_menu_opens_after_playing_a_system_with_no_colour_correction() {
+    // The menu's in-game Color Correction row stands for the playing
+    // system's own row. A WonderSwan, Lynx, Game Gear or NeoGeo Pocket has
+    // none, and that row used to look itself up forever and overflow the
+    // stack, freezing the handheld as the menu opened.
+    for platform in [
+        slot_store::Platform::Ws,
+        slot_store::Platform::Lynx,
+        slot_store::Platform::Gg,
+        slot_store::Platform::Ngp,
+    ] {
+        let (_d, mut a, _) = on_carousel();
+        a.set_platform(platform);
+        assert_eq!(
+            a.quick_value(QuickRow::ColourCorrection),
+            None,
+            "{platform:?}"
+        );
+        assert!(a.quick_value(QuickRow::Shader).is_some(), "{platform:?}");
+        a.apply(Action::QuickMenu);
+        assert!(a.quick_menu().is_some());
+        let mut out = Vec::new();
+        a.draw(&mut out);
+    }
+}
+
+#[test]
 fn lid_power_off_steps_through_its_minutes_wraps_and_saves() {
     let (d, mut a, _) = on_carousel_with(SlotState {
         lid_off_min: Some(3),
@@ -1741,5 +2019,115 @@ fn a_saved_gba_shimmerless_reads_as_off_on_three_by_two_and_survives_on_the_card
     assert_eq!(
         a.quick_value(QuickRow::GbaShader),
         Some(QuickValue::Shimmerless)
+    );
+}
+
+fn ra_file(d: &TempDir) -> String {
+    std::fs::read_to_string(d.path().join("Config/retroachievements.toml")).unwrap_or_default()
+}
+
+#[test]
+fn the_retroachievements_page_holds_the_account_mode_and_encore() {
+    if !slot::ACHIEVEMENTS {
+        return; // switched off in this build: see retroachievements_are_greyed_out
+    }
+    assert_eq!(
+        QuickRow::ACHIEVEMENTS.map(QuickRow::label),
+        ["Username", "Password", "Cheevo Mode", "Encore"]
+    );
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Achievements);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::RaUsername));
+    assert_eq!(a.achievements_values(), ["Not Set", "Not Set", "Casual"]);
+    assert_eq!(a.quick_value(QuickRow::RaEncore), Some(QuickValue::Off));
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Achievements));
+}
+
+#[test]
+fn the_username_is_typed_on_the_keyboard_and_reaches_the_file() {
+    if !slot::ACHIEVEMENTS {
+        return; // switched off in this build: see retroachievements_are_greyed_out
+    }
+    let (d, mut a, _) = on_carousel();
+    std::fs::write(
+        d.path().join("Config/retroachievements.toml"),
+        "# mine\nusername = \"Player\"\ntoken = \"old\"\n",
+    )
+    .unwrap();
+    open_at(&mut a, QuickRow::RaUsername);
+    press(&mut a, Btn::A);
+    assert!(a.keyboard().is_some(), "Username opens the keyboard");
+    // The keyboard starts with the name already there; Start is Done.
+    press(&mut a, Btn::Start);
+    assert!(a.keyboard().is_none());
+    assert!(ra_file(&d).contains("token = \"old\""), "an unchanged name leaves the file be");
+    assert!(!a.take_achievements_changed());
+    press(&mut a, Btn::A);
+    press(&mut a, Btn::Y);
+    assert!(a.keyboard().is_none(), "Y cancels");
+    assert_eq!(a.quick_menu(), Some(QuickRow::RaUsername));
+}
+
+#[test]
+fn a_password_is_never_shown_and_turns_achievements_on() {
+    if !slot::ACHIEVEMENTS {
+        return; // switched off in this build: see retroachievements_are_greyed_out
+    }
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RaPassword);
+    press(&mut a, Btn::A);
+    assert!(a.keyboard().is_some());
+    press(&mut a, Btn::X);
+    press(&mut a, Btn::Start);
+    assert!(a.keyboard().is_none());
+    let text = ra_file(&d);
+    assert!(text.contains("password = \" \"") && text.contains("enabled = true"), "{text}");
+    assert_eq!(a.achievements_values()[1], "Set");
+    assert!(a.take_achievements_changed(), "the service starts again with it");
+}
+
+#[test]
+fn encore_flips_with_a_or_left_and_right() {
+    if !slot::ACHIEVEMENTS {
+        return; // switched off in this build: see retroachievements_are_greyed_out
+    }
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RaEncore);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_value(QuickRow::RaEncore), Some(QuickValue::On));
+    assert!(ra_file(&d).contains("encore = true"));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::RaEncore), Some(QuickValue::Off));
+    assert!(ra_file(&d).contains("encore = false"));
+    // Cheevo Mode stays Casual.
+    press(&mut a, Btn::Up);
+    assert_eq!(a.quick_menu(), Some(QuickRow::RaMode));
+    press(&mut a, Btn::A);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.achievements_values()[2], "Casual");
+}
+
+#[test]
+fn retroachievements_are_greyed_out_while_switched_off() {
+    if slot::ACHIEVEMENTS {
+        return;
+    }
+    let (d, mut a, _) = on_carousel();
+    assert_eq!(a.disabled_rows(), &[QuickRow::Achievements]);
+    open_at(&mut a, QuickRow::Achievements);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Achievements), "the row can be reached");
+    press(&mut a, Btn::A);
+    assert_eq!(
+        a.quick_menu(),
+        Some(QuickRow::Achievements),
+        "but A doesn't open its page"
+    );
+    press(&mut a, Btn::Right);
+    assert!(a.keyboard().is_none());
+    assert!(
+        !d.path().join("Config/retroachievements.toml").exists(),
+        "nothing is written for it"
     );
 }

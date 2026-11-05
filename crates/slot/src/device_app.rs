@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use slot::frontend::Frontend;
 use slot::input::DeviceInput;
 use slot::panel_turn::{panel_turn, PanelTurn};
+use slot_gfx::hdmi::{self, CableWatch};
 use slot_gfx::{Compositor, FbdevSurface, GfxError, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
@@ -79,6 +80,31 @@ impl Pacer {
 
 pub fn run() {
     slot::boot_time::mark("start");
+    let hw = slot::hardware::current();
+    eprintln!(
+        "slot: device {}: {:?} display, {:?} buttons, FN ADC {:?}, CPU cap {}, Wi-Fi {}",
+        hw.name, hw.display, hw.buttons, hw.fn_adc, hw.cpu_cap, hw.wifi
+    );
+    // slotPlus's HDMI drives the H700's sunxi display driver under BaseOS's fbdev. A KMS
+    // device (slot²) doesn't run it at all.
+    let sunxi_hdmi = hw.display == slot::hardware::Display::Fbdev;
+    // Put the picture on a TV if an HDMI cable is in, or back on the panel if
+    // it was on one and the cable is out. This has to happen before graphics
+    // start, and before any other thread, so sound can be told where to go.
+    let hdmi_paths = hdmi::Paths::default();
+    let target = std::env::var("BASEOS_TARGET").ok();
+    let synced = match sunxi_hdmi {
+        true => hdmi::sync(&hdmi_paths, hdmi::panel_for(target.as_deref())),
+        false => hdmi::Synced {
+            on_tv: false,
+            fb: None,
+        },
+    };
+    let on_tv = synced.on_tv;
+    if on_tv {
+        std::env::set_var("SLOT_AUDIO_HDMI", "1");
+    }
+    slot::boot_time::mark("hdmi");
     let _ = std::thread::Builder::new()
         .name("slot-fonts".into())
         .spawn(slot_ui::warm_fonts);
@@ -88,12 +114,7 @@ pub fn run() {
     let root = std::env::var_os("SLOT_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CARD));
-    let hw = slot::hardware::current();
-    eprintln!(
-        "slot: device {}: {:?} display, {:?} buttons, FN ADC {:?}, CPU cap {}, Wi-Fi {}",
-        hw.name, hw.display, hw.buttons, hw.fn_adc, hw.cpu_cap, hw.wifi
-    );
-    let mut surface = match open_surface(hw.display) {
+    let mut surface = match open_surface(hw.display, synced.fb) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("slot: {e}");
@@ -111,11 +132,15 @@ pub fn run() {
     slot::boot_time::mark("compositor");
     let panel = surface.window_size();
     let env = |key| std::env::var(key).ok();
-    let turn = panel_turn(
-        panel,
-        slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
-        env("SLOT_ROTATE").as_deref(),
-    );
+    // A TV is never turned, whatever the panel needs.
+    let turn = match on_tv {
+        true => PanelTurn::None,
+        false => panel_turn(
+            panel,
+            slot::baseos::var("BASEOS_PANEL_ROTATION_CCW").as_deref(),
+            env("SLOT_ROTATE").as_deref(),
+        ),
+    };
     let turned = turn != PanelTurn::None;
     let window = if turned { (panel.1, panel.0) } else { panel };
     eprintln!(
@@ -144,6 +169,7 @@ pub fn run() {
     };
     slot::boot_time::mark("audio");
     let mut frontend = Frontend::boot_with(Box::new(platform), sink);
+    frontend.set_external_display(on_tv);
     slot::boot_time::mark("frontend");
     let target = slot::baseos::var("BASEOS_TARGET").unwrap_or_default();
     frontend.set_left_stick(
@@ -186,9 +212,18 @@ pub fn run() {
     let (mut gpu_sum, mut gpu_max) = (Duration::ZERO, Duration::ZERO);
     let (mut cpu_sum, mut cpu_max) = (Duration::ZERO, Duration::ZERO);
     let (mut cpu_misses, mut gpu_misses) = (0u32, 0u32);
+    let mut cable = sunxi_hdmi.then(|| CableWatch::new(hdmi_paths, on_tv));
     loop {
         pacer.wait();
         let began = Instant::now();
+        // The EGL driver cannot change size once started, so a cable plugged
+        // in or pulled out means saving, exiting, and being started again by
+        // BaseOS, which then puts the picture where the cable says.
+        if cable.as_mut().is_some_and(|c| c.changed(began)) {
+            eprintln!("slot: hdmi: the cable changed, saving and starting again");
+            frontend.relaunch();
+            return;
+        }
         input.steer_with_stick(frontend.app().left_stick_dpad());
         frontend.advance(&mut input);
         if frontend.restarting() {
@@ -327,13 +362,22 @@ fn frame_clock(cpu_cap: bool) -> Option<(slot::clock::CpuCap, slot::clock::Gover
     Some((cap, governor))
 }
 
-fn open_surface(display: slot::hardware::Display) -> Result<Box<dyn Surface>, GfxError> {
+/// `fb` is the size slotPlus's HDMI switch just set the framebuffer to, if it set one:
+/// after a switch the framebuffer's mode file can still name the size it had before.
+fn open_surface(
+    display: slot::hardware::Display,
+    fb: Option<(u32, u32)>,
+) -> Result<Box<dyn Surface>, GfxError> {
     #[cfg(target_os = "linux")]
     if display == slot::hardware::Display::Kms {
         return slot_gfx::KmsSurface::new().map(|s| Box::new(s) as Box<dyn Surface>);
     }
     let _ = display;
-    FbdevSurface::new().map(|s| Box::new(s) as Box<dyn Surface>)
+    match fb {
+        Some(size) => FbdevSurface::sized(size),
+        None => FbdevSurface::new(),
+    }
+    .map(|s| Box::new(s) as Box<dyn Surface>)
 }
 
 fn sync_log_writes() {

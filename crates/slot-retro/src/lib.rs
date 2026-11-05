@@ -5,6 +5,7 @@ macro_rules! eprintln {
     }};
 }
 
+mod achievement_memory;
 mod core;
 mod ffi;
 mod libretro;
@@ -13,12 +14,13 @@ mod mock;
 pub mod rtc;
 mod rumble;
 
-pub use core::{AvInfo, ButtonMask, CoreError, RetroCore, GBA_H, GBA_W};
+pub use achievement_memory::{AchievementMemory, AchievementRegion, ACHIEVEMENT_RAM_SIZE};
+pub use core::{AvInfo, ButtonMask, CoreError, Pointer, RetroCore, WsLayout, GBA_H, GBA_W};
 pub use ffi::{
     NETPACKET_BROADCAST, NETPACKET_FLUSH_HINT, NETPACKET_RELIABLE, NETPACKET_UNRELIABLE,
     NETPACKET_UNSEQUENCED,
 };
-pub use libretro::LibretroCore;
+pub use libretro::{LibretroCore, HANDHELD_TURN_OPTION};
 pub use link::{Link, LinkChannel, LoopbackLink};
 pub use mock::MockCore;
 pub use rumble::Rumble;

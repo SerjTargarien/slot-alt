@@ -28,6 +28,8 @@ pub struct GamePass {
     pic: [f32; 4],
     paper: gl::types::GLuint,
     paper_size: f32,
+    u_src: gl::types::GLint,
+    src_size: (u32, u32),
     effect: ScreenEffect,
     power: f32,
     fills: bool,
@@ -35,6 +37,8 @@ pub struct GamePass {
     bottom: f32,
     src: [f32; 4],
     layout: [f32; 4],
+    u_sharp: gl::types::GLint,
+    sharp: bool,
 }
 
 impl GamePass {
@@ -49,15 +53,12 @@ impl GamePass {
             crate::gl::gray_format(),
             Some(&[255]),
         );
-        let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin);
+        let (u_rect, u_bright, u_uv, u_mode, u_paper_size, u_pic, u_fbo, u_origin, u_src, u_sharp);
         unsafe {
             gl::UseProgram(prog);
             gl::Uniform1i(crate::gl::uniform_location(prog, "u_game"), 0);
-            gl::Uniform2f(
-                crate::gl::uniform_location(prog, "u_src"),
-                SRC_W as f32,
-                SRC_H as f32,
-            );
+            u_src = crate::gl::uniform_location(prog, "u_src");
+            gl::Uniform2f(u_src, SRC_W as f32, SRC_H as f32);
             gl::Uniform2f(
                 crate::gl::uniform_location(prog, "u_target"),
                 OUT_W as f32,
@@ -72,6 +73,8 @@ impl GamePass {
             u_fbo = crate::gl::uniform_location(prog, "u_fbo");
             u_pic = crate::gl::uniform_location(prog, "u_pic");
             u_origin = crate::gl::uniform_location(prog, "u_origin");
+            u_sharp = crate::gl::uniform_location(prog, "u_sharp");
+            gl::Uniform1f(u_sharp, 0.0);
         }
         Ok(GamePass {
             prog,
@@ -89,12 +92,16 @@ impl GamePass {
             pic: WHOLE_TEXTURE,
             paper,
             paper_size: 1.0,
+            u_src,
+            src_size: (SRC_W, SRC_H),
             effect: ScreenEffect::Lcd3x,
             power: 1.0,
             fills: false,
             bottom: 0.0,
             src: WHOLE_TEXTURE,
             layout: FULL,
+            u_sharp,
+            sharp: false,
         })
     }
 
@@ -134,6 +141,12 @@ impl GamePass {
         self.origin = [x, y];
     }
 
+    /// Draw the game sharp bilinear instead of nearest, so a picture at a
+    /// scale that is not whole keeps its pixels the same size.
+    pub fn set_sharp(&mut self, on: bool) {
+        self.sharp = on;
+    }
+
     pub fn set_effect(&mut self, effect: ScreenEffect) {
         self.effect = effect;
     }
@@ -157,8 +170,26 @@ impl GamePass {
     }
 
     pub fn upload(&mut self, xrgb8888: &[u8]) {
-        if xrgb8888.len() < (SRC_W * SRC_H * 4) as usize {
+        self.upload_sized(SRC_W, SRC_H, xrgb8888);
+    }
+
+    /// Upload a frame whose buffer is `w` x `h`. The game texture is
+    /// reallocated when the size changes, so GBA and Game Boy keep their
+    /// 240x160 texture and only a bigger buffer pays for more.
+    pub fn upload_sized(&mut self, w: u32, h: u32, xrgb8888: &[u8]) {
+        if xrgb8888.len() < (w * h * 4) as usize {
             return;
+        }
+        if (w, h) != self.src_size {
+            unsafe {
+                gl::DeleteTextures(1, &self.game);
+            }
+            self.game = crate::gl::texture(w, h, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::BGRA, None);
+            self.src_size = (w, h);
+            unsafe {
+                gl::UseProgram(self.prog);
+                gl::Uniform2f(self.u_src, w as f32, h as f32);
+            }
         }
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.game);
@@ -168,8 +199,8 @@ impl GamePass {
                 0,
                 0,
                 0,
-                SRC_W as i32,
-                SRC_H as i32,
+                w as i32,
+                h as i32,
                 gl::BGRA,
                 gl::UNSIGNED_BYTE,
                 xrgb8888.as_ptr() as *const std::ffi::c_void,
@@ -180,18 +211,31 @@ impl GamePass {
     pub fn draw(&self, quad: &Quad) {
         let src = match self.effect {
             ScreenEffect::Grid if self.layout == FULL => {
-                whole_scale_source(self.src, self.fbo_scale)
+                whole_scale_source(self.src, self.fbo_scale, self.src_size)
             }
             _ => self.src,
         };
-        self.draw_source(self.game, quad, src, self.layout);
+        self.draw_source(self.game, quad, src, self.layout, self.effect);
+    }
+
+    /// Draw another part of the game's frame somewhere else on the canvas,
+    /// plain: a DS game's second screen.
+    pub fn draw_inset(&self, quad: &Quad, src: [f32; 4], layout: [f32; 4]) {
+        self.draw_source(self.game, quad, src, layout, ScreenEffect::None);
     }
 
     pub fn draw_still(&self, tex: gl::types::GLuint, quad: &Quad) {
-        self.draw_source(tex, quad, self.src, self.layout);
+        self.draw_source(tex, quad, self.src, self.layout, self.effect);
     }
 
-    fn draw_source(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4], layout: [f32; 4]) {
+    fn draw_source(
+        &self,
+        tex: gl::types::GLuint,
+        quad: &Quad,
+        src: [f32; 4],
+        layout: [f32; 4],
+        effect: ScreenEffect,
+    ) {
         let (x, y, w, h) = placed_in(self.frame(), layout);
         let bright = if self.fills {
             1.0
@@ -209,7 +253,8 @@ impl GamePass {
             gl::Uniform4f(self.u_rect, x, y, w, h);
             gl::Uniform4f(self.u_uv, src[0], src[1], src[2], src[3]);
             gl::Uniform1f(self.u_bright, bright);
-            gl::Uniform1f(self.u_mode, self.effect.mode());
+            gl::Uniform1f(self.u_mode, effect.mode());
+            gl::Uniform1f(self.u_sharp, if self.sharp { 1.0 } else { 0.0 });
             gl::Uniform1f(self.u_paper_size, self.paper_size);
             gl::Uniform2f(self.u_fbo, self.fbo_scale[0], self.fbo_scale[1]);
             gl::Uniform2f(self.u_origin, self.origin[0], self.origin[1]);
@@ -236,9 +281,9 @@ fn placed_in(frame: (f32, f32, f32, f32), layout: [f32; 4]) -> (f32, f32, f32, f
     (lx + x * sx, ly + y * sy, w * sx, h * sy)
 }
 
-fn whole_scale_source(src: [f32; 4], fbo: [f32; 2]) -> [f32; 4] {
-    let (x, w) = whole_scale(src[0], src[2], SRC_W as f32, OUT_W as f32 * fbo[0]);
-    let (y, h) = whole_scale(src[1], src[3], SRC_H as f32, OUT_H as f32 * fbo[1]);
+fn whole_scale_source(src: [f32; 4], fbo: [f32; 2], size: (u32, u32)) -> [f32; 4] {
+    let (x, w) = whole_scale(src[0], src[2], size.0 as f32, OUT_W as f32 * fbo[0]);
+    let (y, h) = whole_scale(src[1], src[3], size.1 as f32, OUT_H as f32 * fbo[1]);
     [x, y, w, h]
 }
 

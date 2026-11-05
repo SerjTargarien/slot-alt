@@ -7,14 +7,45 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use libloading::Library;
 
-use crate::core::{AvInfo, ButtonMask, CoreError, RetroCore, GBA_H, GBA_W};
+use crate::core::{AvInfo, ButtonMask, CoreError, Pointer, RetroCore, GBA_H, GBA_W};
 use crate::ffi::*;
 use crate::link::Link;
 use crate::rumble::Rumble;
+use crate::{AchievementMemory, ACHIEVEMENT_RAM_SIZE};
 
 const VIDEO_BYTES: usize = (GBA_W * GBA_H * 4) as usize;
 
 static LIVE: AtomicBool = AtomicBool::new(false);
+
+/// A host option, not a core one: how the handheld is held. `off` (upright),
+/// `ccw` (a quarter anticlockwise), `180` (upside down) or `cw` (a quarter
+/// clockwise) draw the core's picture so it is upright to someone holding the
+/// handheld that way, and turn the pad's directions to follow it. `native`
+/// holds it however the core asks its picture to be turned (SET_ROTATION), so
+/// the picture is drawn as the core made it and the pad is left as it is, as
+/// on the console held the way the game was made to be held.
+pub const HANDHELD_TURN_OPTION: &str = "slot_handheld_turn";
+
+/// How the handheld is held, from `HANDHELD_TURN_OPTION`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum Held {
+    /// Turned this many quarters anticlockwise.
+    Turned(u32),
+    /// However the core asks its picture to be turned.
+    Native,
+}
+
+impl Held {
+    fn parse(value: &str) -> Held {
+        match value {
+            "ccw" => Held::Turned(1),
+            "180" => Held::Turned(2),
+            "cw" => Held::Turned(3),
+            "native" => Held::Native,
+            _ => Held::Turned(0),
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum PixelFormat {
@@ -23,7 +54,18 @@ enum PixelFormat {
 }
 
 struct Host {
+    /// The touch screen's pointer, for a core that has one.
+    pointer: Option<Pointer>,
     video: Vec<u8>,
+    video_w: u32,
+    video_h: u32,
+    shown_w: u32,
+    shown_h: u32,
+    /// Quarter turns anticlockwise the core asked the frontend to draw its
+    /// picture at (libretro's SET_ROTATION). 0 is upright.
+    rotation: u32,
+    /// How the handheld is held. See `HANDHELD_TURN_OPTION`.
+    held: Held,
     format: PixelFormat,
     audio: Vec<i16>,
     inputs: [u16; 2],
@@ -38,6 +80,8 @@ struct Host {
     options: std::collections::HashMap<String, std::ffi::CString>,
     options_dirty: bool,
     declared: std::collections::HashMap<String, Vec<String>>,
+    /// The core's memory map (SET_MEMORY_MAPS), for RetroAchievements.
+    memory: Vec<MemoryDescriptor>,
 }
 
 thread_local! {
@@ -75,6 +119,17 @@ unsafe extern "C" fn set_rumble_state(port: c_uint, effect: c_uint, strength: u1
 
 unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
     match cmd {
+        SET_ROTATION => {
+            if data.is_null() {
+                return false;
+            }
+            let turns = *(data as *const c_uint);
+            if turns > 3 {
+                return false;
+            }
+            eprintln!("slot-retro: the core turned the picture {turns} quarter turn(s)");
+            with_host(|h| h.rotation = turns).is_some()
+        }
         GET_CAN_DUPE => {
             if data.is_null() {
                 return false;
@@ -193,6 +248,25 @@ unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
             }
             (*(data as *mut LogCallback)).log = log_noop as *const c_void;
             true
+        }
+        SET_MEMORY_MAPS => {
+            if data.is_null() {
+                return false;
+            }
+            let map = &*(data as *const MemoryMap);
+            if map.num_descriptors > 1024 || (map.num_descriptors > 0 && map.descriptors.is_null())
+            {
+                return false;
+            }
+            with_host(|h| {
+                h.memory = if map.num_descriptors == 0 {
+                    Vec::new()
+                } else {
+                    std::slice::from_raw_parts(map.descriptors, map.num_descriptors as usize)
+                        .to_vec()
+                };
+            })
+            .is_some()
         }
         SET_AUDIO_BUFFER_STATUS_CALLBACK => {
             if data.is_null() {
@@ -318,16 +392,31 @@ unsafe extern "C" fn video_refresh(
         return;
     }
     with_host(|h| {
-        let cols = width.min(GBA_W) as usize;
-        let rows = height.min(GBA_H) as usize;
-        let ox = (GBA_W as usize - cols) / 2;
-        let oy = (GBA_H as usize - rows) / 2;
-        if cols != GBA_W as usize || rows != GBA_H as usize {
+        let turns = drawn_turns(h);
+        if turns != 0 {
+            draw_turned(
+                h,
+                data as *const u8,
+                width as usize,
+                height as usize,
+                pitch,
+                turns,
+            );
+            return;
+        }
+        let (bw, bh) = (h.video_w as usize, h.video_h as usize);
+        let cols = (width as usize).min(bw);
+        let rows = (height as usize).min(bh);
+        let ox = (bw - cols) / 2;
+        let oy = (bh - rows) / 2;
+        if cols != bw || rows != bh {
             h.video.fill(0);
         }
+        h.shown_w = cols as u32;
+        h.shown_h = rows as u32;
         for y in 0..rows {
             let src = (data as *const u8).add(y * pitch);
-            let row = ((y + oy) * GBA_W as usize + ox) * 4;
+            let row = ((y + oy) * bw + ox) * 4;
             match h.format {
                 PixelFormat::Xrgb8888 => {
                     ptr::copy_nonoverlapping(src, h.video.as_mut_ptr().add(row), cols * 4);
@@ -350,6 +439,108 @@ unsafe extern "C" fn video_refresh(
     });
 }
 
+/// One pixel of a core frame as the host stores it: B, G, R, 0.
+unsafe fn frame_pixel(format: PixelFormat, row: *const u8, x: usize) -> [u8; 4] {
+    match format {
+        PixelFormat::Xrgb8888 => {
+            let p = ptr::read_unaligned((row as *const u32).add(x));
+            let [b, g, r, _] = p.to_le_bytes();
+            [b, g, r, 0]
+        }
+        PixelFormat::Rgb565 => {
+            let p = ptr::read_unaligned((row as *const u16).add(x));
+            let r = ((p >> 11) & 0x1f) as u8;
+            let g = ((p >> 5) & 0x3f) as u8;
+            let b = (p & 0x1f) as u8;
+            [
+                (b << 3) | (b >> 2),
+                (g << 2) | (g >> 4),
+                (r << 3) | (r >> 2),
+                0,
+            ]
+        }
+    }
+}
+
+/// Quarter turns anticlockwise the handheld is held at.
+fn held_turns(h: &Host) -> u32 {
+    match h.held {
+        Held::Turned(t) => t,
+        Held::Native => h.rotation,
+    }
+}
+
+/// Quarter turns anticlockwise to draw the core's frame at: the turn the core
+/// asks for, less the turn the handheld is held at, so the picture is upright
+/// to the player holding it.
+fn drawn_turns(h: &Host) -> u32 {
+    (h.rotation + 4 - held_turns(h)) % 4
+}
+
+/// The pad as the core should see it: as though the handheld were upright.
+/// Held turned, the handheld's own directions are turned with it, a quarter
+/// for each quarter it is turned.
+fn held_pad(h: &Host, input: u16) -> u16 {
+    (0..held_turns(h)).fold(input, |pad, _| turned_pad(pad))
+}
+
+/// The pad as the core should see it. On a handheld held turned a quarter
+/// anticlockwise the top of the picture is the pad's right, so a turned game
+/// is given right as up, down as right, left as down and up as left. The core
+/// then applies its own turn on top, as it would for an upright picture.
+fn turned_pad(input: u16) -> u16 {
+    const DIRECTIONS: u16 =
+        ButtonMask::UP | ButtonMask::DOWN | ButtonMask::LEFT | ButtonMask::RIGHT;
+    let mut out = input & !DIRECTIONS;
+    for (from, to) in [
+        (ButtonMask::RIGHT, ButtonMask::UP),
+        (ButtonMask::DOWN, ButtonMask::RIGHT),
+        (ButtonMask::LEFT, ButtonMask::DOWN),
+        (ButtonMask::UP, ButtonMask::LEFT),
+    ] {
+        if input & from != 0 {
+            out |= to;
+        }
+    }
+    out
+}
+
+/// Draw a frame the core left upright, turned `turns` quarter turns
+/// anticlockwise, centred in the buffer. A turned frame swaps its width and
+/// height, and `shown_w` / `shown_h` say so.
+unsafe fn draw_turned(
+    h: &mut Host,
+    data: *const u8,
+    fw: usize,
+    fh: usize,
+    pitch: usize,
+    turns: u32,
+) {
+    let (bw, bh) = (h.video_w as usize, h.video_h as usize);
+    let (dw, dh) = if turns & 1 == 1 { (fh, fw) } else { (fw, fh) };
+    let cols = dw.min(bw);
+    let rows = dh.min(bh);
+    let ox = (bw - cols) / 2;
+    let oy = (bh - rows) / 2;
+    if cols != bw || rows != bh {
+        h.video.fill(0);
+    }
+    h.shown_w = cols as u32;
+    h.shown_h = rows as u32;
+    for dy in 0..rows {
+        for dx in 0..cols {
+            let (sx, sy) = match turns {
+                1 => (fw - 1 - dy, dx),
+                2 => (fw - 1 - dx, fh - 1 - dy),
+                _ => (dy, fh - 1 - dx),
+            };
+            let px = frame_pixel(h.format, data.add(sy * pitch), sx);
+            let o = ((dy + oy) * bw + dx + ox) * 4;
+            h.video[o..o + 4].copy_from_slice(&px);
+        }
+    }
+}
+
 unsafe extern "C" fn audio_sample(left: i16, right: i16) {
     with_host(|h| h.audio.extend_from_slice(&[left, right]));
 }
@@ -367,6 +558,18 @@ unsafe extern "C" fn audio_batch(data: *const i16, frames: usize) -> usize {
 unsafe extern "C" fn input_poll() {}
 
 unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, id: c_uint) -> i16 {
+    if device == DEVICE_POINTER {
+        return with_host(|h| match (port, h.pointer) {
+            (0, Some(p)) => match id {
+                POINTER_X => p.x,
+                POINTER_Y => p.y,
+                POINTER_PRESSED => p.pressed as i16,
+                _ => 0,
+            },
+            _ => 0,
+        })
+        .unwrap_or(0);
+    }
     if device != DEVICE_JOYPAD {
         return 0;
     }
@@ -374,6 +577,7 @@ unsafe extern "C" fn input_state(port: c_uint, device: c_uint, _index: c_uint, i
         let Some(&input) = h.inputs.get(port as usize) else {
             return 0;
         };
+        let input = held_pad(h, input);
         match id {
             JOYPAD_MASK => input as i16,
             _ if id < 16 => ((input >> id) & 1) as i16,
@@ -422,6 +626,16 @@ impl LibretroCore {
             .inspect_err(|_| LIVE.store(false, Ordering::SeqCst))
     }
 
+    /// Resize the host's video buffer. Frames the core draws are centred in
+    /// it; anything bigger than the buffer is cropped. Call before running.
+    pub fn set_video_size(&mut self, w: u32, h: u32) {
+        self.host.video_w = w;
+        self.host.video_h = h;
+        self.host.shown_w = w;
+        self.host.shown_h = h;
+        self.host.video = vec![0; (w * h * 4) as usize];
+    }
+
     pub fn reported_system_dir(&self) -> String {
         self.host.system_dir.to_string_lossy().into_owned()
     }
@@ -435,6 +649,10 @@ impl LibretroCore {
     }
 
     pub fn set_option(&mut self, key: &str, value: &str) {
+        if key == HANDHELD_TURN_OPTION {
+            self.host.held = Held::parse(value);
+            return;
+        }
         if !self.host.declared.is_empty() {
             match self.host.declared.get(key) {
                 None => eprintln!("slot-retro: core declares no option {key:?}, setting it anyway"),
@@ -485,9 +703,16 @@ impl LibretroCore {
         }
         let mut host = Box::new(Host {
             video: vec![0; VIDEO_BYTES],
+            video_w: GBA_W,
+            video_h: GBA_H,
+            shown_w: GBA_W,
+            shown_h: GBA_H,
+            rotation: 0,
+            held: Held::Turned(0),
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
+            pointer: None,
             system_dir: cdir(system_dir)?,
             save_dir: cdir(save_dir)?,
             rumble: Rumble::default(),
@@ -502,6 +727,7 @@ impl LibretroCore {
                 .collect(),
             options_dirty: false,
             declared: std::collections::HashMap::new(),
+            memory: Vec::new(),
         });
         unsafe {
             let _a = Active::bind(&mut host);
@@ -532,9 +758,12 @@ impl LibretroCore {
         if !self.loaded {
             return;
         }
-        let _a = Active::bind(&mut self.host);
-        unsafe { (self.api.unload_game)() };
+        {
+            let _a = Active::bind(&mut self.host);
+            unsafe { (self.api.unload_game)() };
+        }
         self.loaded = false;
+        self.host.memory.clear();
     }
 
     fn serialize_at(&mut self, size: usize) -> Option<Vec<u8>> {
@@ -577,8 +806,80 @@ impl Drop for LibretroCore {
 }
 
 impl RetroCore for LibretroCore {
+    fn achievement_memory(&self, ram: &mut [u8]) -> AchievementMemory {
+        let mut valid = AchievementMemory::default();
+        if !self.loaded || ram.len() < ACHIEVEMENT_RAM_SIZE {
+            return valid;
+        }
+        let game_boy = self.host.memory.iter().any(|d| d.start == 0xc000);
+        // rcheevos consoleinfo.c: GB/GBC use native addresses plus fixed banks;
+        // GBA uses IWRAM, EWRAM, then SRAM. Echo RAM aliases the fixed WRAM banks.
+        // From Prashant Vaibhav's slot fork (pvaibhav/slot), GPL-3.0.
+        let regions: &[(usize, usize, usize)] = if game_boy {
+            &[
+                (0x0000, 0x0000, 0x4000),
+                (0x4000, 0x4000, 0x4000),
+                (0x8000, 0x8000, 0x2000),
+                (0xa000, 0xa000, 0x2000),
+                (0xc000, 0xc000, 0x1000),
+                (0xd000, 0xd000, 0x1000),
+                (0xc000, 0xe000, 0x1000),
+                (0xd000, 0xf000, 0x0e00),
+                (0xfe00, 0xfe00, 0x00a0),
+                (0xff00, 0xff00, 0x0080),
+                (0xff80, 0xff80, 0x007f),
+                (0xffff, 0xffff, 0x0001),
+                (0x10000, 0x10000, 0x6000),
+                (0x16000, 0x16000, 0x1e000),
+            ]
+        } else {
+            &[
+                (0x03000000, 0, 0x8000),
+                (0x02000000, 0x8000, 0x40000),
+                (0x0e000000, 0x48000, 0x10000),
+            ]
+        };
+        for &(physical, offset, size) in regions {
+            if let Some(d) =
+                self.host.memory.iter().find(|d| {
+                    d.start == physical && d.disconnect == 0 && !d.ptr.is_null() && d.len > 0
+                })
+            {
+                let n = d.len.min(size);
+                // The core owns the descriptors' memory until unload and no core function
+                // runs concurrently. `offset` is the libretro offset from ptr to the region.
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        (d.ptr as *const u8).add(d.offset),
+                        ram[offset..].as_mut_ptr(),
+                        n,
+                    );
+                }
+                valid.push(offset..offset + n);
+            } else if !game_boy && physical == 0x0e000000 {
+                let p = unsafe { (self.api.get_memory_data)(MEMORY_SAVE_RAM) };
+                let n = unsafe { (self.api.get_memory_size)(MEMORY_SAVE_RAM) }.min(size);
+                if !p.is_null() && n > 0 {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            p as *const u8,
+                            ram[offset..].as_mut_ptr(),
+                            n,
+                        );
+                    }
+                    valid.push(offset..offset + n);
+                }
+            }
+        }
+        valid
+    }
+
     fn set_option(&mut self, key: &str, value: &str) {
         LibretroCore::set_option(self, key, value);
+    }
+
+    fn set_pointer(&mut self, pointer: Option<Pointer>) {
+        self.host.pointer = pointer;
     }
 
     fn load(&mut self, rom: &Path) -> Result<(), CoreError> {
@@ -643,6 +944,14 @@ impl RetroCore for LibretroCore {
 
     fn video_xrgb8888(&self) -> &[u8] {
         &self.host.video
+    }
+
+    fn video_size(&self) -> (u32, u32) {
+        (self.host.video_w, self.host.video_h)
+    }
+
+    fn frame_size(&self) -> (u32, u32) {
+        (self.host.shown_w, self.host.shown_h)
     }
 
     fn take_audio(&mut self) -> Vec<i16> {
@@ -749,9 +1058,16 @@ mod tests {
     fn host_with(options: HashMap<String, CString>, options_dirty: bool) -> Box<Host> {
         Box::new(Host {
             video: vec![0; VIDEO_BYTES],
+            video_w: GBA_W,
+            video_h: GBA_H,
+            shown_w: GBA_W,
+            shown_h: GBA_H,
+            rotation: 0,
+            held: Held::Turned(0),
             format: PixelFormat::Xrgb8888,
             audio: Vec::new(),
             inputs: [0; 2],
+            pointer: None,
             system_dir: CString::new(".").unwrap(),
             save_dir: CString::new(".").unwrap(),
             rumble: Rumble::default(),
@@ -763,6 +1079,7 @@ mod tests {
             options,
             options_dirty,
             declared: HashMap::new(),
+            memory: Vec::new(),
         })
     }
 
@@ -1607,6 +1924,27 @@ mod tests {
     }
 
     #[test]
+    fn the_pointer_answers_on_port_1_only_and_only_once_it_is_set() {
+        let mut host = host_with(HashMap::new(), false);
+        let _active = Active::bind(&mut host);
+        let ask = |port, id| unsafe { input_state(port, DEVICE_POINTER, 0, id) };
+        assert_eq!(ask(0, POINTER_PRESSED), 0, "no pointer yet");
+        unsafe {
+            with_host(|h| {
+                h.pointer = Some(Pointer {
+                    x: -1200,
+                    y: 3000,
+                    pressed: true,
+                })
+            });
+        }
+        assert_eq!(ask(0, POINTER_X), -1200);
+        assert_eq!(ask(0, POINTER_Y), 3000);
+        assert_eq!(ask(0, POINTER_PRESSED), 1);
+        assert_eq!(ask(1, POINTER_PRESSED), 0, "the second port has none");
+    }
+
+    #[test]
     fn input_state_answers_single_buttons_on_port_1() {
         let mut host = host_with(HashMap::new(), false);
         host.inputs = [0, ButtonMask::B];
@@ -1683,6 +2021,275 @@ mod tests {
         };
 
         assert_eq!(unsafe { with_host(|h| h.video.clone()) }.unwrap(), frame);
+    }
+
+    #[test]
+    fn a_tall_picture_fits_a_bigger_buffer_whole() {
+        let mut host = host_with(HashMap::new(), false);
+        host.video_w = 360;
+        host.video_h = 240;
+        host.video = vec![0; 360 * 240 * 4];
+        let _active = Active::bind(&mut host);
+        let frame = vec![0xffu8; 144 * 224 * 4];
+        unsafe { video_refresh(frame.as_ptr() as *const c_void, 144, 224, 144 * 4) };
+
+        let lit =
+            |x: usize, y: usize| unsafe { with_host(|h| h.video[(y * 360 + x) * 4]) }.unwrap() != 0;
+        assert!(lit(108, 8), "the top left is not at (108, 8)");
+        assert!(lit(251, 231), "the bottom right is not at (251, 231)");
+        assert!(!lit(107, 8), "the picture starts one column too early");
+        assert!(!lit(108, 7), "the picture starts one row too early");
+        assert!(!lit(108, 232), "the picture runs one row too long");
+        assert_eq!(
+            unsafe { with_host(|h| (h.shown_w, h.shown_h)) }.unwrap(),
+            (144, 224)
+        );
+    }
+
+    #[test]
+    fn a_tall_picture_is_still_cropped_to_the_gba_buffer() {
+        let mut host = host_with(HashMap::new(), false);
+        let _active = Active::bind(&mut host);
+        let frame = vec![0xffu8; 144 * 224 * 4];
+        unsafe { video_refresh(frame.as_ptr() as *const c_void, 144, 224, 144 * 4) };
+        assert_eq!(
+            unsafe { with_host(|h| (h.video.len(), h.shown_w, h.shown_h)) }.unwrap(),
+            ((GBA_W * GBA_H * 4) as usize, 144, GBA_H)
+        );
+    }
+
+    #[test]
+    fn set_rotation_stores_the_quarter_turns_the_core_asks_for() {
+        let mut host = host_with(HashMap::new(), false);
+        let _active = Active::bind(&mut host);
+        let mut turns: c_uint = 1;
+        let ok = unsafe { environment(SET_ROTATION, &mut turns as *mut c_uint as *mut c_void) };
+        assert!(ok, "a core that asks to be turned has to be answered");
+        assert_eq!(unsafe { with_host(|h| h.rotation) }.unwrap(), 1);
+
+        let mut nonsense: c_uint = 4;
+        let ok = unsafe { environment(SET_ROTATION, &mut nonsense as *mut c_uint as *mut c_void) };
+        assert!(!ok, "there are only four quarter turns");
+        assert_eq!(unsafe { with_host(|h| h.rotation) }.unwrap(), 1);
+        assert!(!unsafe { environment(SET_ROTATION, ptr::null_mut()) });
+    }
+
+    /// A 3 wide, 2 tall frame whose pixels are numbered 1 to 6, row by row,
+    /// drawn turned. Returns what lands at each place in the shown picture.
+    fn turned(rotation: u32) -> (Vec<Vec<u8>>, (u32, u32)) {
+        drawn(rotation, false)
+    }
+
+    /// The same frame, on a handheld held turned a quarter anticlockwise.
+    fn drawn_on_turned_handheld(rotation: u32) -> (Vec<Vec<u8>>, (u32, u32)) {
+        drawn_held(rotation, "ccw")
+    }
+
+    fn drawn(rotation: u32, _: bool) -> (Vec<Vec<u8>>, (u32, u32)) {
+        drawn_held(rotation, "off")
+    }
+
+    fn drawn_held(rotation: u32, held: &str) -> (Vec<Vec<u8>>, (u32, u32)) {
+        let mut host = host_with(HashMap::new(), false);
+        host.rotation = rotation;
+        host.held = Held::parse(held);
+        let _active = Active::bind(&mut host);
+        let mut frame = vec![0u8; 3 * 2 * 4];
+        for n in 0..6 {
+            frame[n * 4] = n as u8 + 1;
+        }
+        unsafe { video_refresh(frame.as_ptr() as *const c_void, 3, 2, 3 * 4) };
+        let (w, h) = unsafe { with_host(|h| (h.shown_w, h.shown_h)) }.unwrap();
+        let (ox, oy) = ((GBA_W - w) / 2, (GBA_H - h) / 2);
+        let rows = (0..h)
+            .map(|y| {
+                (0..w)
+                    .map(|x| {
+                        let i = (((oy + y) * GBA_W + ox + x) * 4) as usize;
+                        unsafe { with_host(|h| h.video[i]) }.unwrap()
+                    })
+                    .collect()
+            })
+            .collect();
+        (rows, (w, h))
+    }
+
+    #[test]
+    fn a_frame_turned_one_quarter_anticlockwise_swaps_its_size() {
+        let (rows, size) = turned(1);
+        assert_eq!(size, (2, 3));
+        assert_eq!(rows, vec![vec![3, 6], vec![2, 5], vec![1, 4]]);
+    }
+
+    #[test]
+    fn a_frame_turned_three_quarters_anticlockwise_is_a_clockwise_quarter() {
+        let (rows, size) = turned(3);
+        assert_eq!(size, (2, 3));
+        assert_eq!(rows, vec![vec![4, 1], vec![5, 2], vec![6, 3]]);
+    }
+
+    #[test]
+    fn a_frame_turned_a_half_keeps_its_size_and_reverses_it() {
+        let (rows, size) = turned(2);
+        assert_eq!(size, (3, 2));
+        assert_eq!(rows, vec![vec![6, 5, 4], vec![3, 2, 1]]);
+    }
+
+    #[test]
+    fn an_upright_frame_is_drawn_as_it_always_was() {
+        let (rows, size) = turned(0);
+        assert_eq!(size, (3, 2));
+        assert_eq!(rows, vec![vec![1, 2, 3], vec![4, 5, 6]]);
+    }
+
+    #[test]
+    fn a_game_the_core_turns_left_is_drawn_as_it_is_on_a_turned_handheld() {
+        let (rows, size) = drawn_on_turned_handheld(1);
+        assert_eq!(size, (3, 2));
+        assert_eq!(rows, vec![vec![1, 2, 3], vec![4, 5, 6]]);
+    }
+
+    #[test]
+    fn a_game_the_core_turns_right_is_drawn_upside_down_on_a_turned_handheld() {
+        let (rows, size) = drawn_on_turned_handheld(3);
+        assert_eq!(size, (3, 2));
+        assert_eq!(rows, vec![vec![6, 5, 4], vec![3, 2, 1]]);
+    }
+
+    #[test]
+    fn an_upright_game_on_a_turned_handheld_is_turned_back_to_upright() {
+        let (rows, size) = drawn_on_turned_handheld(0);
+        assert_eq!(size, (2, 3));
+        assert_eq!(rows, vec![vec![4, 1], vec![5, 2], vec![6, 3]]);
+    }
+
+    #[test]
+    fn each_hold_draws_the_turn_the_core_asks_less_its_own() {
+        for (held, turns) in [("off", 0), ("ccw", 1), ("180", 2), ("cw", 3)] {
+            for asked in 0..4 {
+                let mut host = host_with(HashMap::new(), false);
+                host.rotation = asked;
+                host.held = Held::parse(held);
+                assert_eq!(
+                    drawn_turns(&host),
+                    (asked + 4 - turns) % 4,
+                    "{held}, asked {asked}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn held_the_way_the_core_asks_the_picture_is_drawn_as_it_is() {
+        for asked in 0..4 {
+            let mut host = host_with(HashMap::new(), false);
+            host.rotation = asked;
+            host.held = Held::Native;
+            assert_eq!(drawn_turns(&host), 0, "asked {asked}");
+        }
+        let (rows, _) = drawn_held(3, "native");
+        assert_eq!(rows, vec![vec![1, 2, 3], vec![4, 5, 6]]);
+        let (rows, _) = drawn_held(3, "cw");
+        assert_eq!(
+            rows,
+            vec![vec![1, 2, 3], vec![4, 5, 6]],
+            "the same as cw for a right-turned game"
+        );
+    }
+
+    #[test]
+    fn the_pad_is_turned_a_quarter_to_follow_a_turned_handheld() {
+        let pad = turned_pad;
+        assert_eq!(pad(ButtonMask::RIGHT), ButtonMask::UP);
+        assert_eq!(pad(ButtonMask::DOWN), ButtonMask::RIGHT);
+        assert_eq!(pad(ButtonMask::LEFT), ButtonMask::DOWN);
+        assert_eq!(pad(ButtonMask::UP), ButtonMask::LEFT);
+        assert_eq!(
+            pad(ButtonMask::UP | ButtonMask::RIGHT),
+            ButtonMask::LEFT | ButtonMask::UP,
+            "a diagonal turns with the pad"
+        );
+        let others = ButtonMask::A
+            | ButtonMask::B
+            | ButtonMask::L
+            | ButtonMask::R
+            | ButtonMask::START
+            | ButtonMask::SELECT;
+        assert_eq!(pad(others | ButtonMask::DOWN), others | ButtonMask::RIGHT);
+    }
+
+    fn pad_seen(handheld_turn: bool, rotation: u32, held: u16) -> (i16, i16) {
+        pad_held(if handheld_turn { "ccw" } else { "off" }, rotation, held)
+    }
+
+    fn pad_held(hold: &str, rotation: u32, held: u16) -> (i16, i16) {
+        let mut host = host_with(HashMap::new(), false);
+        host.held = Held::parse(hold);
+        host.rotation = rotation;
+        host.inputs[0] = held;
+        let _active = Active::bind(&mut host);
+        unsafe {
+            (
+                input_state(0, DEVICE_JOYPAD, 0, JOYPAD_MASK),
+                input_state(0, DEVICE_JOYPAD, 0, 4),
+            )
+        }
+    }
+
+    #[test]
+    fn a_core_that_turns_its_game_sees_the_turned_pad_on_a_turned_handheld() {
+        let held = ButtonMask::RIGHT | ButtonMask::A;
+        let (mask, up) = pad_seen(true, 1, held);
+        assert_eq!(mask as u16, ButtonMask::UP | ButtonMask::A);
+        assert_eq!(up, 1, "pad right reads as up, one id at a time too");
+    }
+
+    #[test]
+    fn the_pad_turns_with_the_handheld_and_not_otherwise() {
+        let held = ButtonMask::RIGHT | ButtonMask::A;
+        let (mask, up) = pad_seen(false, 1, held);
+        assert_eq!(mask as u16, held, "an upright handheld");
+        assert_eq!(up, 0);
+        let (mask, _) = pad_held("180", 0, held);
+        assert_eq!(
+            mask as u16,
+            ButtonMask::LEFT | ButtonMask::A,
+            "upside down, right is left"
+        );
+        let (mask, _) = pad_held("cw", 0, held);
+        assert_eq!(
+            mask as u16,
+            ButtonMask::DOWN | ButtonMask::A,
+            "a quarter clockwise, right is down"
+        );
+        for asked in 0..4 {
+            let (mask, _) = pad_held("native", asked, held);
+            let (turned, _) = pad_held(["off", "ccw", "180", "cw"][asked as usize], asked, held);
+            assert_eq!(
+                mask, turned,
+                "native is the hold the core asks for, {asked}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_turned_565_frame_is_widened_like_an_upright_one() {
+        let mut host = host_with(HashMap::new(), false);
+        host.rotation = 1;
+        host.format = PixelFormat::Rgb565;
+        let _active = Active::bind(&mut host);
+        let frame: Vec<u8> = [0xffffu16, 0x0000]
+            .iter()
+            .flat_map(|p| p.to_le_bytes())
+            .collect();
+        unsafe { video_refresh(frame.as_ptr() as *const c_void, 2, 1, 2 * 2) };
+        let (ox, oy) = ((GBA_W - 1) / 2, (GBA_H - 2) / 2);
+        let at = |y: u32| {
+            let i = (((oy + y) * GBA_W + ox) * 4) as usize;
+            unsafe { with_host(|h| h.video[i..i + 4].to_vec()) }.unwrap()
+        };
+        assert_eq!(at(0), vec![0, 0, 0, 0], "the right pixel turns to the top");
+        assert_eq!(at(1), vec![255, 255, 255, 0]);
     }
 
     #[test]

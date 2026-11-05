@@ -17,12 +17,19 @@ use slot_ui::{
     grown, lid_at, lid_from_shaped, lift_of, repeat_gap, seats, shelf_cart_shaped, BezelArt,
     ClockFaces, ClockPicker, ClockRow, ClockScreen, Draw, FfState, GbShell, Guide, Hud, HudKind,
     Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow,
-    QuickValue, Refusal, Seats, Shelf, ShotMode, ShotViewer, SlotChrome, TexId, Toast, CART_W,
+    QuickValue, Refusal, Seats, Shelf, ShotMode, ShotViewer, SlotChrome, TexId, Toast, CART_W, CHIP_H,
+    CHIP_W,
     GBA_SEATS, HINT_EDGE, HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, TURN_PAD,
 };
 
+use crate::art::jobs::{no_art_jobs, ArtEvent, ArtJob, ArtJobs};
+use crate::art::make::Kind as ArtKind;
 use crate::audio::Sfx;
 use crate::core_picker::{Chip, CorePicker, Outcome, Press};
+use crate::fetch_art::{
+    stage_at, FetchArt, FetchTex, Landed as ArtLanded, Run as ArtRun, Scene as ArtScene, Stage,
+};
+use crate::hold_picker::{self, Hold, HoldPicker};
 use crate::link_kind::{link_carried, link_dual, link_kind, serial_option, LinkKind};
 use crate::link_radio::{radio_jobs, LinkRole, RadioJob, RadioJobs};
 use crate::link_screen::LinkSprites;
@@ -32,14 +39,12 @@ use crate::persist::{self, Snapshot};
 use crate::print_scene::{print_draws, Cue, PrintArtState, PrintFrame, PrintTextures};
 use crate::unwrap_scene::{unwrap_draws, UnwrapScene, UnwrapTextures};
 use crate::server::{ServerNet, ServerPaper, ServerSession};
-use crate::art::jobs::{no_art_jobs, ArtEvent, ArtJob, ArtJobs};
 use crate::romm::{no_romm_jobs, PairFail, RommEvent, RommJob, RommJobs};
-use crate::art::make::Kind as ArtKind;
-use crate::fetch_art::{stage_at, FetchArt, FetchTex, Landed as ArtLanded, Run as ArtRun, Scene as ArtScene, Stage};
 use crate::update::{
     no_update_jobs, Kind, Release, UpdateEvent, UpdateFail, UpdateJob, UpdateJobs,
 };
-use crate::video_mode::{self, VideoMode};
+use crate::stylus::Stylus;
+use crate::video_mode::{self, DsLayout, DsPart, DsScreen, DsView, VideoMode};
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
     Binding, CarouselKeys, Controls, Device, Modifier, ShortcutKeys, LID_OFF_MIN,
@@ -63,6 +68,9 @@ pub const SEATED_AT: f32 = INSERT_S - INSERT_HOLD_S;
 pub const EJECT_S: f32 = SEATED_AT;
 
 const EJECT_HOLD_S: f32 = 0.35;
+/// How long a cart that goes in upside down takes to turn over, before it
+/// goes in and after it comes out.
+pub const TURN_S: f32 = 0.3;
 
 pub const POWER_ON_S: f32 = 0.22;
 
@@ -112,6 +120,8 @@ const SLOT_NAME_ALPHA: f32 = 1.0;
 const CORE_PICKER_DIM: f32 = 0.25 / (1.0 - CORE_PICKER_RECEDE);
 const LINK_TEXT_Y: f32 = 44.0;
 const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H;
+/// The Lynx hold picker centres its cart above this line, clear of the footer.
+const HOLD_CART_FOOT: f32 = OUT_H as f32 - MOUTH_H * 2.0;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StudioTex {
@@ -126,6 +136,9 @@ const WIFI_SETTLE_MS: Millis = 2_000;
 const STUDIO_SLIDE_MS: f32 = 240.0;
 const WIFI_SAMPLE_MS: Millis = 5000;
 const WIFI_RETRY_MS: Millis = 60_000;
+/// slotPlus: how long Wi-Fi may stay up in a game for its achievement set, so a network
+/// that never answers can't keep the radio on for the whole session.
+const ACHIEVEMENT_WIFI_MS: Millis = 120_000;
 const WIFI_PROBE_MS: Millis = 1_000;
 const SUMMARY_WAIT_MS: f64 = 1500.0;
 const SLIP_SHUFFLE_PX: f32 = 28.0;
@@ -145,6 +158,8 @@ const LID_SHADOW_H: f32 = 18.0;
 const LID_SHADOW_DROP: f32 = 27.1;
 const LID_SHADOW_ALPHA: f32 = 0.8;
 const FACES_WAIT_MS: Millis = 1500;
+/// How far the Lynx cart lifts as it turns over on its way up.
+const HOLD_FLIP_RISE: f32 = 30.0;
 
 const ALERT_HOLD: f32 = 0.45;
 const ALERT_GONE: f32 = 0.9;
@@ -363,6 +378,9 @@ pub struct PairFaces {
 pub enum KeyboardFor {
     Password { ssid: String, hidden: bool },
     NetworkName,
+    /// slotPlus: the RetroAchievements page's account.
+    AchievementsUser,
+    AchievementsPassword,
     RommServer,
     RommPort,
 }
@@ -477,6 +495,7 @@ fn shelled(colour: [u8; 3], finish: slot_store::ShellFinish) -> Cart {
             outline: slot_store::Outline::Auto,
             colour,
             finish,
+            back: None,
         }),
     }
 }
@@ -511,6 +530,7 @@ pub struct App {
     shutdown_faces: Vec<(TexId, u32, u32)>,
     repair_faces: Vec<(TexId, u32, u32)>,
     core_picker: Option<CorePicker>,
+    hold_picker: Option<HoldPicker>,
     core_board_face: Option<TexId>,
     core_interior_face: Option<TexId>,
     core_lid_face: Option<TexId>,
@@ -569,6 +589,14 @@ pub struct App {
     platform: Platform,
     named_core: bool,
     video_mode: VideoMode,
+    /// A DS game's view of its two screens.
+    ds_view: DsView,
+    /// The DS stylus while R2 is held, and where it was last left.
+    stylus: Option<Stylus>,
+    stylus_at: (f32, f32),
+    portrait: bool,
+    /// The size of the frame the core last drew.
+    shown: (u32, u32),
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
     polaroids: Option<Polaroids>,
@@ -585,7 +613,7 @@ pub struct App {
     quick_romm_faces: [Option<[(TexId, u32, u32); 2]>; 4],
     pub romm: crate::romm::RommConf,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
-    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 3],
+    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 9],
     game_bezel: Option<TexId>,
     bezel_column: Vec<u8>,
     in_game_menu: Option<QuickRow>,
@@ -603,6 +631,12 @@ pub struct App {
     bolt: Option<TexId>,
     hud_bolt: Option<TexId>,
     slot_faces: Option<(TexId, TexId)>,
+    /// The systems with a cart slot of their own: back, front and plugged.
+    /// Each system's own cart slot, and whether its plastic is pale.
+    bespoke_slots: Vec<(Platform, [TexId; 3], bool)>,
+    /// The charging bolt in the dark and the light theme's ink, for a slot of
+    /// a system's own that keeps neither theme.
+    bolts: Option<[TexId; 2]>,
     shelf_platform: slot_ui::Printed,
     shelf_title: slot_ui::Printed,
     name_pending: bool,
@@ -621,6 +655,8 @@ pub struct App {
     power: Option<Power>,
     dozed_at: Millis,
     woke_on_press: bool,
+    /// The picture is on a TV over HDMI: the lid does nothing.
+    external_display: bool,
     autosave_at: Millis,
     resume_at: Millis,
     loading: Option<LoadingMark>,
@@ -668,6 +704,14 @@ pub struct App {
     joined_hidden: Option<(String, bool)>,
     wifi_bars: u8,
     wifi_faces: Option<[[slot_ui::NetFace; 4]; 2]>,
+    /// The RetroAchievements sync mark beside the shelf's clock.
+    achievement_sync: Option<slot_ui::SyncIndicator>,
+    /// Since when the game in play has wanted Wi-Fi for its achievement set.
+    achievement_wifi: Option<Millis>,
+    /// The RetroAchievements page's view of the card's settings.
+    achievement_settings: slot_achievements::Settings,
+    achievements_changed: bool,
+    quick_achievement_faces: [Option<[(TexId, u32, u32); 2]>; 3],
     wifi_sampled: Millis,
     wifi_scanning: bool,
     keyboard: Option<(slot_ui::Keyboard, KeyboardFor)>,
@@ -856,6 +900,11 @@ impl App {
             joined_hidden: None,
             wifi_bars: 3,
             wifi_faces: None,
+            achievement_sync: None,
+            achievement_wifi: None,
+            achievement_settings: slot_achievements::Settings::default(),
+            achievements_changed: false,
+            quick_achievement_faces: [None; 3],
             wifi_sampled: 0,
             wifi_scanning: false,
             keyboard: None,
@@ -947,6 +996,7 @@ impl App {
             shutdown_faces: Vec::new(),
             repair_faces: Vec::new(),
             core_picker: None,
+            hold_picker: None,
             core_board_face: None,
             core_interior_face: None,
             core_lid_face: None,
@@ -1005,6 +1055,11 @@ impl App {
             platform: Platform::default(),
             named_core: false,
             video_mode: VideoMode::default(),
+            ds_view: DsView::default(),
+            stylus: None,
+            stylus_at: (crate::stylus::SCREEN_W / 2.0, crate::stylus::SCREEN_H / 2.0),
+            portrait: false,
+            shown: (0, 0),
             link: None,
             sfx: None,
             polaroids: None,
@@ -1021,7 +1076,7 @@ impl App {
             quick_romm_faces: [None; 4],
             romm: crate::romm::RommConf::default(),
             quick_palette_faces: None,
-            quick_bezel_faces: [None, None, None],
+            quick_bezel_faces: [None; 9],
             game_bezel: None,
             bezel_column: Vec::new(),
             in_game_menu: None,
@@ -1039,6 +1094,8 @@ impl App {
             bolt: None,
             hud_bolt: None,
             slot_faces: None,
+            bespoke_slots: Vec::new(),
+            bolts: None,
             shelf_platform: slot_ui::Printed::default(),
             shelf_title: slot_ui::Printed::default(),
             name_pending: false,
@@ -1057,6 +1114,7 @@ impl App {
             power: None,
             dozed_at: 0,
             woke_on_press: false,
+            external_display: false,
             autosave_at: AUTOSAVE_MS,
             resume_at: RESUME_MS,
             loading: None,
@@ -1235,7 +1293,9 @@ impl App {
                     self.held_dir = Some((b, self.now() + REPEAT_DELAY_MS, 0));
                 }
             }
-            Action::GbaDown(b @ (Btn::A | Btn::B | Btn::L1 | Btn::R1)) if self.keyboard.is_some() => {
+            Action::GbaDown(b @ (Btn::A | Btn::B | Btn::L1 | Btn::R1))
+                if self.keyboard.is_some() =>
+            {
                 if self.held_dir.map(|(held, ..)| held) != Some(b) {
                     self.held_dir = Some((b, self.now() + REPEAT_DELAY_MS, 0));
                 }
@@ -1293,7 +1353,7 @@ impl App {
         match self.phase {
             Phase::SetClock { .. } => true,
             Phase::QuickMenu { .. } => vertical,
-            Phase::Shelf => vertical && self.core_picker.is_none(),
+            Phase::Shelf => vertical && !self.picker_open(),
             Phase::Polaroids { .. } if self.guide.is_some() => true,
             Phase::Polaroids { .. } => match self.shot_viewer.as_ref().map(ShotViewer::mode) {
                 Some(ShotMode::Grid) => true,
@@ -1460,8 +1520,22 @@ impl App {
     }
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
-        let no_bezel = self.playing_platform().hardware() == Platform::Gba && !self.framed_panel();
+        let platform = self.playing_platform();
+        let no_bezel = platform.hardware() == Platform::Gba && !self.framed_panel();
         let mut hidden = Vec::new();
+        // None of the added systems' cores has colour correction to set. Their
+        // bezel is None, the SP frame on a 4:3 panel, or a png of the card's own.
+        if matches!(
+            platform,
+            Platform::Ws
+                | Platform::Lynx
+                | Platform::Gg
+                | Platform::Ngp
+                | Platform::Tg16
+                | Platform::Nds
+        ) {
+            hidden.push(QuickRow::ColourCorrection);
+        }
         if !self.palette_live {
             hidden.push(QuickRow::Palette);
         }
@@ -1474,11 +1548,27 @@ impl App {
         if self.stretch_choices(self.playing_platform()).len() < 2 && !self.stretch_switch() {
             hidden.push(QuickRow::Stretch);
         }
+        // slotPlus's other cores have no frame blending to pick.
+        if Blending::choices(self.core).len() < 2 {
+            hidden.push(QuickRow::Blending);
+        }
         if self.single_cart() {
             hidden.push(QuickRow::ExitGame);
         }
-        if self.playing_platform().hardware() != Platform::Gba {
+        // L1 and R1 are the Lynx's Option 1 and 2 and the WonderSwan's Y-pad
+        // and vertical A and B, so those two keep them.
+        // The Game Gear, NeoGeo Pocket and TurboGrafx-16 have no L or R either:
+        // slot keeps L1 and R1 there to stretch the picture.
+        if matches!(
+            platform,
+            Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp | Platform::Tg16
+        ) {
             hidden.extend([QuickRow::GameL, QuickRow::GameR]);
+        }
+        // A DS game records no rewind (its states are ~6 MB each), so it
+        // offers none.
+        if platform == Platform::Nds {
+            hidden.extend([QuickRow::Rewind, QuickRow::ScRewind]);
         }
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
@@ -1589,6 +1679,18 @@ impl App {
             (QuickRow::Bezel, Platform::Gba) => QuickRow::GbaBezel,
             (QuickRow::Bezel, Platform::Gb) => QuickRow::GbBezel,
             (QuickRow::Bezel, Platform::Gbc) => QuickRow::GbcBezel,
+            (QuickRow::Shader, Platform::Ws) => QuickRow::WsShader,
+            (QuickRow::Shader, Platform::Lynx) => QuickRow::LynxShader,
+            (QuickRow::Bezel, Platform::Ws) => QuickRow::WsBezel,
+            (QuickRow::Bezel, Platform::Lynx) => QuickRow::LynxBezel,
+            (QuickRow::Shader, Platform::Gg) => QuickRow::GgShader,
+            (QuickRow::Bezel, Platform::Gg) => QuickRow::GgBezel,
+            (QuickRow::Shader, Platform::Ngp) => QuickRow::NgpShader,
+            (QuickRow::Bezel, Platform::Ngp) => QuickRow::NgpBezel,
+            (QuickRow::Shader, Platform::Tg16) => QuickRow::Tg16Shader,
+            (QuickRow::Shader, Platform::Nds) => QuickRow::NdsShader,
+            (QuickRow::Bezel, Platform::Tg16) => QuickRow::Tg16Bezel,
+            (QuickRow::Bezel, Platform::Nds) => QuickRow::NdsBezel,
             (QuickRow::Scale, Platform::Gba) => QuickRow::GbaScale,
             (QuickRow::Scale, Platform::Gb) => QuickRow::GbScale,
             (QuickRow::Scale, Platform::Gbc) => QuickRow::GbcScale,
@@ -1604,17 +1706,20 @@ impl App {
 
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
         match row {
-            QuickRow::Shader
-            | QuickRow::ColourCorrection
-            | QuickRow::PlayBrightness
+            // The in-game rows show the playing system's own row. A system
+            // with no row of its own (no colour correction on a WonderSwan,
+            // Lynx, Game Gear or NeoGeo Pocket, no Scale or Stretch off the
+            // Game Boy family) has no value to show.
+            QuickRow::Shader | QuickRow::ColourCorrection | QuickRow::Scale | QuickRow::Stretch => {
+                match self.playing_row(row) {
+                    own if own == row => None,
+                    own => self.quick_value(own),
+                }
+            }
+            QuickRow::PlayBrightness
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
-            | QuickRow::PlayContrast
-            | QuickRow::Scale => self.quick_value(self.playing_row(row)),
-            QuickRow::Stretch => match self.playing_row(row) {
-                QuickRow::Stretch => None,
-                row => self.quick_value(row),
-            },
+            | QuickRow::PlayContrast => self.quick_value(self.playing_row(row)),
             QuickRow::GbaScale => Some(scale_value(self.resolved_scale(Platform::Gba))),
             QuickRow::GbScale => Some(scale_value(self.resolved_scale(Platform::Gb))),
             QuickRow::GbcScale => Some(scale_value(self.resolved_scale(Platform::Gbc))),
@@ -1657,6 +1762,12 @@ impl App {
             QuickRow::GbaShader => Some(shader_value(self.gba_shader())),
             QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
             QuickRow::GbcShader => Some(shader_value(self.state.shader_gbc)),
+            QuickRow::WsShader => Some(shader_value(self.state.shader_ws)),
+            QuickRow::LynxShader => Some(shader_value(self.state.shader_lynx)),
+            QuickRow::GgShader => Some(shader_value(self.state.shader_gg)),
+            QuickRow::NgpShader => Some(shader_value(self.state.shader_ngp)),
+            QuickRow::Tg16Shader => Some(shader_value(self.state.shader_tg16)),
+            QuickRow::NdsShader => Some(shader_value(self.state.shader_nds)),
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
             QuickRow::LeftStick => Some(QuickValue::flag(self.state.left_stick_dpad)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.state.auto_load)),
@@ -1667,6 +1778,11 @@ impl App {
                 QuickValue::Show
             } else {
                 QuickValue::Hide
+            }),
+            QuickRow::CartSlot => Some(if self.state.bespoke_slot {
+                QuickValue::SlotBespoke
+            } else {
+                QuickValue::SlotDefault
             }),
             QuickRow::ShowTitles => Some(if self.state.show_titles {
                 QuickValue::Show
@@ -1688,12 +1804,17 @@ impl App {
                 QuickValue::Dark
             }),
             QuickRow::WifiPower => Some(QuickValue::flag(!self.state.wifi_off)),
+            QuickRow::RaEncore => Some(QuickValue::flag(self.achievement_settings.encore)),
             QuickRow::RommProtocol => Some(match self.romm.protocol {
                 crate::romm::Protocol::Https => QuickValue::Https,
                 crate::romm::Protocol::Http => QuickValue::Http,
             }),
             QuickRow::RommSelfSigned => Some(QuickValue::flag(self.romm.self_signed)),
-            QuickRow::Romm
+            QuickRow::Achievements
+            | QuickRow::RaUsername
+            | QuickRow::RaPassword
+            | QuickRow::RaMode
+            | QuickRow::Romm
             | QuickRow::RommServer
             | QuickRow::RommPort
             | QuickRow::RommPair
@@ -1730,6 +1851,18 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::WsBezel
+            | QuickRow::LynxBezel
+            | QuickRow::GgBezel
+            | QuickRow::NgpBezel
+            | QuickRow::Tg16Bezel
+            | QuickRow::NdsBezel
+            | QuickRow::ScreenWs
+            | QuickRow::ScreenLynx
+            | QuickRow::ScreenGg
+            | QuickRow::ScreenNgp
+            | QuickRow::ScreenTg16
+            | QuickRow::ScreenNds
             | QuickRow::Bezel
             | QuickRow::General
             | QuickRow::ShelfPrev
@@ -1839,9 +1972,16 @@ impl App {
 
     fn bezel_choices(&self, platform: Platform) -> Vec<BezelPick> {
         let mut choices = vec![BezelPick::None];
-        if platform.hardware() != Platform::Gba {
+        // The Game Boy, Game Boy Color, Game Gear and NeoGeo Pocket have a bundled bezel.
+        if slot_ui::has_default_game_bezel(platform) {
             choices.push(BezelPick::Default);
         }
+        // The TurboGrafx-16 has two bundled, each under its own name.
+        choices.extend(
+            slot_ui::bundled_game_bezels(platform)
+                .into_iter()
+                .map(|name| BezelPick::Bundled(name.to_string())),
+        );
         if self.framed_panel() {
             choices.push(BezelPick::Ags102);
         }
@@ -1860,6 +2000,12 @@ impl App {
             Platform::Gba | Platform::Gbav => &mut self.state.bezel_gba,
             Platform::Gb => &mut self.state.bezel_gb,
             Platform::Gbc => &mut self.state.bezel_gbc,
+            Platform::Ws => &mut self.state.bezel_ws,
+            Platform::Lynx => &mut self.state.bezel_lynx,
+            Platform::Gg => &mut self.state.bezel_gg,
+            Platform::Ngp => &mut self.state.bezel_ngp,
+            Platform::Tg16 => &mut self.state.bezel_tg16,
+            Platform::Nds => &mut self.state.bezel_nds,
         }
     }
 
@@ -1868,6 +2014,12 @@ impl App {
             Platform::Gba | Platform::Gbav => &self.state.bezel_gba,
             Platform::Gb => &self.state.bezel_gb,
             Platform::Gbc => &self.state.bezel_gbc,
+            Platform::Ws => &self.state.bezel_ws,
+            Platform::Lynx => &self.state.bezel_lynx,
+            Platform::Gg => &self.state.bezel_gg,
+            Platform::Ngp => &self.state.bezel_ngp,
+            Platform::Tg16 => &self.state.bezel_tg16,
+            Platform::Nds => &self.state.bezel_nds,
         };
         let choices = self.bezel_choices(platform);
         if choices.contains(pick) {
@@ -2199,6 +2351,14 @@ impl App {
         }
     }
 
+    /// A slotPlus mould's shadow and the board its clear carts are drawn over.
+    pub fn set_mould_textures(&mut self, mould: slot_ui::Mould, shadow: TexId, backing: TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_mould_shadow(mould, shadow);
+            shelf.set_mould_backing(mould, backing);
+        }
+    }
+
     pub fn set_gb_cart_shadows(&mut self, notched: TexId, rounded: TexId) {
         for (_, shelf) in &mut self.shelves {
             shelf.set_gb_shadow(GbShell::Notched, notched);
@@ -2235,9 +2395,88 @@ impl App {
         self.wifi_faces = Some(faces);
     }
 
+    pub fn set_achievement_sync(&mut self, icon: Option<slot_ui::SyncIndicator>) {
+        self.achievement_sync = icon;
+    }
+
+    /// The game in play is still fetching its achievement set or badges.
+    pub fn set_achievements_want_wifi(&mut self, want: bool) {
+        match (want, self.achievement_wifi) {
+            (true, None) => self.achievement_wifi = Some(self.now()),
+            (false, Some(_)) => self.achievement_wifi = None,
+            _ => {}
+        }
+    }
+
+    /// Wi-Fi stays up in a game only while its achievement set is on the way.
+    fn achievements_hold_wifi(&self) -> bool {
+        self.achievement_wifi
+            .is_some_and(|since| self.now().saturating_sub(since) < ACHIEVEMENT_WIFI_MS)
+            && self.seated_cart().is_some()
+    }
+
+    fn read_achievement_settings(&self) -> slot_achievements::Settings {
+        self.root
+            .as_deref()
+            .map(slot_achievements::Settings::read)
+            .unwrap_or_default()
+    }
+
+    /// Write a RetroAchievements change to the card, then have the service start again
+    /// with it.
+    fn save_achievements(&mut self, change: slot_achievements::Change) {
+        let Some(root) = self.root.clone() else {
+            return;
+        };
+        // A card that can't be written raises Slot's own card alarm.
+        if slot_achievements::save(&root, change).is_err() {
+            eprintln!("slot: could not write the RetroAchievements settings");
+            return;
+        }
+        self.achievement_settings = slot_achievements::Settings::read(&root);
+        self.achievements_changed = true;
+    }
+
+    fn set_encore(&mut self, on: bool) {
+        self.save_achievements(slot_achievements::Change::Encore(on));
+    }
+
+    /// The RetroAchievements page's Username, Password and Cheevo Mode values.
+    pub fn achievements_values(&self) -> [String; 3] {
+        let s = &self.achievement_settings;
+        let name = match s.username.is_empty() {
+            true => "Not Set".to_string(),
+            false => s.username.clone(),
+        };
+        let password = match (s.has_password, s.has_token) {
+            (true, _) => "Set",
+            (false, true) => "Token",
+            (false, false) => "Not Set",
+        };
+        [name, password.into(), "Casual".into()]
+    }
+
+    pub fn set_quick_achievement_faces(&mut self, faces: [Option<[(TexId, u32, u32); 2]>; 3]) {
+        self.quick_achievement_faces = faces;
+    }
+
+    /// slotPlus: menu rows shown greyed out, reached but not opened.
+    pub fn disabled_rows(&self) -> &'static [QuickRow] {
+        match crate::ACHIEVEMENTS {
+            true => &[],
+            false => &[QuickRow::Achievements],
+        }
+    }
+
+    /// Settings changed the RetroAchievements file since last asked.
+    pub fn take_achievements_changed(&mut self) -> bool {
+        std::mem::take(&mut self.achievements_changed)
+    }
+
     fn wifi_face(&self) -> Option<slot_ui::NetFace> {
         let faces = self.wifi_faces?;
-        Some(faces[usize::from(self.light())][usize::from(self.wifi_bars.min(3))])
+        // The band's ink, so the mark shows on a light Bespoke slot too.
+        Some(faces[usize::from(self.band_light())][usize::from(self.wifi_bars.min(3))])
     }
 
     pub fn set_bolt_face(&mut self, bolt: TexId) {
@@ -2246,6 +2485,79 @@ impl App {
 
     pub fn set_hud_bolt_face(&mut self, bolt: TexId) {
         self.hud_bolt = Some(bolt);
+    }
+
+    /// A system's own cart slot, shown on its shelf when Cart Slot is Bespoke.
+    pub fn set_bespoke_slot(
+        &mut self,
+        platform: Platform,
+        back: TexId,
+        front: TexId,
+        plugged: TexId,
+        light: bool,
+    ) {
+        self.bespoke_slots.retain(|(p, ..)| *p != platform);
+        self.bespoke_slots
+            .push((platform, [back, front, plugged], light));
+    }
+
+    /// The charging bolt in each theme's ink, dark first.
+    pub fn set_bolt_faces(&mut self, bolts: [TexId; 2]) {
+        self.bolts = Some(bolts);
+    }
+
+    /// The cart slot for the system in play, or on the shelf being looked at:
+    /// its own when Cart Slot is Bespoke and it has one, Slot's otherwise.
+    /// The menus' legends sit on the band, so on a pale Bespoke slot they take its dark
+    /// ink, as the battery and clock do. In a game they keep the theme's.
+    pub fn legends_light(&self) -> bool {
+        match self.phase {
+            Phase::Playing { .. } | Phase::Polaroids { .. } => self.light(),
+            _ => self.band_light(),
+        }
+    }
+
+    fn bespoke_now(&self) -> Option<([TexId; 3], bool)> {
+        if !self.state.bespoke_slot {
+            return None;
+        }
+        // A seated cart's own system; on the shelf, the shelf's. Recents and
+        // Favorites mix systems, so they keep Slot's slot.
+        let platform = match self.seated_cart() {
+            Some(cart) => cart.platform,
+            None => self.shelves[self.shelf_at].0.platform()?,
+        };
+        self.bespoke_slots
+            .iter()
+            .find(|(p, ..)| *p == platform)
+            .map(|(_, faces, light)| (*faces, *light))
+    }
+
+    /// Whether the band the battery and clock sit on is pale: the slot of the
+    /// system's own when there is one, the theme's otherwise.
+    pub fn band_light(&self) -> bool {
+        self.bespoke_now()
+            .map_or_else(|| self.light(), |(_, light)| light)
+    }
+
+    fn bolt_now(&self) -> Option<TexId> {
+        match (self.bolts, self.bespoke_now()) {
+            (Some(bolts), Some((_, light))) => Some(bolts[usize::from(light)]),
+            _ => self.bolt,
+        }
+    }
+
+    fn slot_now(&self) -> Option<(TexId, TexId)> {
+        match self.bespoke_now() {
+            Some(([back, front, _], _)) => Some((back, front)),
+            None => self.slot_faces,
+        }
+    }
+
+    fn plugged_now(&self) -> Option<TexId> {
+        self.bespoke_now()
+            .map(|([_, _, plugged], _)| plugged)
+            .or(self.plugged_face)
     }
 
     pub fn set_slot_faces(&mut self, back: TexId, front: TexId) {
@@ -2431,8 +2743,198 @@ impl App {
         self.video_mode = mode;
     }
 
+    /// A DS game's view of its screens, as it was last left.
+    pub fn set_ds_view(&mut self, view: DsView) {
+        self.ds_view = view;
+    }
+
+    pub fn ds_view(&self) -> DsView {
+        self.ds_view
+    }
+
+    /// The view drawn: while the stylus is out, the bottom screen it touches
+    /// is the main one, unless both are already shown full size.
+    fn ds_view_shown(&self) -> DsView {
+        match (self.ds_view.layout, self.stylus.is_some()) {
+            (DsLayout::Stacked, _) | (_, false) => self.ds_view,
+            (layout, true) => DsView {
+                main: DsScreen::Bottom,
+                layout,
+            },
+        }
+    }
+
+    /// The DS screens drawn, the main one and maybe the other over it.
+    pub fn ds_parts(&self) -> (DsPart, Option<DsPart>) {
+        self.ds_view_shown().parts()
+    }
+
+    /// The DS's other screen, where its layout draws one over the main one:
+    /// the part of the buffer, and where on the canvas.
+    pub fn game_inset(&self) -> Option<([f32; 4], [f32; 4])> {
+        if self.playing_platform() != Platform::Nds {
+            return None;
+        }
+        self.ds_parts().1.map(|p| (p.src, p.dst))
+    }
+
+    /// Whether the game is drawn sharp bilinear: a DS game, whose layouts
+    /// put its screens at 1.25x and 2.5x as well as 2x.
+    pub fn game_sharp(&self) -> bool {
+        self.playing_platform() == Platform::Nds
+    }
+
+    /// The PNG a DS bezel set draws for the layout on screen, while a DS
+    /// game plays.
+    pub fn ds_bezel_file(&self) -> Option<&'static str> {
+        (self.playing_platform() == Platform::Nds).then(|| self.ds_view.layout.bezel_file())
+    }
+
+    /// Swap which of a DS game's screens is the main one, L2's job.
+    pub fn swap_ds_screens(&mut self) {
+        self.ds_view = self.ds_view.swapped();
+        self.keep_ds_view();
+    }
+
+    /// Step a DS game to its next layout, SELECT + L2's job, and say which.
+    pub fn next_ds_layout(&mut self) {
+        self.ds_view = self.ds_view.next_layout();
+        self.keep_ds_view();
+        let at = self.ds_view.layout.index() as u8;
+        self.hud.toast(Toast::DsLayout(at), self.now());
+    }
+
+    fn keep_ds_view(&mut self) {
+        let (Some(root), Phase::Playing { cart }) = (self.root.clone(), &self.phase) else {
+            return;
+        };
+        let written = video_mode::write_ds_view(&root, cart, self.ds_view);
+        if let Err(e) = &written {
+            eprintln!("slot: video: could not write nds_view.txt: {e}");
+        }
+        self.card_writes.wrote("nds_view.txt", &written);
+    }
+
+    /// Take out the DS stylus (R2 down) or put it away (R2 up).
+    pub fn stylus_out(&mut self, out: bool) {
+        match (out, self.stylus) {
+            (true, None) => self.stylus = Some(Stylus::at(self.stylus_at)),
+            (false, Some(s)) => {
+                self.stylus_at = (s.x, s.y);
+                self.stylus = None;
+            }
+            _ => {}
+        }
+    }
+
+    /// Whether the stylus, being out, takes the button from the game.
+    pub fn stylus_takes(&self, btn: Btn) -> bool {
+        self.stylus.is_some() && Stylus::takes(btn)
+    }
+
+    pub fn stylus_press(&mut self, btn: Btn, down: bool) {
+        if let Some(s) = &mut self.stylus {
+            s.press(btn, down);
+        }
+    }
+
+    /// What the DS core's touch screen reads: the stylus, or nothing.
+    pub fn pointer(&self) -> Option<slot_retro::Pointer> {
+        self.stylus.map(|s| s.pointer())
+    }
+
+    /// The stylus moves with the D-pad, and goes away with the DS controls,
+    /// when a menu opens over the game or it ends.
+    fn tick_stylus(&mut self, dt: f32) {
+        if !self.ds_controls() {
+            self.stylus_out(false);
+        }
+        if let Some(s) = &mut self.stylus {
+            s.tick(dt);
+        }
+    }
+
+    /// The stylus's cursor over the bottom screen: a cross, and a dot in its
+    /// middle while it touches.
+    fn draw_stylus(&self, out: &mut Vec<Draw>) {
+        let Some(s) = self.stylus else {
+            return;
+        };
+        // Over the bottom screen, wherever the layout draws it.
+        let (main, other) = self.ds_parts();
+        let Some(bottom) = [Some(main), other]
+            .into_iter()
+            .flatten()
+            .find(|p| p.screen == DsScreen::Bottom)
+        else {
+            return;
+        };
+        let [dx, dy, dw, dh] = bottom.dst;
+        let x = dx + s.x / crate::stylus::SCREEN_W * dw;
+        let y = dy + s.y / crate::stylus::SCREEN_H * dh;
+        let (arm, thick) = (11.0, 3.0);
+        let bar = |out: &mut Vec<Draw>, w: f32, h: f32, pad: f32, colour: [f32; 4]| {
+            out.push(Draw::Rect {
+                x: x - w / 2.0 - pad,
+                y: y - h / 2.0 - pad,
+                w: w + pad * 2.0,
+                h: h + pad * 2.0,
+                colour,
+            });
+        };
+        let (dark, light) = ([0.0, 0.0, 0.0, 0.8], [1.0, 1.0, 1.0, 1.0]);
+        for (pad, colour) in [(1.5, dark), (0.0, light)] {
+            bar(out, arm * 2.0, thick, pad, colour);
+            bar(out, thick, arm * 2.0, pad, colour);
+        }
+        if s.touching {
+            bar(out, 7.0, 7.0, 1.5, dark);
+            bar(out, 7.0, 7.0, 0.0, [1.0, 0.85, 0.2, 1.0]);
+        }
+    }
+
+    /// Whether the DS's own controls are live: a DS game is playing, shown,
+    /// and no menu is over it.
+    pub fn ds_controls(&self) -> bool {
+        self.playing_platform() == Platform::Nds
+            && matches!(self.phase, Phase::Playing { .. })
+            && self.in_game_menu.is_none()
+            && self.game_visible()
+    }
+
     pub fn source_rect(&self) -> [f32; 4] {
-        self.picture().1
+        match self.playing_platform().hardware() {
+            Platform::Gba | Platform::Gb | Platform::Gbc => self.picture().1,
+            Platform::Nds => self.ds_parts().0.src,
+            _ => video_mode::source_rect_shown(
+                self.platform,
+                self.video_mode,
+                self.portrait(),
+                self.shown,
+            ),
+        }
+    }
+
+    /// Tell the app the size of the picture the core last drew. Only a
+    /// WonderSwan or Lynx game turned on its side makes it taller than wide,
+    /// and a TurboGrafx-16 game changes its width as it goes.
+    pub fn set_frame_shape(&mut self, shown: (u32, u32)) {
+        self.portrait = shown.1 > shown.0;
+        self.shown = shown;
+    }
+
+    /// Whether the core is drawing a frame taller than wide.
+    pub fn frame_is_tall(&self) -> bool {
+        self.portrait
+    }
+
+    fn portrait(&self) -> bool {
+        self.portrait && self.platform.turns()
+    }
+
+    /// Size of the video buffer the running platform's frames are in.
+    pub fn source_size(&self) -> (u32, u32) {
+        self.platform.source_size()
     }
 
     fn picture(&self) -> (Sizing, [f32; 4]) {
@@ -2453,8 +2955,10 @@ impl App {
         self.canvas().extra() > 0.0
     }
 
+    /// The shared stretch value covers the Game Boy and Game Boy Color; slotPlus's systems
+    /// keep their per-game stretch (`Config/video_mode.txt`).
     fn stretch_switch(&self) -> bool {
-        self.tall() && self.playing_platform().hardware() != Platform::Gba
+        self.tall() && matches!(self.playing_platform(), Platform::Gb | Platform::Gbc)
     }
 
     fn stretched(&self, platform: Platform) -> bool {
@@ -2487,6 +2991,7 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.scale_gba,
             Platform::Gb => self.state.scale_gb,
             Platform::Gbc => self.state.scale_gbc,
+            _ => Scale::default(),
         }
     }
 
@@ -2494,11 +2999,17 @@ impl App {
         match platform {
             Platform::Gb => self.state.stretch_gb,
             Platform::Gbc => self.state.stretch_gbc,
-            Platform::Gba | Platform::Gbav => Stretch::Classic,
+            _ => Stretch::Classic,
         }
     }
 
     pub fn game_layout(&self) -> GameLayout {
+        if self.playing_platform() == Platform::Nds {
+            return GameLayout {
+                panel: false,
+                rect: self.ds_parts().0.dst,
+            };
+        }
         let (sizing, source) = self.picture();
         self.layout_of(self.playing_platform(), sizing, source)
     }
@@ -2629,6 +3140,7 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.scale_gba = to,
             Platform::Gb => self.state.scale_gb = to,
             Platform::Gbc => self.state.scale_gbc = to,
+            _ => {}
         }
     }
 
@@ -2659,14 +3171,14 @@ impl App {
         }
     }
 
-    /// The shortcuts the input layer listens for now. Stretch On and Off only apply to
-    /// Game Boy games, so in a GBA game their keys stay free (L and R, if bound there).
+    /// The shortcuts the input layer listens for now. Stretch On and Off only apply where a
+    /// game can stretch, so in a GBA or DS game their keys stay free.
     pub fn input_entries(&self) -> Vec<slot_input::Entry> {
-        let game_boy = self.playing_platform().hardware() != Platform::Gba;
+        let stretches = stretches(self.playing_platform());
         self.binding_table()
             .entries()
             .into_iter()
-            .filter(|e| game_boy || !matches!(e.action, Action::StretchOn | Action::StretchOff))
+            .filter(|e| stretches || !matches!(e.action, Action::StretchOn | Action::StretchOff))
             .collect()
     }
 
@@ -2762,7 +3274,7 @@ impl App {
             || self.repair_prompt()
             || self.shutting_down();
         let shelf = matches!(self.phase, Phase::Shelf)
-            && self.core_picker.is_none()
+            && !self.picker_open()
             && !self.repair_prompt
             && self.reset_prompt.is_none()
             && self.studio.is_none()
@@ -2995,13 +3507,21 @@ impl App {
         self.state.turbo
     }
 
+    /// Whether rewind is recorded. Not for a DS game: its states are about
+    /// 6 MB, and taking one as often as rewind does costs the 3D games the
+    /// time they have to spare on the H700.
     pub fn records_rewind(&self) -> bool {
-        self.state.rewind
+        self.state.rewind && self.playing_platform() != Platform::Nds
     }
 
     pub fn picture_rect(&self) -> [f32; 4] {
-        let (w, h) = self.platform.picture();
-        let (sw, sh) = (slot_gfx::SRC_W as f32, slot_gfx::SRC_H as f32);
+        let picture = video_mode::picture_of(self.platform, self.shown);
+        let (w, h) = match self.portrait() {
+            true => (picture.1, picture.0),
+            false => picture,
+        };
+        let (sw, sh) = self.platform.source_size();
+        let (sw, sh) = (sw as f32, sh as f32);
         let (x, y) = ((sw - w as f32) / 2.0, (sh - h as f32) / 2.0);
         [x / sw, y / sh, (x + w as f32) / sw, (y + h as f32) / sh]
     }
@@ -3190,11 +3710,36 @@ impl App {
             Platform::Gba | Platform::Gbav => self.gba_shader(),
             Platform::Gb => self.state.shader_gb,
             Platform::Gbc => self.state.shader_gbc,
+            Platform::Ws => self.state.shader_ws,
+            Platform::Lynx => self.state.shader_lynx,
+            Platform::Gg => self.state.shader_gg,
+            Platform::Ngp => self.state.shader_ngp,
+            Platform::Tg16 => self.state.shader_tg16,
+            Platform::Nds => self.state.shader_nds,
+        }
+    }
+
+    /// The shader drawn over the game: a DS game's wherever its main screen
+    /// is drawn big enough for it, from 2x.
+    pub fn drawn_shader(&self) -> Shader {
+        match self.playing_platform() {
+            Platform::Nds if !self.ds_view_shown().shaded() => Shader::Off,
+            _ => self.screen_shader(),
         }
     }
 
     pub fn colour_correction(&self) -> bool {
         self.colour_correction_for(self.playing_platform())
+    }
+
+    /// A WonderSwan game is in the slot, so the In-Game controls page names
+    /// the turbo rows after the X and Y buttons, which it uses for more than
+    /// turbo.
+    /// Whether the game's X and Y are buttons of its own, not Turbo A and B:
+    /// a WonderSwan's, or a DS's.
+    pub fn ws_buttons(&self) -> bool {
+        self.seated_cart()
+            .is_some_and(|c| matches!(c.platform, Platform::Ws | Platform::Nds))
     }
 
     pub fn playing_platform(&self) -> Platform {
@@ -3206,6 +3751,13 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.colour_correction_gba,
             Platform::Gb => self.state.colour_correction_gb,
             Platform::Gbc => self.state.colour_correction_gbc,
+            // None of these cores has colour correction.
+            Platform::Ws
+            | Platform::Lynx
+            | Platform::Gg
+            | Platform::Ngp
+            | Platform::Tg16
+            | Platform::Nds => false,
         }
     }
 
@@ -3214,6 +3766,8 @@ impl App {
             Platform::Gba | Platform::Gbav => self.state.blending_gba,
             Platform::Gb => self.state.blending_gb,
             Platform::Gbc => self.state.blending_gbc,
+            // No frame blending on slotPlus's other systems' cores.
+            _ => Blending::Off,
         }
     }
 
@@ -3228,7 +3782,7 @@ impl App {
     pub fn status_ink(&self) -> [u8; 3] {
         match self.phase {
             Phase::Playing { .. } | Phase::Polaroids { .. } => footer_ink(false),
-            _ => footer_ink(self.light()),
+            _ => footer_ink(self.band_light()),
         }
     }
 
@@ -3454,7 +4008,20 @@ impl App {
         }
     }
 
+    /// The picture is on a TV over HDMI. Closing the lid then leaves the game
+    /// running, as the handheld is being used as a controller.
+    pub fn set_external_display(&mut self, on: bool) {
+        self.external_display = on;
+    }
+
+    pub fn external_display(&self) -> bool {
+        self.external_display
+    }
+
     pub fn apply(&mut self, action: Action) {
+        if self.external_display && matches!(action, Action::LidClose | Action::LidOpen) {
+            return;
+        }
         self.track_held_dir(action);
         match action {
             Action::LidClose => return self.doze(),
@@ -3572,11 +4139,10 @@ impl App {
         let now = self.now();
         match self.phase {
             Phase::Shelf => match action {
-                Action::SelectTap if self.core_picker.is_none() => self.open_studio(),
-                Action::GbaDown(Btn::Start) if self.core_picker.is_none() => {
-                    self.open_core_picker()
-                }
+                Action::SelectTap if !self.picker_open() => self.open_studio(),
+                Action::GbaDown(Btn::Start) if !self.picker_open() => self.open_core_picker(),
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
+                _ if self.hold_picker.is_some() => self.hold_picker_input(action),
                 Action::PreviousShelf => self.switch_shelf(-1),
                 Action::NextShelf => self.switch_shelf(1),
                 Action::Favorite => self.toggle_favorite(),
@@ -3601,10 +4167,10 @@ impl App {
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
             Phase::Playing { .. } => match action {
-                Action::StretchOn if self.playing_platform().hardware() != Platform::Gba => {
+                Action::StretchOn if stretches(self.playing_platform()) => {
                     self.set_picture(VideoMode::Stretch)
                 }
-                Action::StretchOff if self.playing_platform().hardware() != Platform::Gba => {
+                Action::StretchOff if stretches(self.playing_platform()) => {
                     self.set_picture(VideoMode::Actual)
                 }
                 Action::Eject => self.eject(),
@@ -3795,6 +4361,33 @@ impl App {
             }
             QuickRow::WifiPower => self.set_wifi_off(!self.state.wifi_off),
             QuickRow::Networks => self.open_networks(),
+            // Greyed out while RetroAchievements is switched off in this build.
+            QuickRow::Achievements if !crate::ACHIEVEMENTS => {}
+            QuickRow::Achievements => {
+                self.achievement_settings = self.read_achievement_settings();
+                self.phase = Phase::QuickMenu {
+                    row: QuickRow::ACHIEVEMENTS[0],
+                };
+            }
+            QuickRow::RaUsername => {
+                let name = self.achievement_settings.username.clone();
+                let kb = slot_ui::Keyboard::new(
+                    slot_ui::Layout::General,
+                    "RetroAchievements Username",
+                    None,
+                    &name,
+                );
+                self.keyboard = Some((kb, KeyboardFor::AchievementsUser));
+            }
+            QuickRow::RaPassword => self.open_keyboard(
+                "RetroAchievements Password",
+                Some(&self.achievement_settings.username.clone()).filter(|n| !n.is_empty()).map(String::as_str),
+                KeyboardFor::AchievementsPassword,
+                slot_ui::Layout::General,
+                "",
+            ),
+            QuickRow::RaEncore => self.set_encore(!self.achievement_settings.encore),
+            QuickRow::RaMode => {}
             QuickRow::RommProtocol | QuickRow::RommSelfSigned => self.change_setting(row, true),
             QuickRow::RommServer => {
                 let text = self.romm.server.clone();
@@ -3826,6 +4419,12 @@ impl App {
             | QuickRow::Game
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
+            | QuickRow::ScreenWs
+            | QuickRow::ScreenGg
+            | QuickRow::ScreenNgp
+            | QuickRow::ScreenTg16
+            | QuickRow::ScreenNds
+            | QuickRow::ScreenLynx
             | QuickRow::ScreenGb
             | QuickRow::Shortcuts
             | QuickRow::General
@@ -3860,12 +4459,19 @@ impl App {
             | QuickRow::GbaShader
             | QuickRow::GbShader
             | QuickRow::GbcShader
+            | QuickRow::WsShader
+            | QuickRow::LynxShader
+            | QuickRow::GgShader
+            | QuickRow::NgpShader
+            | QuickRow::Tg16Shader
+            | QuickRow::NdsShader
             | QuickRow::GbPalette
             | QuickRow::Rumble
             | QuickRow::LeftStick
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
+            | QuickRow::CartSlot
             | QuickRow::Wallpaper
             | QuickRow::WallpaperTint
             | QuickRow::Resume
@@ -3885,6 +4491,12 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::WsBezel
+            | QuickRow::LynxBezel
+            | QuickRow::GgBezel
+            | QuickRow::NgpBezel
+            | QuickRow::Tg16Bezel
+            | QuickRow::NdsBezel
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
@@ -3956,6 +4568,9 @@ impl App {
         }
         if row == QuickRow::WifiPower {
             return self.set_wifi_off(!self.state.wifi_off);
+        }
+        if row == QuickRow::RaEncore {
+            return self.set_encore(!self.achievement_settings.encore);
         }
         if row == QuickRow::Blending {
             let to = self
@@ -4033,10 +4648,25 @@ impl App {
             self.persist();
             return;
         }
-        if let QuickRow::GbaBezel | QuickRow::GbBezel | QuickRow::GbcBezel = row {
+        if let QuickRow::GbaBezel
+        | QuickRow::GbBezel
+        | QuickRow::GbcBezel
+        | QuickRow::WsBezel
+        | QuickRow::LynxBezel
+        | QuickRow::GgBezel
+        | QuickRow::NgpBezel
+        | QuickRow::Tg16Bezel
+        | QuickRow::NdsBezel = row
+        {
             let platform = match row {
                 QuickRow::GbaBezel => Platform::Gba,
                 QuickRow::GbBezel => Platform::Gb,
+                QuickRow::WsBezel => Platform::Ws,
+                QuickRow::LynxBezel => Platform::Lynx,
+                QuickRow::GgBezel => Platform::Gg,
+                QuickRow::NgpBezel => Platform::Ngp,
+                QuickRow::Tg16Bezel => Platform::Tg16,
+                QuickRow::NdsBezel => Platform::Nds,
                 _ => Platform::Gbc,
             };
             self.cycle_bezel(platform, right);
@@ -4056,6 +4686,11 @@ impl App {
         }
         if row == QuickRow::ShowTitles {
             self.state.show_titles = !self.state.show_titles;
+            self.persist();
+            return;
+        }
+        if row == QuickRow::CartSlot {
+            self.state.bespoke_slot = !self.state.bespoke_slot;
             self.persist();
             return;
         }
@@ -4119,6 +4754,48 @@ impl App {
                 }
                 s.shader_gbc = to;
             }
+            QuickRow::WsShader => {
+                let to = s.shader_ws.step(&Shader::WS, right);
+                if to == s.shader_ws {
+                    return;
+                }
+                s.shader_ws = to;
+            }
+            QuickRow::LynxShader => {
+                let to = s.shader_lynx.step(&Shader::LYNX, right);
+                if to == s.shader_lynx {
+                    return;
+                }
+                s.shader_lynx = to;
+            }
+            QuickRow::GgShader => {
+                let to = s.shader_gg.step(&Shader::GG, right);
+                if to == s.shader_gg {
+                    return;
+                }
+                s.shader_gg = to;
+            }
+            QuickRow::NgpShader => {
+                let to = s.shader_ngp.step(&Shader::NGP, right);
+                if to == s.shader_ngp {
+                    return;
+                }
+                s.shader_ngp = to;
+            }
+            QuickRow::Tg16Shader => {
+                let to = s.shader_tg16.step(&Shader::TG16, right);
+                if to == s.shader_tg16 {
+                    return;
+                }
+                s.shader_tg16 = to;
+            }
+            QuickRow::NdsShader => {
+                let to = s.shader_nds.step(&Shader::NDS, right);
+                if to == s.shader_nds {
+                    return;
+                }
+                s.shader_nds = to;
+            }
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::LeftStick => s.left_stick_dpad = !s.left_stick_dpad,
             QuickRow::AutoLoad => s.auto_load = !s.auto_load,
@@ -4151,6 +4828,7 @@ impl App {
             | QuickRow::Wallpaper
             | QuickRow::Recents
             | QuickRow::ShowTitles
+            | QuickRow::CartSlot
             | QuickRow::DateTime
             | QuickRow::About
             | QuickRow::Screen
@@ -4176,6 +4854,18 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
+            | QuickRow::WsBezel
+            | QuickRow::LynxBezel
+            | QuickRow::GgBezel
+            | QuickRow::NgpBezel
+            | QuickRow::Tg16Bezel
+            | QuickRow::NdsBezel
+            | QuickRow::ScreenWs
+            | QuickRow::ScreenLynx
+            | QuickRow::ScreenGg
+            | QuickRow::ScreenNgp
+            | QuickRow::ScreenTg16
+            | QuickRow::ScreenNds
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
@@ -4235,6 +4925,11 @@ impl App {
             | QuickRow::WifiPower
             | QuickRow::Networks
             | QuickRow::CheckUpdates
+            | QuickRow::Achievements
+            | QuickRow::RaUsername
+            | QuickRow::RaPassword
+            | QuickRow::RaMode
+            | QuickRow::RaEncore
             | QuickRow::Romm
             | QuickRow::RommProtocol
             | QuickRow::RommServer
@@ -4263,6 +4958,12 @@ impl App {
             Platform::Gba | Platform::Gbav => (&mut self.state.shader_gba, gba_shaders),
             Platform::Gb => (&mut self.state.shader_gb, &Shader::GB[..]),
             Platform::Gbc => (&mut self.state.shader_gbc, &Shader::GB[..]),
+            Platform::Ws => (&mut self.state.shader_ws, &Shader::WS[..]),
+            Platform::Lynx => (&mut self.state.shader_lynx, &Shader::LYNX[..]),
+            Platform::Gg => (&mut self.state.shader_gg, &Shader::GG[..]),
+            Platform::Ngp => (&mut self.state.shader_ngp, &Shader::NGP[..]),
+            Platform::Tg16 => (&mut self.state.shader_tg16, &Shader::TG16[..]),
+            Platform::Nds => (&mut self.state.shader_nds, &Shader::NDS[..]),
         };
         *shader = shader.step(choices, right);
         let said = match *shader {
@@ -4272,6 +4973,7 @@ impl App {
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
             Shader::Shimmerless => Toast::ShaderShimmerless,
+            Shader::Transparent => Toast::ShaderTransparent,
         };
         self.persist();
         self.hud.toast(said, self.now());
@@ -4316,6 +5018,12 @@ impl App {
                 Platform::Gba | Platform::Gbav => QuickRow::GbaColourCorrection,
                 Platform::Gb => QuickRow::GbColourCorrection,
                 Platform::Gbc => QuickRow::GbcColourCorrection,
+                Platform::Ws
+                | Platform::Lynx
+                | Platform::Gg
+                | Platform::Ngp
+                | Platform::Tg16
+                | Platform::Nds => return true,
             };
             self.change_setting(row, true);
             let said = match self.colour_correction() {
@@ -4535,6 +5243,7 @@ impl App {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
+        self.tick_stylus(dt);
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
@@ -4551,6 +5260,14 @@ impl App {
         if self.core_picker.is_some_and(|p| p.finished(now)) {
             self.core_picker = None;
         }
+        if let Some(picker) = &mut self.hold_picker {
+            if picker.waiting() && (ready || picker.waited(now) >= FACES_WAIT_MS) {
+                picker.start(now);
+            }
+        }
+        if self.hold_picker.is_some_and(|p| p.finished(now)) {
+            self.hold_picker = None;
+        }
         if !self.on_shelf() {
             self.shelf_mut().release_hold();
         }
@@ -4562,6 +5279,15 @@ impl App {
         }
         let mut touched = false;
         let at = self.shelf_at;
+        // A cart that came out upside down turns back over before it is
+        // back on the shelf.
+        let turn_back = match self
+            .seated_cart()
+            .is_some_and(|c| slot_ui::inserts_turned(c.platform))
+        {
+            true => TURN_S,
+            false => 0.0,
+        };
         let next = match &mut self.phase {
             Phase::Shelf => {
                 let shelf = &mut self.shelves[at].1;
@@ -4594,7 +5320,7 @@ impl App {
                     *t += dt;
                     touched = was < 0.0 && *t >= 0.0;
                 }
-                (*t >= EJECT_S).then_some(Phase::Shelf)
+                (*t >= EJECT_S + turn_back).then_some(Phase::Shelf)
             }
             _ => None,
         };
@@ -4751,7 +5477,12 @@ impl App {
 
     fn draw_sp_strip(&self, out: &mut Vec<Draw>) {
         let slide = self.overlay_slide();
-        let shown = self.shows_game() && self.sp_frame() && self.framed_panel() && slide > 0.0;
+        // A stretched game filling a 4:3 panel covers where the SP frame would sit.
+        let shown = self.shows_game()
+            && self.sp_frame()
+            && self.framed_panel()
+            && !self.game_fills_panel()
+            && slide > 0.0;
         let Some(tex) = self.sp_strip.filter(|_| shown) else {
             return;
         };
@@ -4782,6 +5513,20 @@ impl App {
 
     fn framed_panel(&self) -> bool {
         slot_gfx::framed(self.panel)
+    }
+
+    /// Whether the running game fills a 4:3 panel edge to edge rather than
+    /// sitting in its 3:2 window above the SP frame. A stretched game does,
+    /// once its screen is fully on, except on the Game Boy and Game Boy
+    /// Color, which keep 1.7.0's stretch, and a game turned on its side,
+    /// which always shows its whole buffer.
+    pub fn game_fills_panel(&self) -> bool {
+        self.framed_panel()
+            && self.video_mode == VideoMode::Stretch
+            && !matches!(self.platform, Platform::Gb | Platform::Gbc)
+            && !self.portrait()
+            && matches!(self.phase, Phase::Playing { .. })
+            && self.screen >= 1.0
     }
 
     fn draw_powering(&self, out: &mut Vec<Draw>) {
@@ -5164,6 +5909,24 @@ impl App {
         self.refusal.is_some_and(|r| r.active(now))
     }
 
+    /// How far a cart that goes in upside down has turned over: 0 on the
+    /// shelf, 1 from just before it goes in until just after it comes out.
+    pub fn turn(&self) -> f32 {
+        if !self
+            .seated_cart()
+            .is_some_and(|c| slot_ui::inserts_turned(c.platform))
+        {
+            return 0.0;
+        }
+        match &self.phase {
+            Phase::Shelf => 0.0,
+            Phase::Inserting { resumed: true, .. } => 1.0,
+            Phase::Inserting { t, .. } => ((t + TURN_S) / TURN_S).clamp(0.0, 1.0),
+            Phase::Ejecting { t, .. } => 1.0 - ((t - EJECT_S) / TURN_S).clamp(0.0, 1.0),
+            _ => 1.0,
+        }
+    }
+
     pub fn seat(&self) -> f32 {
         match &self.phase {
             Phase::Shelf => 0.0,
@@ -5265,13 +6028,19 @@ impl App {
                 self.draw_clock_legends(picker, *from_menu, out);
                 return;
             }
-            Phase::QuickMenu { .. } if self.keyboard.is_some() => self.draw_networks(out),
+            // slotPlus: the RetroAchievements page types its account on Slot's keyboard.
+            Phase::QuickMenu { .. } if self.draw_keyboard_screen(out) => return,
             Phase::QuickMenu { row } => QuickMenu {
                 row: *row,
                 hidden: &self.hidden_rows(),
+                disabled: self.disabled_rows(),
+                // Controls are the same for every game, so from the shelf the
+                // turbo rows keep their own names.
+                ws_buttons: false,
                 bound: Some(&self.bound_faces()),
                 description: self.description(*row),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
+                achievements: self.quick_achievement_faces,
                 clock: self.quick_clock_faces,
                 wallpaper: self.quick_wallpaper_faces,
                 networks: self.quick_network_faces,
@@ -5282,6 +6051,15 @@ impl App {
                 gba_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gba)],
                 gb_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gb)],
                 gbc_bezel: self.quick_bezel_faces[bezel_slot(Platform::Gbc)],
+                extra_bezels: [
+                    Platform::Ws,
+                    Platform::Lynx,
+                    Platform::Gg,
+                    Platform::Ngp,
+                    Platform::Tg16,
+                    Platform::Nds,
+                ]
+                .map(|p| self.quick_bezel_faces[bezel_slot(p)]),
                 bezel: None,
                 over_game: false,
                 footer_top: OUT_H as f32,
@@ -5290,9 +6068,13 @@ impl App {
             .draw(out),
             Phase::Shelf | Phase::Unwrap { .. } => {
                 self.draw_background(out);
-                match (self.core_picker_shown(), self.selected_stem()) {
-                    (Some(picker), Some(stem)) => {
-                        let open = ease(picker.openness(self.now()));
+                let openness = self
+                    .core_picker_shown()
+                    .map(|p| p.openness(self.now()))
+                    .or_else(|| self.hold_picker_shown().map(|p| p.openness(self.now())));
+                match (openness, self.selected_stem()) {
+                    (Some(openness), Some(stem)) => {
+                        let open = ease(openness);
                         let dim = 1.0 + (CORE_PICKER_DIM - 1.0) * open;
                         self.shelf().draw_row(
                             self.canvas(),
@@ -5302,12 +6084,12 @@ impl App {
                             dim,
                             out,
                         );
-                        draw_empty_slot(self.canvas(), self.slot_faces, out);
+                        draw_empty_slot(self.canvas(), self.slot_now(), out);
                     }
                     _ => {
                         if !self.draw_unwrap(out) {
                             self.shelf()
-                                .draw(self.canvas(), self.shelf_shake(), self.slot_faces, out);
+                                .draw(self.canvas(), self.shelf_shake(), self.slot_now(), out);
                         }
                         slot_ui::draw_slot_title(
                             self.canvas(),
@@ -5327,13 +6109,21 @@ impl App {
                     self.canvas(),
                     self.battery,
                     self.battery_percent,
-                    self.bolt,
+                    self.bolt_now(),
                     self.shelf_clock,
-                    footer_ink(self.light()),
+                    footer_ink(self.band_light()),
                     out,
                 );
                 if self.wifi_up() {
-                    slot_ui::draw_wifi_icon(self.canvas(), self.battery_percent, self.wifi_face(), out);
+                    slot_ui::draw_wifi_icon(
+                        self.canvas(),
+                        self.battery_percent,
+                        self.wifi_face(),
+                        out,
+                    );
+                }
+                if let Some(icon) = self.achievement_sync {
+                    slot_ui::draw_footer_sync(self.canvas(), self.shelf_clock, icon, out);
                 }
                 if let Some(picker) = self.core_picker_shown() {
                     let lift = lift_of(picker.openness(self.now()));
@@ -5387,7 +6177,10 @@ impl App {
                 self.draw_background(out);
                 self.chrome(cart, 0.0, out);
             }
-            Phase::Playing { .. } => self.push_game(out),
+            Phase::Playing { .. } => {
+                self.push_game(out);
+                self.draw_stylus(out);
+            }
             Phase::Polaroids { .. } if self.guide.is_some() => {
                 if let Some((g, _)) = &self.guide {
                     g.draw(
@@ -5455,7 +6248,10 @@ impl App {
                 bound: Some(&bound),
                 description: self.description(row),
                 hidden: &hidden,
+                disabled: &[],
+                ws_buttons: self.ws_buttons(),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
+                achievements: [None; 3],
                 clock: None,
                 wallpaper: None,
                 networks: None,
@@ -5466,6 +6262,7 @@ impl App {
                 gba_bezel: None,
                 gb_bezel: None,
                 gbc_bezel: None,
+                extra_bezels: [None; 6],
                 bezel: self.quick_bezel_faces[bezel_slot(self.playing_platform())],
                 over_game: true,
                 footer_top: OUT_H as f32 - MOUTH_H + self.menu_footer_offset(),
@@ -5488,6 +6285,9 @@ impl App {
         if let Some(picker) = self.core_picker_shown() {
             self.draw_core_picker(&picker, out);
         }
+        if let Some(picker) = self.hold_picker_shown() {
+            self.draw_hold_picker(&picker, out);
+        }
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
         }
@@ -5503,7 +6303,7 @@ impl App {
     }
 
     pub fn shelf_shake(&self) -> f32 {
-        self.shake_when(self.on_shelf() && self.core_picker.is_none(), self.now())
+        self.shake_when(self.on_shelf() && !self.picker_open(), self.now())
     }
 
     fn shake_when(&self, mine: bool, now: Millis) -> f32 {
@@ -5525,6 +6325,10 @@ impl App {
     }
 
     fn draw_menu_footer(&self, out: &mut Vec<Draw>) {
+        // The keyboard draws its own legends and slot.
+        if self.keyboard.is_some() && matches!(self.phase, Phase::QuickMenu { .. }) {
+            return;
+        }
         let carousel = matches!(self.phase, Phase::QuickMenu { .. } | Phase::About);
         let dy = if carousel {
             0.0
@@ -5536,21 +6340,21 @@ impl App {
             Phase::Playing { cart } if self.footer > 0.0 => {
                 let row = self.in_game_menu_shown().or(self.footer_row);
                 match row.is_some_and(QuickRow::binds) {
-                    true => slot_ui::draw_plugged_slot(self.canvas(), self.plugged_face, 1.0, out),
+                    true => slot_ui::draw_plugged_slot(self.canvas(), self.plugged_now(), 1.0, out),
                     false => self.draw_seated_mouth(cart, out),
                 }
                 row
             }
             Phase::QuickMenu { row } if row.binds() => {
-                slot_ui::draw_plugged_slot(self.canvas(), self.plugged_face, 1.0, out);
+                slot_ui::draw_plugged_slot(self.canvas(), self.plugged_now(), 1.0, out);
                 Some(*row)
             }
             Phase::QuickMenu { row } => {
-                draw_empty_slot(self.canvas(), self.slot_faces, out);
+                draw_empty_slot(self.canvas(), self.slot_now(), out);
                 Some(*row)
             }
             Phase::About => {
-                draw_empty_slot(self.canvas(), self.slot_faces, out);
+                draw_empty_slot(self.canvas(), self.slot_now(), out);
                 self.draw_about_legend(out);
                 return;
             }
@@ -5577,9 +6381,9 @@ impl App {
             self.canvas(),
             self.battery,
             self.battery_percent,
-            self.bolt,
+            self.bolt_now(),
             self.shelf_clock,
-            footer_ink(self.light()),
+            footer_ink(self.band_light()),
             out,
         );
         if self.wifi_up() {
@@ -5599,13 +6403,14 @@ impl App {
             rest,
             scale,
             seat: 1.0,
+            turn: self.turn(),
             alert: None,
             dim: 0.0,
             screen: 0.0,
             game: false,
             over: true,
             behind: self.shelf().behind(stem),
-            slot: self.slot_faces,
+            slot: self.slot_now(),
             canvas: self.canvas(),
         }
         .draw(out);
@@ -5644,7 +6449,7 @@ impl App {
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };
-        let [back, _, _, _, restart, ..] = match self.light() {
+        let [back, _, _, _, restart, ..] = match self.legends_light() {
             true => faces.legend_light,
             false => faces.legend,
         };
@@ -5656,7 +6461,7 @@ impl App {
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };
-        let [back, change, open, resume, _, set, clear, reset] = match self.light() {
+        let [back, change, open, resume, _, set, clear, reset] = match self.legends_light() {
             true => faces.legend_light,
             false => faces.legend,
         };
@@ -5673,6 +6478,11 @@ impl App {
             false => back,
         };
         self.draw_side_legend(left, false, y, out);
+        // Cheevo Mode has only Casual, so there is nothing to change; a greyed-out row
+        // has nothing to open.
+        if row == QuickRow::RaMode || self.disabled_rows().contains(&row) {
+            return;
+        }
         let right = if row.opens() { open } else { change };
         self.draw_side_legend(right, true, y, out);
     }
@@ -5681,7 +6491,7 @@ impl App {
         let (Some(faces), Some(clock)) = (&self.quick_menu_faces, self.clock_legends) else {
             return;
         };
-        let [back, change, open, ..] = match self.light() {
+        let [back, change, open, ..] = match self.legends_light() {
             true => faces.legend_light,
             false => faces.legend,
         };
@@ -5751,6 +6561,7 @@ impl App {
             rest,
             scale,
             seat: self.seat(),
+            turn: self.turn(),
             alert: self.alert_face.filter(|_| alpha > 0.0).map(|t| (t, alpha)),
             dim,
             screen: self.screen,
@@ -5763,7 +6574,7 @@ impl App {
                         | Phase::Ejecting { .. }
                 ),
             behind: self.shelf().behind(stem),
-            slot: self.slot_faces,
+            slot: self.slot_now(),
             canvas: self.canvas(),
         }
         .draw(out);
@@ -5891,6 +6702,140 @@ impl App {
 
     fn core_picker_shown(&self) -> Option<CorePicker> {
         self.core_picker.filter(|p| !p.waiting())
+    }
+
+    fn hold_picker_shown(&self) -> Option<HoldPicker> {
+        self.hold_picker.filter(|p| !p.waiting())
+    }
+
+    pub fn hold_picker(&self) -> Option<Hold> {
+        self.hold_picker.map(|p| p.seat())
+    }
+
+    /// The Lynx cart comes up off the shelf to the middle of the screen,
+    /// turning over on the way: front first, then its back with the sockets.
+    fn draw_hold_picker(&self, picker: &HoldPicker, out: &mut Vec<Draw>) {
+        let now = self.now();
+        let progress = ease(picker.openness(now));
+        let (cw, ch) = slot_ui::cart_box(Platform::Lynx);
+        let (cw, ch) = (cw as f32, ch as f32);
+        let (rest_x, scale) = self.shelf().selected_at(self.canvas());
+        let from = Placed {
+            x: rest_x,
+            y: slot_ui::foot_y(ch) - ch * scale,
+            w: cw * scale,
+            h: ch * scale,
+        };
+        let to = Placed {
+            x: self.canvas().centred(cw),
+            y: ((HOLD_CART_FOOT - ch) / 2.0).round(),
+            w: cw,
+            h: ch,
+        };
+        let at = Placed {
+            x: from.x + (to.x - from.x) * progress,
+            y: from.y + (to.y - from.y) * progress
+                - HOLD_FLIP_RISE * (std::f32::consts::PI * progress).sin(),
+            w: from.w + (to.w - from.w) * progress,
+            h: from.h + (to.h - from.h) * progress,
+        };
+        // Turning over: the cart narrows to an edge halfway and widens again
+        // showing its back.
+        let squeeze = (std::f32::consts::PI * progress).cos();
+        let seen = squeeze.abs().max(0.02);
+        let drawn = Placed {
+            x: at.x + at.w * (1.0 - seen) / 2.0,
+            w: at.w * seen,
+            ..at
+        };
+        let ready = self.core_faces_ready();
+        let shown_back = squeeze < 0.0;
+        if shown_back && ready {
+            if let Some(tex) = self.core_board_face {
+                out.push(Draw::Tex {
+                    x: drawn.x,
+                    y: drawn.y,
+                    w: drawn.w,
+                    h: drawn.h,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+            self.draw_hold_chip(picker, drawn, cw, out);
+        } else {
+            let front = match ready {
+                true => self.core_lid_face.map(|tex| (tex, TURN_PAD as f32)),
+                false => self
+                    .selected_stem()
+                    .and_then(|stem| self.shelf().find(stem))
+                    .and_then(|(_, tex)| tex)
+                    .map(|tex| (tex, 0.0)),
+            };
+            if let Some((tex, pad)) = front {
+                let k = drawn.w / cw;
+                let pad_x = pad * k;
+                let pad_y = pad * drawn.h / ch;
+                out.push(Draw::Tex {
+                    x: drawn.x - pad_x,
+                    y: drawn.y - pad_y,
+                    w: drawn.w + 2.0 * pad_x,
+                    h: drawn.h + 2.0 * pad_y,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+        }
+        // Cancel, the four-way Swap and Choose, along the foot as the core picker's are.
+        if let [cancel, _, choose, swap, ..] =
+            self.core_legend_faces[self.light() as usize].as_slice()
+        {
+            self.draw_spread_legends(&[*cancel, *swap, *choose], LINK_LEGEND_Y, progress, out);
+        }
+    }
+
+    /// The chip on the back of the Lynx cart, seated in its socket or hopping
+    /// between two, squeezed with the cart while it turns.
+    fn draw_hold_chip(&self, picker: &HoldPicker, back: Placed, cart_w: f32, out: &mut Vec<Draw>) {
+        let chip = picker.chip(self.now());
+        let (fx, fy) = slot_ui::hold_chip_at(chip.from.index());
+        let (tx, ty) = slot_ui::hold_chip_at(chip.to.index());
+        let (u, v) = (fx + (tx - fx) * chip.t, fy + (ty - fy) * chip.t);
+        let kx = back.w / cart_w;
+        let ky = back.h / slot_ui::cart_box(Platform::Lynx).1 as f32;
+        if chip.lift > 0.0 {
+            if let Some(tex) = self.core_chip_shadow_face {
+                let (w, h) = (SHADOW_W as f32 * kx, SHADOW_H as f32 * ky);
+                let cx = back.x + (u + CHIP_W as f32 / 2.0) * kx;
+                let cy = back.y + (v + CHIP_H as f32 - 4.0) * ky;
+                out.push(Draw::Tex {
+                    x: cx - w / 2.0,
+                    y: cy - h / 2.0,
+                    w,
+                    h,
+                    tex,
+                    alpha: 0.6 * chip.lift,
+                });
+            }
+        }
+        let Some(tex) = self.core_blank_chip_face else {
+            return;
+        };
+        let body = Placed {
+            x: back.x + u * kx + chip.shake,
+            y: back.y + (v - HOP_LIFT * chip.lift) * ky,
+            w: CHIP_W as f32 * kx,
+            h: CHIP_H as f32 * ky,
+        };
+        let at = grown(body, TURN_PAD as f32 * kx);
+        out.push(Draw::Turned {
+            x: at.x.round(),
+            y: at.y.round(),
+            w: at.w,
+            h: at.h,
+            tex,
+            alpha: 1.0,
+            turn: chip.tip,
+        });
     }
 
     fn draw_lid_shadow(
@@ -6079,9 +7024,10 @@ impl App {
 
         slot_gfx::shift(&mut out[first..], self.canvas().extra() / 2.0);
 
+        // The first three: the fourth is the Lynx hold picker's four-way Swap.
         let legends = &self.core_legend_faces[self.light() as usize];
-        if !legends.is_empty() {
-            self.draw_spread_legends(legends, self.legend_y(), lift, out);
+        if legends.len() >= 3 {
+            self.draw_spread_legends(&legends[..3], self.legend_y(), lift, out);
         }
     }
 
@@ -6228,9 +7174,9 @@ impl App {
             return;
         }
         let at = self.shelf().index;
-        let Some(cart) = self.shelf_mut().carts.get_mut(at).map(|c| {
+        let Some((cart, platform)) = self.shelf_mut().carts.get_mut(at).map(|c| {
             c.read_header();
-            c.stem.clone()
+            (c.stem.clone(), c.platform)
         }) else {
             return;
         };
@@ -6248,9 +7194,14 @@ impl App {
             self.marked = true;
             self.playing_since = None;
         }
+        // A cart that goes in upside down turns over first.
+        let t = match slot_ui::inserts_turned(platform) {
+            true => -TURN_S,
+            false => 0.0,
+        };
         self.phase = Phase::Inserting {
             cart,
-            t: 0.0,
+            t,
             core_ready: false,
             resumed: false,
             clean,
@@ -6366,6 +7317,7 @@ impl App {
         }
         self.close_game_menu();
         self.core_picker = None;
+        self.hold_picker = None;
         self.keyboard = None;
         self.forget_prompt = false;
         self.shot_wanted = false;
@@ -6456,6 +7408,22 @@ impl App {
         let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
             return;
         };
+        if cart.platform == Platform::Lynx {
+            let seat = hold_picker::hold_for(&root, &cart.stem, &cart.rom);
+            let now = self.now();
+            let mut picker = HoldPicker::open(seat, now);
+            if self.core_faces_ready() {
+                picker.start(now);
+            }
+            self.hold_picker = Some(picker);
+            self.shelf_mut().release_hold();
+            self.play_held = None;
+            return;
+        }
+        // slotPlus: a system with one core has nothing to pick.
+        if Core::choices(cart.platform).len() < 2 {
+            return;
+        }
         let seat =
             slot_store::core_for_platform(&root, &cart.stem, cart.platform, self.state.gb_core);
         let now = self.now();
@@ -6466,6 +7434,41 @@ impl App {
         self.core_picker = Some(picker);
         self.shelf_mut().release_hold();
         self.play_held = None;
+    }
+
+    fn picker_open(&self) -> bool {
+        self.core_picker.is_some() || self.hold_picker.is_some()
+    }
+
+    fn hold_picker_input(&mut self, action: Action) {
+        use hold_picker::{Outcome as HoldOutcome, Press as HoldPress};
+        let press = match action {
+            Action::GbaDown(Btn::Up) => HoldPress::Toward(Hold::Upright),
+            Action::GbaDown(Btn::Left) | Action::ShelfLeft => HoldPress::Toward(Hold::Left),
+            Action::GbaDown(Btn::Right) | Action::ShelfRight => HoldPress::Toward(Hold::Right),
+            Action::GbaDown(Btn::Down) => HoldPress::Toward(Hold::Flipped),
+            Action::GbaDown(Btn::A) => HoldPress::Keep,
+            Action::GbaDown(Btn::B) => HoldPress::Back,
+            _ => return,
+        };
+        let now = self.now();
+        let Some(picker) = &mut self.hold_picker else {
+            return;
+        };
+        if let HoldOutcome::Write(hold) = picker.press(press, now) {
+            let (Some(root), Some(cart)) = (
+                self.root.clone(),
+                self.shelf().carts.get(self.shelf().index),
+            ) else {
+                return;
+            };
+            if let Err(e) = hold_picker::write_hold(&root, &cart.stem, hold) {
+                eprintln!(
+                    "slot: lynx: could not write {}: {e}",
+                    hold_picker::LYNX_HOLD_FILE
+                );
+            }
+        }
     }
 
     fn core_faces_ready(&self) -> bool {
@@ -6497,6 +7500,12 @@ impl App {
             return;
         }
         if self.link_active() {
+            return self.refuse();
+        }
+        if matches!(
+            self.core,
+            Core::Cygne | Core::Lynx | Core::Gearsystem | Core::Ngp | Core::Pce
+        ) {
             return self.refuse();
         }
         if !self.has_wifi_hardware() {
@@ -6589,11 +7598,16 @@ impl App {
         let wifi = self.wifi_up();
         let shelf = self.shelf();
         let picked = shelf.carts.get(shelf.index).cloned();
-        if picked.as_ref().is_some_and(|c| self.studio_saving.as_deref() == Some(c.stem.as_str())) {
+        if picked
+            .as_ref()
+            .is_some_and(|c| self.studio_saving.as_deref() == Some(c.stem.as_str()))
+        {
             return;
         }
         let face = shelf.face(shelf.index);
-        let under = picked.as_ref().map_or([None; 2], |cart| shelf.behind(&cart.stem));
+        let under = picked
+            .as_ref()
+            .map_or([None; 2], |cart| shelf.behind(&cart.stem));
         if let Some(cart) = picked {
             self.studio_from = crate::studio_view::shelf_rect(self.canvas().w, &cart);
             self.studio_shelf_face = face;
@@ -6715,6 +7729,14 @@ impl App {
     }
 
     fn wifi_wanted(&self) -> bool {
+        if self.achievements_hold_wifi()
+            && !self.link_active()
+            && !self.shutting_down()
+            && !self.state.wifi_off
+            && self.has_saved()
+        {
+            return true;
+        }
         let screen = matches!(
             self.phase,
             Phase::Shelf
@@ -6984,10 +8006,15 @@ impl App {
         wanted
     }
 
-    pub fn set_studio_text(&mut self, key: (String, crate::studio_view::Style), face: (TexId, u32, u32)) {
+    pub fn set_studio_text(
+        &mut self,
+        key: (String, crate::studio_view::Style),
+        face: (TexId, u32, u32),
+    ) {
         if key.0.len() == 7 && key.0.starts_with('#') {
             if let Some(old) = self.studio_hex.replace(key.clone()) {
-                self.orphaned.extend(self.studio_text.remove(&old).map(|f| f.0));
+                self.orphaned
+                    .extend(self.studio_text.remove(&old).map(|f| f.0));
             }
         }
         self.studio_text.insert(key, face);
@@ -7040,7 +8067,14 @@ impl App {
             Align::Center => x - w / 2.0,
             Align::Right => x - w + pad,
         };
-        out.push(Draw::Tex { x: x.floor(), y, w, h, tex, alpha });
+        out.push(Draw::Tex {
+            x: x.floor(),
+            y,
+            w,
+            h,
+            tex,
+            alpha,
+        });
     }
 
     fn draw_studio(&self, out: &mut Vec<Draw>) {
@@ -7058,9 +8092,14 @@ impl App {
         let since = self.studio_closing.unwrap_or(self.studio_opened);
         let t = (self.now().saturating_sub(since) as f32 / STUDIO_SLIDE_MS).min(1.0);
         if self.studio_closing.is_some() || t < 1.0 {
-            let e = if self.studio_closing.is_some() { 1.0 - ease(t) } else { ease(t) };
+            let e = if self.studio_closing.is_some() {
+                1.0 - ease(t)
+            } else {
+                ease(t)
+            };
             self.draw_background(out);
-            self.shelf().draw_row(canvas, Some(&studio.cart.stem), 0.0, 0.0, 1.0, out);
+            self.shelf()
+                .draw_row(canvas, Some(&studio.cart.stem), 0.0, 0.0, 1.0, out);
             self.draw_studio_ground((e - 1.0) * self.canvas().h, out);
             let first = out.len();
             self.draw_studio_cart(out);
@@ -7072,18 +8111,39 @@ impl App {
             match item {
                 Item::Cart => self.draw_studio_cart(out),
                 Item::Sheet => self.draw_studio_sheet(out),
-                Item::Text { text, style, align, x, y, alpha, scale } => {
-                    self.studio_put_text(text, *style, *align, *x, *y, *alpha, *scale, out)
-                }
-                Item::Rect { x, y, w, h, color } => {
-                    out.push(Draw::Rect { x: *x, y: *y, w: *w, h: *h, colour: *color })
-                }
-                Item::Chip { cell, row, x, y, selected } => {
-                    self.draw_studio_chip(*cell, *row, *x, *y, *selected, out)
-                }
+                Item::Text {
+                    text,
+                    style,
+                    align,
+                    x,
+                    y,
+                    alpha,
+                    scale,
+                } => self.studio_put_text(text, *style, *align, *x, *y, *alpha, *scale, out),
+                Item::Rect { x, y, w, h, color } => out.push(Draw::Rect {
+                    x: *x,
+                    y: *y,
+                    w: *w,
+                    h: *h,
+                    colour: *color,
+                }),
+                Item::Chip {
+                    cell,
+                    row,
+                    x,
+                    y,
+                    selected,
+                } => self.draw_studio_chip(*cell, *row, *x, *y, *selected, out),
                 Item::Dot { x, y, size, alpha } => {
                     if let Some(disc) = self.studio_disc {
-                        out.push(Draw::Tex { x: *x, y: *y, w: *size, h: *size, tex: disc, alpha: *alpha });
+                        out.push(Draw::Tex {
+                            x: *x,
+                            y: *y,
+                            w: *size,
+                            h: *size,
+                            tex: disc,
+                            alpha: *alpha,
+                        });
                     }
                 }
             }
@@ -7102,7 +8162,15 @@ impl App {
         self.draw_studio_legends(studio, out);
     }
 
-    fn draw_studio_chip(&self, cell: u32, row: u32, x: f32, y: f32, selected: bool, out: &mut Vec<Draw>) {
+    fn draw_studio_chip(
+        &self,
+        cell: u32,
+        row: u32,
+        x: f32,
+        y: f32,
+        selected: bool,
+        out: &mut Vec<Draw>,
+    ) {
         let Some((tex, w, h)) = self.studio_chips else {
             return;
         };
@@ -7110,7 +8178,14 @@ impl App {
         let grow = if selected { 3.0 } else { 0.0 };
         if let (true, Some(disc)) = (selected, self.studio_disc) {
             let ring = size + 2.0 * grow + 6.0;
-            out.push(Draw::Tex { x: x - grow - 3.0, y: y - grow - 3.0, w: ring, h: ring, tex: disc, alpha: 1.0 });
+            out.push(Draw::Tex {
+                x: x - grow - 3.0,
+                y: y - grow - 3.0,
+                w: ring,
+                h: ring,
+                tex: disc,
+                alpha: 1.0,
+            });
         }
         let cell_w = crate::studio_faces::CHIP as f32 / w as f32;
         let cell_h = crate::studio_faces::CHIP as f32 / h as f32;
@@ -7173,14 +8248,22 @@ impl App {
     fn draw_studio_cart(&self, out: &mut Vec<Draw>) {
         let since = self.studio_closing.unwrap_or(self.studio_opened);
         let t = (self.now().saturating_sub(since) as f32 / STUDIO_SLIDE_MS).min(1.0);
-        let e = if self.studio_closing.is_some() { 1.0 - ease(t) } else { ease(t) };
+        let e = if self.studio_closing.is_some() {
+            1.0 - ease(t)
+        } else {
+            ease(t)
+        };
         let (from, to) = (self.studio_from, self.studio_cart_rect());
         let at = |i: usize| from[i] + (to[i] - from[i]) * e;
         let rect = [at(0), at(1), at(2), at(3)];
         let centre = [rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0];
-        let corners =
-            crate::studio_view::turned(rect, centre, crate::studio_view::CART_TILT * e);
-        let quad = |tex: TexId| Draw::Quad { corners, tex, uv: [0.0, 0.0, 1.0, 1.0], alpha: 1.0 };
+        let corners = crate::studio_view::turned(rect, centre, crate::studio_view::CART_TILT * e);
+        let quad = |tex: TexId| Draw::Quad {
+            corners,
+            tex,
+            uv: [0.0, 0.0, 1.0, 1.0],
+            alpha: 1.0,
+        };
         let Some(tex) = &self.studio_tex else {
             for under in self.studio_shelf_under.into_iter().flatten() {
                 out.push(quad(under));
@@ -7229,7 +8312,12 @@ impl App {
                     ],
                 ),
             };
-            out.push(Draw::Quad { corners: strip.corners, tex: t, uv, alpha: 1.0 });
+            out.push(Draw::Quad {
+                corners: strip.corners,
+                tex: t,
+                uv,
+                alpha: 1.0,
+            });
         }
     }
 
@@ -7262,7 +8350,13 @@ impl App {
         let cart = crate::studio_view::turned([x, y, w, h], centre, tilt);
         let seat = crate::studio_view::turned(rect, centre, tilt)[0];
         let (dx, dy) = (seat[0] - rect[0], seat[1] - rect[1]);
-        let seated = Pose { x: dx, y: dy, z: 0.0, turn_deg: tilt, scale: 1.0 };
+        let seated = Pose {
+            x: dx,
+            y: dy,
+            z: 0.0,
+            turn_deg: tilt,
+            scale: 1.0,
+        };
         let pose_at = |p: f32| {
             let arc = (p * std::f32::consts::PI).sin();
             Pose {
@@ -7279,7 +8373,12 @@ impl App {
             return;
         };
         if !top {
-            out.push(Draw::Quad { corners: cart, tex: tex.bare, uv: [0.0, 0.0, 1.0, 1.0], alpha: 1.0 });
+            out.push(Draw::Quad {
+                corners: cart,
+                tex: tex.bare,
+                uv: [0.0, 0.0, 1.0, 1.0],
+                alpha: 1.0,
+            });
             return;
         }
         let stick = |t: TexId, flat: f32, curl: f32, pose: Pose, out: &mut Vec<Draw>| {
@@ -7310,7 +8409,13 @@ impl App {
     fn draw_studio_ground(&self, top: f32, out: &mut Vec<Draw>) {
         let w = self.canvas().w;
         let h = self.canvas().h;
-        out.push(Draw::Rect { x: 0.0, y: top, w, h, colour: [0.122, 0.267, 0.216, 1.0] });
+        out.push(Draw::Rect {
+            x: 0.0,
+            y: top,
+            w,
+            h,
+            colour: [0.122, 0.267, 0.216, 1.0],
+        });
         let line = |x: f32, y: f32, w: f32, h: f32, a: f32| Draw::Rect {
             x,
             y,
@@ -7350,7 +8455,14 @@ impl App {
             h,
             colour: [0.0, 0.0, 0.0, 0.4],
         });
-        out.push(Draw::Tex { x, y, w, h, tex: liner, alpha: 1.0 });
+        out.push(Draw::Tex {
+            x,
+            y,
+            w,
+            h,
+            tex: liner,
+            alpha: 1.0,
+        });
         let (Some(kind), Some(tex)) = (kind, &self.studio_tex) else {
             return;
         };
@@ -7428,7 +8540,11 @@ impl App {
             rest(out);
         }
         for slip in slips().filter(|s| held(s)) {
-            let zoom = if piled { 1.0 } else { crate::studio::slip_zoom(elapsed) };
+            let zoom = if piled {
+                1.0
+            } else {
+                crate::studio::slip_zoom(elapsed)
+            };
             let (w, h) = (t.slip_w * zoom, t.slip_h * zoom);
             let x = t.x - apart - (w - t.slip_w) / 2.0;
             let y = TRAY_TOP + slip.y(now) - (h - t.slip_h) / 2.0;
@@ -7457,8 +8573,8 @@ impl App {
             self.draw_slip(kind, TRAY_TOP + scene.used_y, shift, 1.0, out);
         }
         let printing = self.studio_slips.iter().find(|s| s.printing(now));
-        let travel = self.studio_prints as f32 * t.slip_h
-            + printing.map_or(0.0, |s| s.y(now) - s.y1);
+        let travel =
+            self.studio_prints as f32 * t.slip_h + printing.map_or(0.0, |s| s.y(now) - s.y1);
         if let Some(liner) = self.studio_liner {
             let tile = 60.0 / 121.0;
             out.push(Draw::Part {
@@ -7468,11 +8584,22 @@ impl App {
                 h: 24.0,
                 tex: liner,
                 alpha: 1.0,
-                uv: [0.0, 1.0 - tile - (travel.rem_euclid(60.0) / 121.0), 1.0, 24.0 / 121.0],
+                uv: [
+                    0.0,
+                    1.0 - tile - (travel.rem_euclid(60.0) / 121.0),
+                    1.0,
+                    24.0 / 121.0,
+                ],
             });
         }
         let (px, pw) = (t.printer_x, t.printer_w);
-        out.push(Draw::Rect { x: px, y: 20.0, w: pw, h: 34.0, colour: [0.0, 0.0, 0.0, 0.45] });
+        out.push(Draw::Rect {
+            x: px,
+            y: 20.0,
+            w: pw,
+            h: 34.0,
+            colour: [0.0, 0.0, 0.0, 0.45],
+        });
         if let Some(body) = self.studio_printer {
             out.push(Draw::Part {
                 x: px,
@@ -7546,7 +8673,12 @@ impl App {
     }
 
     fn finish_studio_write(&mut self, wait: bool) {
-        if !wait && self.studio_write.as_ref().is_some_and(|w| !w.0.is_finished()) {
+        if !wait
+            && self
+                .studio_write
+                .as_ref()
+                .is_some_and(|w| !w.0.is_finished())
+        {
             return;
         }
         let Some((write, undo)) = self.studio_write.take() else {
@@ -7579,7 +8711,9 @@ impl App {
             if studio.recolored() && studio.wearing_text() {
                 let mut edited = studio.cart.clone();
                 edited.shell = studio.shell;
-                let png = studio.ground.map(|c| crate::art::make::text_label(&edited, c));
+                let png = studio
+                    .ground
+                    .map(|c| crate::art::make::text_label(&edited, c));
                 let path = crate::art::make::label_path(&root, &studio.cart);
                 let _ = match &png {
                     Some(png) => crate::art::make::relabel(&root, &studio.cart, png),
@@ -7613,7 +8747,11 @@ impl App {
         }
         let now = self.now();
         let (last, at, run) = self.studio_repeat;
-        let run = if last == Some(btn) && now.saturating_sub(at) < 300 { run + 1 } else { 0 };
+        let run = if last == Some(btn) && now.saturating_sub(at) < 300 {
+            run + 1
+        } else {
+            0
+        };
         self.studio_repeat = (Some(btn), now, run);
         let Some(studio) = &mut self.studio else {
             return;
@@ -7789,7 +8927,10 @@ impl App {
 
     pub fn fetch_featured_ready(&self) -> bool {
         match &self.fetch_art {
-            Some(FetchArt::Summary { featured: Some(cart), .. }) => self
+            Some(FetchArt::Summary {
+                featured: Some(cart),
+                ..
+            }) => self
                 .fetch_tex
                 .iter()
                 .any(|(p, s, _)| *p == cart.platform && *s == cart.stem),
@@ -7888,10 +9029,22 @@ impl App {
         let top = ((room - (2.0 * LINE_H + BAR_H + 2.0 * GAP)) / 2.0).floor();
         let (x, y) = ((mid - BAR_W / 2.0).floor(), top + LINE_H + GAP);
         self.draw_fetch_text(0, mid, top, out);
-        out.push(Draw::Rect { x, y, w: BAR_W, h: BAR_H, colour: [1.0, 1.0, 1.0, 0.2] });
+        out.push(Draw::Rect {
+            x,
+            y,
+            w: BAR_W,
+            h: BAR_H,
+            colour: [1.0, 1.0, 1.0, 0.2],
+        });
         let filled = done.min(total) as f32 / total.max(1) as f32;
         if filled > 0.0 {
-            out.push(Draw::Rect { x, y, w: BAR_W * filled, h: BAR_H, colour: [1.0, 1.0, 1.0, 1.0] });
+            out.push(Draw::Rect {
+                x,
+                y,
+                w: BAR_W * filled,
+                h: BAR_H,
+                colour: [1.0, 1.0, 1.0, 1.0],
+            });
         }
         self.draw_fetch_text(1, mid, y + BAR_H + GAP, out);
     }
@@ -7973,9 +9126,23 @@ impl App {
             let (w, h) = (tex.w as f32 * scale, tex.h as f32 * scale);
             let (x, y) = (MARGIN + (COLUMN - w) / 2.0, ((ground - h) / 2.0).floor());
             for under in tex.under.into_iter().flatten() {
-                out.push(Draw::Tex { x, y, w, h, tex: under, alpha: 1.0 });
+                out.push(Draw::Tex {
+                    x,
+                    y,
+                    w,
+                    h,
+                    tex: under,
+                    alpha: 1.0,
+                });
             }
-            out.push(Draw::Tex { x, y, w, h, tex: tex.done, alpha: 1.0 });
+            out.push(Draw::Tex {
+                x,
+                y,
+                w,
+                h,
+                tex: tex.done,
+                alpha: 1.0,
+            });
         }
         let rows = (self.fetch_text.len().saturating_sub(1) / 2) as f32;
         let block = 64.0 + rows * ROW;
@@ -7984,10 +9151,24 @@ impl App {
         for row in 0..rows as usize {
             let y = top + 64.0 + row as f32 * ROW;
             if let Some(&(tex, w, h)) = self.fetch_text.get(1 + row * 2) {
-                out.push(Draw::Tex { x: left, y, w: w as f32, h: h as f32, tex, alpha: 1.0 });
+                out.push(Draw::Tex {
+                    x: left,
+                    y,
+                    w: w as f32,
+                    h: h as f32,
+                    tex,
+                    alpha: 1.0,
+                });
             }
             if let Some(&(tex, w, h)) = self.fetch_text.get(2 + row * 2) {
-                out.push(Draw::Tex { x: right - w as f32, y, w: w as f32, h: h as f32, tex, alpha: 1.0 });
+                out.push(Draw::Tex {
+                    x: right - w as f32,
+                    y,
+                    w: w as f32,
+                    h: h as f32,
+                    tex,
+                    alpha: 1.0,
+                });
             }
         }
     }
@@ -8000,7 +9181,10 @@ impl App {
         };
         self.draw_fetch_text(1, self.canvas().w / 2.0, 72.0, out);
         let [left, right] = crate::fetch_art::choice_xs(self.canvas().w);
-        for (i, (x, kind)) in [(left, ArtKind::Real), (right, ArtKind::Logo)].into_iter().enumerate() {
+        for (i, (x, kind)) in [(left, ArtKind::Real), (right, ArtKind::Logo)]
+            .into_iter()
+            .enumerate()
+        {
             let (tex, w, h) = faces[i];
             let (w, h) = (w as f32 * SCALE, h as f32 * SCALE);
             let on = kind == pick;
@@ -8028,16 +9212,40 @@ impl App {
         let (scale, well) = match scene.cart.platform {
             Platform::Gba | Platform::Gbav => (
                 1.0,
-                [slot_ui::LABEL_X, slot_ui::LABEL_Y, slot_ui::LABEL_W, slot_ui::LABEL_H],
+                [
+                    slot_ui::LABEL_X,
+                    slot_ui::LABEL_Y,
+                    slot_ui::LABEL_W,
+                    slot_ui::LABEL_H,
+                ],
             ),
             Platform::Gb => (
                 0.72,
-                [slot_ui::GB_LABEL_X, slot_ui::GB_LABEL_Y, slot_ui::GB_LABEL_W, slot_ui::GB_LABEL_H],
+                [
+                    slot_ui::GB_LABEL_X,
+                    slot_ui::GB_LABEL_Y,
+                    slot_ui::GB_LABEL_W,
+                    slot_ui::GB_LABEL_H,
+                ],
             ),
             Platform::Gbc => (
                 0.72,
-                [slot_ui::GBC_LABEL_X, slot_ui::GBC_LABEL_Y, slot_ui::GBC_LABEL_W, slot_ui::GBC_LABEL_H],
+                [
+                    slot_ui::GBC_LABEL_X,
+                    slot_ui::GBC_LABEL_Y,
+                    slot_ui::GBC_LABEL_W,
+                    slot_ui::GBC_LABEL_H,
+                ],
             ),
+            // slotPlus's carts, at about the Game Boy pak's size.
+            other => {
+                let (w, h) = slot_ui::platform_art_size(other);
+                (
+                    ((slot_ui::GB_CART_W * slot_ui::GB_CART_H) as f32 / (w * h) as f32).sqrt()
+                        * 0.72,
+                    slot_ui::platform_label_well(other),
+                )
+            }
         };
         let (fw, fh) = (tex.w as f32, tex.h as f32);
         let (w, h) = (fw * scale, fh * scale);
@@ -8074,7 +9282,11 @@ impl App {
         };
         let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
         let (stage, p) = stage_at(self.now() as f64 - scene.started_ms);
-        let sticker = |t: TexId, flat: f32, curl: f32, pose: slot_ui::sticker_curl::Pose, out: &mut Vec<Draw>| {
+        let sticker = |t: TexId,
+                       flat: f32,
+                       curl: f32,
+                       pose: slot_ui::sticker_curl::Pose,
+                       out: &mut Vec<Draw>| {
             let focus = [self.canvas().w / 2.0, 240.0];
             for strip in slot_ui::sticker_curl::strips(rect, flat, curl, &pose, focus) {
                 let (tex, uv) = match (strip.back, self.fetch_paper) {
@@ -8139,7 +9351,11 @@ impl App {
         }
     }
 
-    pub fn cart_shells(&self, platform: Platform, stem: &str) -> Vec<Option<slot_store::ShellChoice>> {
+    pub fn cart_shells(
+        &self,
+        platform: Platform,
+        stem: &str,
+    ) -> Vec<Option<slot_store::ShellChoice>> {
         self.shelves
             .iter()
             .flat_map(|(_, shelf)| shelf.carts.iter())
@@ -8254,17 +9470,18 @@ impl App {
         }
         let now = self.now() as f64;
         let playable: Vec<(Platform, String)> = match &self.fetch_art {
-            Some(FetchArt::Running(run)) if !run.queue.is_empty() => self
-                .carts()
-                .map(|c| (c.platform, c.stem.clone()))
-                .collect(),
+            Some(FetchArt::Running(run)) if !run.queue.is_empty() => {
+                self.carts().map(|c| (c.platform, c.stem.clone())).collect()
+            }
             _ => Vec::new(),
         };
         let Some(FetchArt::Running(run)) = &mut self.fetch_art else {
             return;
         };
         let unplayable = run.drop_unplayable(&|l: &ArtLanded| {
-            playable.iter().any(|(p, s)| *p == l.platform && *s == l.stem)
+            playable
+                .iter()
+                .any(|(p, s)| *p == l.platform && *s == l.stem)
         });
         self.fetch_landed.extend(unplayable);
         let Some(FetchArt::Running(run)) = &mut self.fetch_art else {
@@ -8288,9 +9505,10 @@ impl App {
             };
             run.closing = picked.cloned().map(|cart| (cart, now));
         }
-        let waiting = run.closing.as_ref().is_some_and(|(cart, since)| {
-            required && !built(cart) && now - since < SUMMARY_WAIT_MS
-        });
+        let waiting = run
+            .closing
+            .as_ref()
+            .is_some_and(|(cart, since)| required && !built(cart) && now - since < SUMMARY_WAIT_MS);
         let over = (run.over() && !waiting).then(|| FetchArt::Summary {
             featured: run.closing.as_ref().map(|(cart, _)| cart.clone()),
             stopped: run.stopping,
@@ -8426,10 +9644,10 @@ impl App {
         self.restock_recents();
         self.restock_favorites();
         for ((_, shelf), (index, seat)) in self.shelves.iter_mut().zip(seats) {
-            let found = shelf
-                .carts
-                .iter()
-                .position(|c| seat.as_ref().is_some_and(|(p, s)| c.platform == *p && c.stem == *s));
+            let found = shelf.carts.iter().position(|c| {
+                seat.as_ref()
+                    .is_some_and(|(p, s)| c.platform == *p && c.stem == *s)
+            });
             if !shelf.carts.is_empty() {
                 shelf.select(found.unwrap_or(index.min(shelf.carts.len() - 1)));
             }
@@ -8466,7 +9684,9 @@ impl App {
     }
 
     pub fn server_scene_running(&self) -> bool {
-        self.server.as_ref().is_some_and(ServerSession::scene_running)
+        self.server
+            .as_ref()
+            .is_some_and(ServerSession::scene_running)
     }
 
     pub fn server_paper(&self) -> Option<&ServerPaper> {
@@ -8542,7 +9762,10 @@ impl App {
     fn open_networks(&mut self) {
         let joined = self.wifi().status.ssid.clone().filter(|_| self.wifi_up());
         self.phase = Phase::Networks {
-            pick: joined.map_or(crate::networks::NetPick::Top, crate::networks::NetPick::Name),
+            pick: joined.map_or(
+                crate::networks::NetPick::Top,
+                crate::networks::NetPick::Name,
+            ),
         };
         if !self.state.wifi_off {
             self.hold_wifi();
@@ -8596,7 +9819,9 @@ impl App {
                 return;
             }
             Action::GbaDown(Btn::B) | Action::QuickMenu => {
-                self.phase = Phase::Networks { pick: NetPick::Scan };
+                self.phase = Phase::Networks {
+                    pick: NetPick::Scan,
+                };
                 return;
             }
             _ => return,
@@ -9042,6 +10267,19 @@ impl App {
                 self.keyboard = None;
                 self.join_network(ssid, text, hidden);
             }
+            KeyboardFor::AchievementsUser => {
+                self.keyboard = None;
+                let name = text.trim().to_string();
+                if !name.is_empty() && name != self.achievement_settings.username {
+                    self.save_achievements(slot_achievements::Change::Username(name));
+                }
+            }
+            KeyboardFor::AchievementsPassword => {
+                self.keyboard = None;
+                if !text.is_empty() {
+                    self.save_achievements(slot_achievements::Change::Password(text));
+                }
+            }
         }
     }
 
@@ -9177,7 +10415,10 @@ impl App {
                 let rows = page_rows(snap, ssid, off);
                 Some(NetScreen {
                     selected: (*row).min(rows.len() - 1),
-                    lines: rows.iter().map(|r| page_line(*r, snap, ssid, off)).collect(),
+                    lines: rows
+                        .iter()
+                        .map(|r| page_line(*r, snap, ssid, off))
+                        .collect(),
                     message: None,
                 })
             }
@@ -9218,7 +10459,8 @@ impl App {
     }
 
     pub fn network_back(&self) -> &'static str {
-        let scanning = matches!(self.phase, Phase::NetworkScan { .. }) && self.wifi().scan.is_none();
+        let scanning =
+            matches!(self.phase, Phase::NetworkScan { .. }) && self.wifi().scan.is_none();
         if scanning {
             "Cancel"
         } else {
@@ -9263,14 +10505,30 @@ impl App {
         self.forget_faces = faces;
     }
 
+    /// The on-screen keyboard over the whole screen, once its faces are up. False while
+    /// no keyboard is open.
+    fn draw_keyboard_screen(&self, out: &mut Vec<Draw>) -> bool {
+        let Some((kb, _)) = &self.keyboard else {
+            return false;
+        };
+        let Some(tex) = &self.keyboard_tex else {
+            // Its faces arrive next frame; until then, just the ground.
+            slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
+            return true;
+        };
+        slot_ui::draw_keyboard(self.canvas(), self.menu_ground(), tex, kb, out);
+        if kb.help() {
+            return true;
+        }
+        // The shelf's own slot, as under the menu, so the legends' ink matches it.
+        draw_empty_slot(self.canvas(), self.slot_now(), out);
+        slot_ui::draw_keyboard_legends(self.canvas(), tex, out);
+        true
+    }
+
     fn draw_networks(&self, out: &mut Vec<Draw>) {
-        if let (Some((kb, _)), Some(tex)) = (&self.keyboard, &self.keyboard_tex) {
-            slot_ui::draw_keyboard(self.canvas(), self.menu_ground(), tex, kb, out);
-            if kb.help() {
-                return;
-            }
-            draw_empty_slot(self.canvas(), self.slot_faces, out);
-            slot_ui::draw_keyboard_legends(self.canvas(), tex, out);
+        if let (Some(_), Some(_)) = (&self.keyboard, &self.keyboard_tex) {
+            self.draw_keyboard_screen(out);
             return;
         }
         slot_ui::NetworkList {
@@ -9287,7 +10545,7 @@ impl App {
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };
-        let light = self.light();
+        let light = self.legends_light();
         let [back, change, open, ..] = match light {
             true => faces.legend_light,
             false => faces.legend,
@@ -9361,7 +10619,7 @@ impl App {
                 "Plug in before updating BaseOS. A installs anyway.".into(),
             ),
             UpdateState::UpToDate => (
-                "slot is up to date".into(),
+                format!("{} is up to date", crate::edition::NAME),
                 format!("{running} is the latest version."),
             ),
             UpdateState::Notice(NetNotice::Password) => ("Invalid Password".into(), String::new()),
@@ -9619,6 +10877,7 @@ impl App {
                 rest: canvas.centred(CART_W as f32),
                 scale: 1.0,
                 seat: (inserting / SEATED_AT).clamp(0.0, 1.0),
+                turn: 0.0,
                 alert: None,
                 dim: 0.0,
                 screen,
@@ -10988,6 +12247,12 @@ fn scale_value(scale: Scale) -> QuickValue {
     }
 }
 
+/// Whether a game of this platform can be stretched (the Stretch shortcuts): not the GBA,
+/// whose Scale has its own full screen, nor the DS, which has screen layouts.
+fn stretches(platform: Platform) -> bool {
+    !matches!(platform.hardware(), Platform::Gba | Platform::Nds)
+}
+
 fn stretch_value(stretch: Stretch) -> QuickValue {
     match stretch {
         Stretch::Classic => QuickValue::Classic,
@@ -11003,6 +12268,7 @@ fn shader_value(shader: Shader) -> QuickValue {
         Shader::Dot => QuickValue::Dot,
         Shader::Simpletex => QuickValue::Simpletex,
         Shader::Shimmerless => QuickValue::Shimmerless,
+        Shader::Transparent => QuickValue::Transparent,
     }
 }
 
@@ -11078,5 +12344,11 @@ fn bezel_slot(platform: Platform) -> usize {
         Platform::Gba | Platform::Gbav => 0,
         Platform::Gb => 1,
         Platform::Gbc => 2,
+        Platform::Ws => 3,
+        Platform::Lynx => 4,
+        Platform::Gg => 5,
+        Platform::Ngp => 6,
+        Platform::Tg16 => 7,
+        Platform::Nds => 8,
     }
 }

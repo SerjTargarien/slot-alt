@@ -14,16 +14,42 @@ pub enum Finish {
 pub struct Shell {
     pub colour: [u8; 3],
     pub finish: Finish,
+    /// The back half's colour on a two-tone cart; `None` when it matches the front.
+    pub back: Option<[u8; 3]>,
+}
+
+impl Shell {
+    /// The colour of the back half: what shows round the board when the cart is opened.
+    pub fn back_colour(&self) -> [u8; 3] {
+        self.back.unwrap_or(self.colour)
+    }
 }
 
 pub const DEFAULT_SHELL: Shell = Shell {
     colour: [0x35, 0x35, 0x3a],
     finish: Finish::Solid,
+    back: None,
 };
 
 const fn shell(colour: [u8; 3], finish: Finish) -> Shell {
-    Shell { colour, finish }
+    Shell {
+        colour,
+        finish,
+        back: None,
+    }
 }
+
+const fn two_tone(front: [u8; 3], back: [u8; 3]) -> Shell {
+    Shell {
+        colour: front,
+        finish: Finish::Solid,
+        back: Some(back),
+    }
+}
+
+/// slotPlus: the Famicom Mini carts (Japan's Famicom Mini series, header codes `F..J`) came in
+/// the Famicom's two colours: a deep red front and a muted white back.
+pub const FAMICOM_MINI_SHELL: Shell = two_tone([0x8e, 0x1b, 0x2b], [0xe2, 0xdb, 0xc8]);
 
 const EXACT: &[(&str, Shell)] = &[
     ("AXV", shell([0xc2, 0x33, 0x2e], Finish::Translucent)),
@@ -47,6 +73,24 @@ const YOSHI: Shell = shell([0x2f, 0x8f, 0x4e], Finish::Solid);
 const FAMILY: &[(u8, Shell)] = &[(b'M', shell([0xc6, 0xc6, 0xc9], Finish::Solid))];
 
 pub const DMG_SHELL: Shell = shell([0x9a, 0x97, 0x8f], Finish::Solid);
+
+/// A WonderSwan Color cart: frosted smoke-clear plastic with the board showing through.
+pub const WS_SHELL: Shell = shell([0x3a, 0x3a, 0x40], Finish::Translucent);
+
+/// A WonderSwan cart for the original black-and-white handheld: solid black plastic.
+pub const WS_MONO_SHELL: Shell = shell([0x1e, 0x1e, 0x21], Finish::Solid);
+
+pub const LYNX_SHELL: Shell = shell([0x32, 0x3f, 0x41], Finish::Solid);
+
+pub const GG_SHELL: Shell = shell([0x1e, 0x1e, 0x21], Finish::Solid);
+
+pub const NGP_SHELL: Shell = shell([0x24, 0x25, 0x29], Finish::Solid);
+
+/// A TurboGrafx-16 HuCard: white card stock.
+pub const TG16_SHELL: Shell = shell([0xe8, 0xe8, 0xe4], Finish::Solid);
+
+/// A Nintendo DS game card: dark grey plastic.
+pub const NDS_SHELL: Shell = shell([0x3a, 0x3b, 0x3f], Finish::Solid);
 
 pub const DUAL_MODE_SHELL: Shell = shell([0x33, 0x30, 0x31], Finish::Solid);
 
@@ -82,7 +126,22 @@ pub fn shell_for(cart: &Cart) -> Shell {
     }
     match cart.platform {
         Platform::Gba | Platform::Gbav => gba_shell_for(&gba_code(cart)),
+        Platform::Ws => ws_shell_for(&cart.rom),
+        Platform::Lynx => LYNX_SHELL,
+        Platform::Gg => GG_SHELL,
+        Platform::Ngp => NGP_SHELL,
+        Platform::Tg16 => TG16_SHELL,
+        Platform::Nds => NDS_SHELL,
         Platform::Gb | Platform::Gbc => gb_shell_for(&cart.rom),
+    }
+}
+
+/// A `.wsc` game came on a WonderSwan Color cart, frosted clear; a `.ws` game
+/// on the original black one.
+fn ws_shell_for(rom: &Path) -> Shell {
+    match rom.extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("wsc") => WS_SHELL,
+        _ => WS_MONO_SHELL,
     }
 }
 
@@ -97,6 +156,8 @@ pub fn indexed_shell(cart: &Cart) -> Option<Shell> {
         },
         Platform::Gb | Platform::Gbc => slot_store::header_index::peek_gb_header(&cart.rom)
             .map(|h| gb_shell_from(h.as_ref(), &cart.rom)),
+        // slotPlus's systems need no header.
+        _ => Some(shell_for(cart)),
     }
 }
 
@@ -114,10 +175,18 @@ fn chosen_shell(cart: &Cart) -> Option<Shell> {
         ShellFinish::Clear => Finish::Translucent,
         ShellFinish::Glitter => Finish::Glitter,
     };
-    Some(shell(choice.colour, finish))
+    Some(Shell {
+        colour: choice.colour,
+        finish,
+        back: choice.back,
+    })
 }
 
 pub fn gba_shell_for(code: &str) -> Shell {
+    let b = code.as_bytes();
+    if b.len() == 4 && b[0] == b'F' && b[3] == b'J' {
+        return FAMICOM_MINI_SHELL;
+    }
     lookup(code, EXACT, FAMILY)
 }
 
@@ -153,7 +222,12 @@ pub fn table_keys() -> Vec<&'static str> {
 }
 
 pub fn gba_plastics() -> Vec<[u8; 3]> {
-    let mut colours = vec![DEFAULT_SHELL.colour, FAMILY[0].1.colour];
+    let mut colours = vec![
+        DEFAULT_SHELL.colour,
+        FAMILY[0].1.colour,
+        FAMICOM_MINI_SHELL.colour,
+        FAMICOM_MINI_SHELL.back_colour(),
+    ];
     colours.extend(EXACT.iter().map(|(_, s)| s.colour));
     unique(colours)
 }
@@ -249,6 +323,7 @@ pub fn shell_presets() -> Vec<(&'static str, Shell)> {
         ("Game Boy Color clear", GB_CLEAR_SHELL),
         ("Advance charcoal", DEFAULT_SHELL),
         ("Advance Video grey", FAMILY[0].1),
+        ("Famicom Mini red and white", FAMICOM_MINI_SHELL),
     ];
     out.extend(
         GBA.iter()

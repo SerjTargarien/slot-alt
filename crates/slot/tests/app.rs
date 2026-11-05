@@ -12,7 +12,7 @@ use slot::video_mode::{video_mode_for, VideoMode, VIDEO_MODE_FILE};
 use slot_gfx::WHOLE_TEXTURE;
 use slot_input::{Action, Btn, RawEvent};
 use slot_retro::ButtonMask;
-use slot_store::{write_slot_state, Cart, Core, Platform, SlotState};
+use slot_store::{write_slot_state, Cart, Core, Platform, Shader, SlotState};
 use slot_ui::{
     board_at, board_in, grown, lid_at, lid_from, on_board, opening, shelf_cart_at, Canvas, Draw,
     Icon, Placed, TexId, BOARD_W, CART_H, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE,
@@ -1353,7 +1353,10 @@ fn the_open_cart_rests_over_the_shelf_with_its_lid_turned() {
     );
     let left = at(swap.0)[0] - at(cancel.0)[0] - seen(cancel.1);
     let right = at(choose.0)[0] - at(swap.0)[0] - seen(swap.1);
-    assert!((left - right).abs() <= 1.0, "Swap is not spread: {left} {right}");
+    assert!(
+        (left - right).abs() <= 1.0,
+        "Swap is not spread: {left} {right}"
+    );
 }
 
 #[test]
@@ -1935,6 +1938,79 @@ fn l_and_r_change_the_mode_on_a_game_boy_cart_and_not_on_a_gba_one() {
     );
 }
 
+fn tmp_root_with_gg_carts(stems: &[&str]) -> tempfile::TempDir {
+    let d = common::tmp_root_with_gb_carts(&[]);
+    for stem in stems {
+        let path = d.path().join("Games").join("GG").join(format!("{stem}.gg"));
+        std::fs::write(path, vec![0u8; 0x8000]).expect("write rom");
+    }
+    d
+}
+
+#[test]
+fn l_and_r_change_the_mode_on_a_game_gear_cart() {
+    let d = tmp_root_with_gg_carts(&["Sonic Chaos", "Zzz"]);
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().core(), Core::Gearsystem);
+    assert_eq!(
+        s.app().source_rect(),
+        WHOLE_TEXTURE,
+        "it did not open actual size"
+    );
+
+    // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
+    s.feed([RawEvent::Down(Btn::L1)], 100);
+    assert_eq!(
+        s.app().source_rect(),
+        [40.0 / 240.0, 8.0 / 160.0, 160.0 / 240.0, 144.0 / 160.0],
+        "L did not stretch the 160x144 picture to fill the screen"
+    );
+    assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
+    s.feed([RawEvent::Up(Btn::L1)], 120);
+
+    s.feed([RawEvent::Down(Btn::R1)], 200);
+    assert_eq!(
+        s.app().source_rect(),
+        WHOLE_TEXTURE,
+        "R did not give it back"
+    );
+    assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
+    s.feed([RawEvent::Up(Btn::R1)], 220);
+    s.feed([RawEvent::Up(Btn::Menu)], 230);
+}
+
+#[test]
+fn select_never_reaches_gearsystem_where_it_would_reset_the_console() {
+    let d = tmp_root_with_gg_carts(&["Sonic Chaos", "Zzz"]);
+    let mut s = session_playing(d.path());
+    // A tap of SELECT is handed to the game when it is let go, once Slot
+    // knows it did not start a shortcut.
+    s.feed([RawEvent::Down(Btn::Select)], 100);
+    s.feed([RawEvent::Up(Btn::Select)], 120);
+    assert_eq!(pad(&s) & ButtonMask::SELECT, 0, "SELECT reached the core");
+
+    s.feed([RawEvent::Down(Btn::Start)], 200);
+    assert_ne!(
+        pad(&s) & ButtonMask::START,
+        0,
+        "START did not reach the core"
+    );
+    s.feed([RawEvent::Up(Btn::Start)], 220);
+    s.feed([RawEvent::Down(Btn::A)], 300);
+    s.feed([RawEvent::Down(Btn::B)], 310);
+    assert_ne!(
+        pad(&s) & ButtonMask::A,
+        0,
+        "A (button 2) did not reach the core"
+    );
+    assert_ne!(
+        pad(&s) & ButtonMask::B,
+        0,
+        "B (button 1) did not reach the core"
+    );
+}
+
 #[test]
 fn a_shoulder_held_across_the_insert_does_not_stick_on_the_pad() {
     let d = common::tmp_root_with_gb_carts(&["Tetris", "Zzz"]);
@@ -2383,6 +2459,247 @@ fn the_shader_shortcut_steps_the_seated_carts_shader_both_ways_and_names_it() {
         Shader::Simpletex,
         "a GBA cart moved the Game Boy shader"
     );
+}
+
+fn root_with_one_cart(dir: &str, file: &str) -> tempfile::TempDir {
+    let d = common::tmp_root_with_gb_carts(&[]);
+    std::fs::write(
+        d.path().join("Games").join(dir).join(file),
+        vec![0u8; 0x10000],
+    )
+    .expect("write rom");
+    d
+}
+
+#[test]
+fn the_shader_shortcut_steps_only_the_wonderswan_shader_in_a_wonderswan_game() {
+    let d = root_with_one_cart("WS", "Klonoa.ws");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().screen_shader(), Shader::Simpletex);
+    s.app_mut().apply(slot_input::Action::ShaderNext);
+    let after = slot_store::read_slot_state(d.path());
+    assert_eq!(after.shader_ws, Shader::Shimmerless);
+    assert_eq!(s.app().screen_shader(), Shader::Shimmerless);
+    assert_eq!(
+        (after.shader_gb, after.shader_gba, after.shader_lynx),
+        (Shader::Simpletex, Shader::Grid, Shader::Grid),
+        "a WonderSwan game moved another system's shader"
+    );
+}
+
+#[test]
+fn the_shader_shortcut_steps_only_the_lynx_shader_in_a_lynx_game() {
+    let d = root_with_one_cart("Lynx", "Klax.lnx");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().screen_shader(), Shader::Grid);
+    s.app_mut().apply(slot_input::Action::ShaderPrev);
+    let after = slot_store::read_slot_state(d.path());
+    assert_eq!(after.shader_lynx, Shader::Lcd3x);
+    assert_eq!(s.app().screen_shader(), Shader::Lcd3x);
+    assert_eq!(
+        (after.shader_gba, after.shader_gb, after.shader_ws),
+        (Shader::Grid, Shader::Simpletex, Shader::Simpletex),
+        "a Lynx game moved another system's shader"
+    );
+}
+
+#[test]
+fn the_shader_shortcut_steps_only_the_game_gear_shader_in_a_game_gear_game() {
+    let d = root_with_one_cart("GG", "Columns.gg");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().screen_shader(), Shader::Simpletex);
+    s.app_mut().apply(slot_input::Action::ShaderPrev);
+    let after = slot_store::read_slot_state(d.path());
+    assert_eq!(after.shader_gg, Shader::Grid);
+    assert_eq!(s.app().screen_shader(), Shader::Grid);
+    assert_eq!(
+        after.shader_gb,
+        Shader::Simpletex,
+        "a Game Gear game moved the Game Boy shader"
+    );
+}
+
+#[test]
+fn the_shader_shortcut_steps_only_the_neogeo_pocket_shader_in_a_pocket_game() {
+    let d = root_with_one_cart("NGP", "Metal Slug.ngp");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().core(), Core::Ngp);
+    assert_eq!(s.app().screen_shader(), Shader::Simpletex);
+    s.app_mut().apply(slot_input::Action::ShaderPrev);
+    let after = slot_store::read_slot_state(d.path());
+    assert_eq!(after.shader_ngp, Shader::Grid);
+    assert_eq!(
+        (after.shader_gb, after.shader_gg),
+        (Shader::Simpletex, Shader::Simpletex),
+        "a Pocket game moved another system's shader"
+    );
+}
+
+#[test]
+fn l_and_r_change_the_mode_on_a_neogeo_pocket_cart_and_never_reach_the_core() {
+    let d = root_with_one_cart("NGP", "Metal Slug.ngp");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().source_rect(), WHOLE_TEXTURE);
+    // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
+    s.feed([RawEvent::Down(Btn::L1)], 100);
+    assert_ne!(s.app().source_rect(), WHOLE_TEXTURE, "L did not stretch it");
+    assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
+    s.feed([RawEvent::Up(Btn::L1)], 120);
+    s.feed([RawEvent::Down(Btn::R1)], 200);
+    assert_eq!(
+        s.app().source_rect(),
+        WHOLE_TEXTURE,
+        "R did not give it back"
+    );
+    assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
+    s.feed([RawEvent::Up(Btn::R1)], 220);
+    s.feed([RawEvent::Up(Btn::Menu)], 230);
+    s.feed([RawEvent::Down(Btn::Start)], 300);
+    assert_ne!(
+        pad(&s) & ButtonMask::START,
+        0,
+        "START (Option) did not reach the core"
+    );
+}
+
+#[test]
+fn a_hucard_turns_over_before_it_goes_in_and_back_after_it_comes_out() {
+    let d = root_with_one_cart("TG16", "Bonk's Adventure.pce");
+    std::fs::write(d.path().join("Games/TG16/R-Type.pce"), vec![0u8; 0x10000]).unwrap();
+    common::clocked(d.path());
+    let mut s = Session::boot(d.path().to_path_buf());
+    assert_eq!(s.app().turn(), 0.0, "turned on the shelf");
+    s.feed([RawEvent::Down(Btn::A)], 16);
+    s.feed([RawEvent::Up(Btn::A)], 32);
+    let mut last = 0.0;
+    let mut turned_by = None;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !matches!(s.app().phase(), Phase::Playing { .. }) {
+        assert!(Instant::now() < deadline, "the card never seated");
+        let (turn, seat) = (s.app().turn(), s.app().seat());
+        assert!(turn >= last, "the turn went backwards going in");
+        if seat > 0.0 {
+            assert_eq!(turn, 1.0, "it started going in before it had turned over");
+        }
+        if turn >= 1.0 && turned_by.is_none() {
+            turned_by = Some(seat);
+        }
+        last = turn;
+        s.update(1.0 / 60.0);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(
+        turned_by.is_some_and(|seat| seat < 0.01),
+        "the turn was not done before it went in: {turned_by:?}"
+    );
+    assert_eq!(s.app().turn(), 1.0, "a seated HuCard is upside down");
+
+    s.app_mut().apply(slot_input::Action::Eject);
+    let mut was_out = false;
+    let mut last = 1.0;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !matches!(s.app().phase(), Phase::Shelf) {
+        assert!(Instant::now() < deadline, "the card never came back");
+        let (turn, seat) = (s.app().turn(), s.app().seat());
+        assert!(turn <= last, "the turn went backwards coming out");
+        if turn < 1.0 {
+            assert_eq!(seat, 0.0, "it turned back before it was out of the slot");
+            was_out = true;
+        }
+        last = turn;
+        s.update(1.0 / 60.0);
+    }
+    assert!(was_out, "it never turned back");
+    assert_eq!(s.app().turn(), 0.0);
+}
+
+#[test]
+fn other_carts_never_turn() {
+    let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().turn(), 0.0);
+    s.app_mut().apply(slot_input::Action::Eject);
+    for _ in 0..120 {
+        assert_eq!(s.app().turn(), 0.0);
+        s.update(1.0 / 60.0);
+    }
+}
+
+#[test]
+fn the_shader_shortcut_steps_only_the_turbografx_shader_in_a_hucard_game() {
+    let d = root_with_one_cart("TG16", "Bonk's Adventure.pce");
+    let mut s = session_playing(d.path());
+    assert_eq!(s.app().core(), Core::Pce);
+    assert_eq!(s.app().screen_shader(), Shader::Grid);
+    s.app_mut().apply(slot_input::Action::ShaderPrev);
+    let after = slot_store::read_slot_state(d.path());
+    assert_eq!(after.shader_tg16, Shader::Lcd3x);
+    assert_eq!(
+        (after.shader_gba, after.shader_ngp),
+        (Shader::Grid, Shader::Simpletex),
+        "a HuCard game moved another system's shader"
+    );
+}
+
+#[test]
+fn l_and_r_change_the_mode_on_a_hucard_and_select_and_run_reach_the_core() {
+    let d = root_with_one_cart("TG16", "Bonk's Adventure.pce");
+    let mut s = session_playing(d.path());
+    let actual = s.app().source_rect();
+    // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
+    s.feed([RawEvent::Down(Btn::Menu)], 90);
+    s.feed([RawEvent::Down(Btn::L1)], 100);
+    assert_ne!(s.app().source_rect(), actual, "L did not stretch it");
+    assert_eq!(pad(&s) & ButtonMask::L, 0, "L reached the game as well");
+    s.feed([RawEvent::Up(Btn::L1)], 120);
+    s.feed([RawEvent::Down(Btn::R1)], 200);
+    assert_eq!(s.app().source_rect(), actual, "R did not give it back");
+    assert_eq!(pad(&s) & ButtonMask::R, 0, "R reached the game as well");
+    s.feed([RawEvent::Up(Btn::R1)], 220);
+    s.feed([RawEvent::Up(Btn::Menu)], 230);
+    // A tap of SELECT, which is held back only as long as it may be a chord.
+    s.feed([RawEvent::Down(Btn::Select)], 300);
+    s.feed([RawEvent::Up(Btn::Select)], 340);
+    assert_ne!(
+        pad(&s) & ButtonMask::SELECT,
+        0,
+        "SELECT did not reach the core"
+    );
+    s.feed([RawEvent::Down(Btn::Start)], 600);
+    assert_ne!(pad(&s) & ButtonMask::START, 0, "RUN did not reach the core");
+}
+
+#[test]
+fn powering_off_stops_neopop_first_so_it_can_write_its_save() {
+    let d = root_with_one_cart("NGP", "Metal Slug.ngp");
+    let mut s = session_playing(d.path());
+    assert!(s.emu().is_some());
+    s.poweroff();
+    assert!(
+        s.emu().is_none(),
+        "the Pocket core was still running at power off"
+    );
+}
+
+#[test]
+fn restarting_stops_neopop_first_too() {
+    let d = root_with_one_cart("NGP", "Metal Slug.ngp");
+    let mut s = session_playing(d.path());
+    assert!(s.emu().is_some());
+    s.restart();
+    assert!(
+        s.emu().is_none(),
+        "the Pocket core was still running at restart"
+    );
+}
+
+#[test]
+fn powering_off_leaves_a_core_that_hands_over_its_saves_alone() {
+    let d = common::tmp_root_with_gb_carts(&["Tetris", "Zzz"]);
+    let mut s = session_playing(d.path());
+    s.poweroff();
+    assert!(s.emu().is_some());
 }
 
 #[test]

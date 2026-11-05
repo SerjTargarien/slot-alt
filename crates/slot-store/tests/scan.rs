@@ -157,3 +157,104 @@ fn the_same_stem_on_two_platforms_is_two_carts_with_two_labels() {
         "the GBA cart borrowed the Game Boy label"
     );
 }
+
+#[test]
+fn wonderswan_roms_scan_into_their_own_platform() {
+    let root = std::env::temp_dir().join(format!("slot-ws-scan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("Games").join("WS");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Test Game.ws"), b"rom").unwrap();
+    std::fs::write(dir.join("Colour Game.WSC"), b"rom").unwrap();
+
+    let carts = slot_store::scan(&root).unwrap();
+    std::fs::remove_dir_all(&root).ok();
+
+    assert_eq!(carts.len(), 2);
+    assert!(carts.iter().all(|c| c.platform == slot_store::Platform::Ws));
+}
+#[test]
+fn lynx_roms_scan_into_their_own_platform() {
+    let root = std::env::temp_dir().join(format!("slot-lynx-scan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("Games").join("Lynx");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("California Games.lnx"), b"rom").unwrap();
+    std::fs::write(dir.join("Klax.LYX"), b"rom").unwrap();
+    std::fs::write(dir.join("Readme.txt"), b"not a rom").unwrap();
+
+    let carts = slot_store::scan(&root).unwrap();
+    std::fs::remove_dir_all(&root).ok();
+
+    assert_eq!(carts.len(), 2);
+    assert!(carts
+        .iter()
+        .all(|c| c.platform == slot_store::Platform::Lynx));
+}
+
+#[test]
+fn game_gear_roms_scan_into_their_own_platform_with_no_header_title() {
+    let root = std::env::temp_dir().join(format!("slot-gg-scan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("Games").join("GG");
+    std::fs::create_dir_all(&dir).unwrap();
+    // Bytes where a Game Boy header keeps its title. A Game Gear rom has no
+    // such header, so reading the header must not take them as a title.
+    let mut rom = vec![0u8; 0x8000];
+    rom[0x134..0x13c].copy_from_slice(b"GARBAGE!");
+    std::fs::write(dir.join("Sonic Chaos.gg"), &rom).unwrap();
+    std::fs::write(dir.join("Shinobi.GG"), &rom).unwrap();
+    std::fs::write(dir.join("Alex Kidd.sms"), b"not this shelf").unwrap();
+
+    let mut carts = slot_store::scan(&root).unwrap();
+    assert_eq!(carts.len(), 2);
+    assert!(carts.iter().all(|c| c.platform == slot_store::Platform::Gg));
+    for c in &mut carts {
+        c.read_header();
+        assert_eq!(c.title, "", "{c:?}");
+    }
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn hucards_scan_into_their_own_shelf_with_no_header_title() {
+    let root = std::env::temp_dir().join(format!("slot-tg16-scan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("Games").join("TG16");
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut rom = vec![0u8; 0x8000];
+    rom[0x134..0x13c].copy_from_slice(b"GARBAGE!");
+    std::fs::write(dir.join("Bonk's Adventure.pce"), &rom).unwrap();
+    std::fs::write(dir.join("Ys Book I & II.cue"), b"FILE").unwrap();
+
+    let mut carts = slot_store::scan(&root).unwrap();
+    assert_eq!(carts.len(), 1);
+    assert_eq!(carts[0].platform, slot_store::Platform::Tg16);
+    carts[0].read_header();
+    assert_eq!(carts[0].title, "");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn neogeo_pocket_roms_scan_into_one_shelf_with_no_header_title() {
+    let root = std::env::temp_dir().join(format!("slot-ngp-scan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let dir = root.join("Games").join("NGP");
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut rom = vec![0u8; 0x8000];
+    rom[0x134..0x13c].copy_from_slice(b"GARBAGE!");
+    std::fs::write(dir.join("Metal Slug.ngp"), &rom).unwrap();
+    std::fs::write(dir.join("SNK vs Capcom.ngc"), &rom).unwrap();
+    std::fs::write(dir.join("Notes.txt"), b"not a rom").unwrap();
+
+    let mut carts = slot_store::scan(&root).unwrap();
+    assert_eq!(carts.len(), 2);
+    assert!(carts
+        .iter()
+        .all(|c| c.platform == slot_store::Platform::Ngp));
+    for c in &mut carts {
+        c.read_header();
+        assert_eq!(c.title, "", "{c:?}");
+    }
+    std::fs::remove_dir_all(&root).ok();
+}

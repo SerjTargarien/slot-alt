@@ -28,6 +28,7 @@ pub enum Toast {
     ShaderDot,
     ShaderSimpletex,
     ShaderShimmerless,
+    ShaderTransparent,
     CardUnwritable,
     CardRepair,
     CardRepairCharge,
@@ -36,10 +37,21 @@ pub enum Toast {
     Forgotten,
     Palette(GbColors),
     Duplicate(QuickRow),
+    /// A DS game's new layout, by its place in `DS_LAYOUTS`.
+    DsLayout(u8),
 }
 
+/// The names of a DS game's layouts, in the order SELECT + L2 steps them.
+pub const DS_LAYOUTS: [&str; 5] = [
+    "Both Screens",
+    "One Screen",
+    "Full Screen",
+    "Side by Side",
+    "Picture in Picture",
+];
+
 impl Toast {
-    const FIXED: [Toast; 26] = [
+    const FIXED: [Toast; 27] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::GameReset,
@@ -60,6 +72,7 @@ impl Toast {
         Toast::ShaderDot,
         Toast::ShaderSimpletex,
         Toast::ShaderShimmerless,
+        Toast::ShaderTransparent,
         Toast::CardUnwritable,
         Toast::CardRepair,
         Toast::CardRepairCharge,
@@ -73,6 +86,7 @@ impl Toast {
             .into_iter()
             .chain(GbColors::all().map(Toast::Palette))
             .chain(bound_rows().map(Toast::Duplicate))
+            .chain((0..DS_LAYOUTS.len() as u8).map(Toast::DsLayout))
             .collect()
     }
 
@@ -83,6 +97,12 @@ impl Toast {
                 Self::FIXED.len()
                     + GbColors::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
+            }
+            Toast::DsLayout(i) => {
+                Self::FIXED.len()
+                    + GbColors::all().count()
+                    + bound_rows().count()
+                    + usize::from(i).min(DS_LAYOUTS.len() - 1)
             }
             fixed => Self::FIXED.iter().position(|t| *t == fixed).unwrap_or(0),
         }
@@ -138,7 +158,7 @@ impl Toast {
             Toast::ShotCaptured => "Screenshot Captured",
             Toast::ShotFailed => "Screenshot Failed",
             Toast::NeedsGpsp => "Please switch to gpSP",
-            Toast::NeedsMgba => "Please switch to mGBA",
+            Toast::NeedsMgba => "Switch to mGBA",
             Toast::NoLink => "No link support",
             Toast::NoWifi => "This device has no Wi-Fi",
             Toast::LinkEnded => "Link ended",
@@ -152,6 +172,7 @@ impl Toast {
             Toast::ShaderDot => "Shader: Dot",
             Toast::ShaderSimpletex => "Shader: Simpletex",
             Toast::ShaderShimmerless => "Shader: Shimmerless",
+            Toast::ShaderTransparent => "Shader: Transparent",
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::CardRepair | Toast::CardRepairCharge => "Can't write to SD card",
             Toast::CardRepaired => "SD card repaired",
@@ -159,6 +180,7 @@ impl Toast {
             Toast::Forgotten => "Network forgotten",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
+            Toast::DsLayout(i) => DS_LAYOUTS[usize::from(i).min(DS_LAYOUTS.len() - 1)],
         }
     }
 }
@@ -203,7 +225,9 @@ fn setting(toast: Toast) -> Setting {
         },
         false => Setting {
             w: match (toast.icon(), toast) {
-                (Some(_), _) | (_, Toast::NeedsMgba | Toast::NoWifi | Toast::PeerEnded) => WARNING_W,
+                (Some(_), _) | (_, Toast::NeedsMgba | Toast::NoWifi | Toast::PeerEnded) => {
+                    WARNING_W
+                }
                 _ => TOAST_W,
             },
             h: TOAST_H,

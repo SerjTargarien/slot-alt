@@ -49,6 +49,14 @@ fn footer_legends_keep_the_hint_on_the_inner_side() {
         hint_is_beside(&core[2], false),
         "Choose sits to the left of A"
     );
+    assert!(
+        hint_is_beside(&core[3], true),
+        "the Lynx picker's Swap sits to the right of all four directions"
+    );
+    assert_eq!(
+        core[3].h, core[1].h,
+        "the D-pad is as tall as the other buttons"
+    );
 }
 
 fn hint_is_beside(face: &slot_ui::UndoFace, on_right: bool) -> bool {

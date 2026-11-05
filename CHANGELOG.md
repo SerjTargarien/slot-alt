@@ -1,38 +1,95 @@
 # Changelog
 
-## [1.14.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.14.0)
+## [1.14.0-plus2.6](https://github.com/nelynes/slotPlus/releases/tag/v1.14.0-plus2.6)
 
-- Gambatte is a new core for Game Boy and Game Boy Color, and the default on new cards. Existing cards stay on mGBA. Press START on a Game Boy cart to switch cores. Saves and the clock carry over between them. ([#184](https://github.com/BrandonKowalski/slot/issues/184))
-- Game Boy and Game Boy Color audio no longer pops going into and out of silence, on both Gambatte and mGBA. Potentially fixes ([#184](https://github.com/BrandonKowalski/slot/issues/184))
-- Brightness has six new software steps below the lowest backlight level. ([#189](https://github.com/BrandonKowalski/slot/issues/189))
-- Press X on the shelf to take a game off Recents. It can be rebound under Settings → Controls → Shelf as Remove Recent. ([#185](https://github.com/BrandonKowalski/slot/issues/185))
-- Large shelves scroll more smoothly. slot keeps an index of ROM headers and a faster label cache, so moving along the shelf no longer reads ROMs or source labels. Existing label caches are converted, not redrawn.
-- slot keeps a log of the last five link attempts in `Logs/slotlink.log`.
+slotPlus brought up to Slot 1.14.0: Gambatte for Game Boy and Game Boy Color (the default on new cards; existing cards stay on mGBA, and START on a Game Boy cart switches), Game Boy audio without pops, six extra dim steps below the lowest brightness, X to take a game off Recents, smoother scrolling on big shelves, and a Tools page in Settings. See [Slot's 1.14.0 notes](https://github.com/BrandonKowalski/slot/releases/tag/v1.14.0).
 
-## [1.13.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.13.0)
+To upgrade, use Settings → Tools → Check for Updates, or replace the `System` folder on your card with the one from the zip.
 
-- OTA Updater: Open the menu on the shelf and pick Network → Check for Updates. It checks if there is a new release of slot or BaseOS.
-- Network is a new menu for Wi-Fi. It lists your saved networks, with Scan for Networks at the bottom to join a new one. A network that rejects your password offers to try another, and isn't saved.
-- Gamebit is a web UI for managing the card over Wi-Fi. Start it from Network, then go to `slot.local` and enter the pin or scan the QR code. You can add and remove games, saves, labels, guides, BIOS files and the boot logo, and browse the card's files.
-- On device Cart Studio where art can be fetched over Wi-Fi. Fetch Missing Art on the Network page gets labels for every game without one.
-- Set Automatically is a new row in Date & Time when Wi-Fi is set up. It keeps the clock right from network time.
-- `Shelf` is a new Wallpaper option that follows the shelf you're on.
-- slot now loads RetroArch's compressed saves. ([#165](https://github.com/BrandonKowalski/slot/issues/165))
-- Guides can wrap to the screen. Press X to turn it on, and each guide remembers its place, size and wrap setting. ([#176](https://github.com/BrandonKowalski/slot/issues/176))
-- Shimmerless shader is hidden for GBA on 3:2 screens as it has no effect.
+- WonderSwan and Lynx carts keep their own shapes, shadows and labels with Slot's faster shelf, and START on a Lynx cart still chooses how it's held.
+- **RetroAchievements is switched off for now** while it's finished. Settings → RetroAchievements is greyed out, no game is tracked and nothing is sent; your account file and unlocks stay on the card for when it returns.
+- Wi-Fi's settings moved with Slot's to Settings → General → Wi-Fi; Check for Updates, Gamebit and Fetch Missing Art are under Settings → Tools.
 
-## [1.12.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.12.0)
+## [1.13.0-plus2.6](https://github.com/nelynes/slotPlus/releases/tag/v1.13.0-plus2.6)
 
-- Boktai's solar sensor works on mGBA. The sun follows the clock: none at night, brightest at noon. Sunlight Up and Sunlight Down are new shortcuts to set it by hand for the current session. ([#42](https://github.com/BrandonKowalski/slot/issues/42))
-- Shimmerless is a new shader on every system. It keeps pixels sharp and gives each one the same width, so the picture doesn't shimmer as it scrolls when the screen isn't a whole multiple of the game. ([#99](https://github.com/BrandonKowalski/slot/issues/99))
-- Saturation and Contrast are new rows in Settings → Screen → General and on the in-game Screen page. Both go from Off to 9 and apply to the whole screen. ([#79](https://github.com/BrandonKowalski/slot/issues/79))
-- A bezel can be made for one Scale by ending its name with `_spscreen`, `_integer` or `_fit`. It only shows under Bezel while that Scale is picked, and changing Scale switches to the version with the same name.
-- A bezel that's solid from just under the game to the bottom edge, like AGS-102, now puts the game at the top of the screen on 640×480 devices, for GBA, Game Boy and Game Boy Color. ([#159](https://github.com/BrandonKowalski/slot/issues/159))
-- The Default Game Boy Color bezel in Fit on 640×480 devices shows just the power light, without the cut-off POWER label beside it.
-- Reset Game is a new shortcut that starts the game over from power on. ([#168](https://github.com/BrandonKowalski/slot/issues/168))
-- Game guides: put a `.txt` with the game's name in `Guides/GBA`, `Guides/GB` or `Guides/GBC`, and Guide shows up in the in-game menu. ([#167](https://github.com/BrandonKowalski/slot/issues/167))
-- Game Boy and Game Boy Color games on mGBA no longer flash a frame of stray tiles and sprites when the screen comes back on, as in Pokémon Pinball when the ball moves between the top and bottom of the table. ([#169](https://github.com/BrandonKowalski/slot/issues/169))
-- Frame Blending's LCD Ghosting is now called Ghosting, and the Fast Forward Toggle shortcut is now FF Toggle, so both fit on 640×480 screens. A long button combo is drawn smaller instead of running into its row's name.
+**RetroAchievements** for Game Boy, Game Boy Color and Game Boy Advance games, and slotPlus brought up to Slot 1.13.0: Wi-Fi, updates over the air, Gamebit for managing the card from a browser, the on-device Cart Studio with art fetched over Wi-Fi, the clock set from network time, and a Shelf wallpaper. See [Slot's 1.13.0 notes](https://github.com/BrandonKowalski/slot/releases/tag/v1.13.0).
+
+To upgrade, replace the `System` folder on your card with the one from the zip. After this one, Settings → Wireless → Check for Updates can do it for you.
+
+- **RetroAchievements** for Game Boy, Game Boy Color and Game Boy Advance games (softcore, in mGBA and gpSP). Ported from Prashant Vaibhav's fork of Slot, with the official rcheevos.
+  - Enter your account in Settings → RetroAchievements and join Wi-Fi. The page also has Encore, to let achievements you already have go off again, and Cheevo Mode, which is Casual. `Config/retroachievements.toml` still works by hand.
+  - Earned achievements pop up as a banner in Slot's style, with the achievement's own badge and a quiet chime.
+  - While the shelf sits idle on Wi-Fi, slotPlus prepares every Game Boy family game on the card, so achievements work offline. Ones earned while you play are kept on the card and sent when you're back on the shelf. A small sync mark by the clock shows when it's working.
+  - A game whose set isn't on the card yet keeps Wi-Fi up until it has downloaded, for up to two minutes. Until the set is active, a small red RA stop sign sits in the corner: nothing earned then will count.
+- **Updates come from slotPlus.** Check for Updates looks at slotPlus's own releases, never Slot's, so it can't swap slotPlus for plain Slot, and slotPlus and slotPlusUltra each get their own download. BaseOS updates are offered as in Slot.
+- **Gamebit knows slotPlus's systems:** WonderSwan and Atari Lynx have their own pages for games, labels, bezels and saves, and the Lynx's page takes its `lynxboot.img` (slotPlusUltra adds Game Gear, NeoGeo Pocket, TurboGrafx-16 and Nintendo DS).
+- **Cart Studio on the handheld** works on slotPlus's carts too, with each cart's own label shape. Fetch Missing Art finds labels for the Game Boy family; slotPlus's other systems keep their labels from Cart Studio+ or your own PNGs.
+- The footer's Wi-Fi and sync marks, and the menu and keyboard legends, take each shelf's ink, so they show on the light WonderSwan and DS Lite Cart Slots.
+- The Shelf wallpaper works for slotPlus's shelves: name a wallpaper after the shelf, such as `ws.png` or `lynx.png`.
+
+## [1.12.0-plus2.5](https://github.com/nelynes/slotPlus/releases/tag/v1.12.0-plus2.5)
+
+slotPlus brought up to Slot 1.12.0: game guides with an in-game viewer, a Reset Game shortcut, the Shimmerless shader, Saturation and Contrast, bezels made for one Scale, and Boktai's solar sensor on mGBA. See [Slot's 1.12.0 notes](https://github.com/BrandonKowalski/slot/releases/tag/v1.12.0).
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- **Two-tone carts.** The Japanese Famicom Mini GBA carts now have their red front and muted white back, and the white shows when the cart opens to pick a core. Any game can be given a two-tone shell in `Config/cart_shell.txt` or in [Cart Studio+](https://nelynes.github.io/slotPlus-studio/).
+- On slotPlus's own systems: Shimmerless is on every system's Shader list, and guides work for every system, in `Guides/WS` and `Guides/Lynx` (and in slotPlusUltra, `Guides/GG`, `Guides/NGP`, `Guides/TG16` and `Guides/NDS`). Saturation and Contrast apply to every system.
+- On the Game Boy and Game Boy Color, Shimmerless comes before slotPlus's Transparent shader in the list.
+
+## [1.11.0-plus2.4](https://github.com/nelynes/slotPlus/releases/tag/v1.11.0-plus2.4)
+
+slotPlus brought up to Slot 1.11.0: a 1.5x fast forward speed, a Fast Forward Toggle shortcut, no more buzz in headphones after the sound stops, and the CPU left at its full fixed speed again. See [Slot's 1.11.0 notes](https://github.com/BrandonKowalski/slot/releases/tag/v1.11.0).
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- Fast Forward Toggle is handy in slotPlusUltra's DS games, where R2, the Fast Forward shortcut's own button, is the stylus: bind the toggle to a button combo on the Shortcuts page.
+
+## [1.10.0-plus2.4](https://github.com/nelynes/slotPlus/releases/tag/v1.10.0-plus2.4)
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- **Nintendo DS, in slotPlusUltra.** Put `.nds` games in `Games/NDS/`. They play on DSperate, at full speed on the RG SP, and no BIOS is needed.
+- **Screen layouts:** L2 swaps the main screen, and SELECT + L2 steps through Both Screens, One Screen, Full Screen, Side by Side and Picture in Picture. Each game remembers its own.
+- **A stylus:** hold R2 and the D-pad moves a cursor over the bottom screen, and A touches.
+- **The DS game card** has its own cart on the shelf, and with Cart Slot set to Bespoke the slot is the back of a silver DS Lite.
+- **DS Lite bezels** for every layout, bundled and on by default. Your own can be one PNG, or a folder with a PNG for each layout.
+- In heavy 3D scenes, DS games skip drawing the odd frame rather than slow down, and the CPU runs at full clock while one plays. DS games have no rewind, since their states are about 6 MB each.
+
+See the [systems guide](https://github.com/nelynes/slotPlus/blob/main/SYSTEMS.md#nintendo-ds) for the controls, layouts and label art size.
+
+## [1.10.0-plus2.3](https://github.com/nelynes/slotPlus/releases/tag/v1.10.0-plus2.3)
+
+slotPlus brought up to Slot 1.10.0: screenshots, Scale and Frame Blending on each Screen page, a Game Boy Stretch setting, a clock set by city with daylight saving, and a Game Boy Advance Video shelf (`Games/GBAV`). See [Slot's 1.10.0 notes](https://github.com/BrandonKowalski/slot/releases/tag/v1.10.0).
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+On slotPlus's own systems:
+
+- The WonderSwan and Lynx (and in slotPlusUltra, the Game Gear, NeoGeo Pocket and TurboGrafx-16) keep their picture as before: Scale, Stretch and Frame Blending are the Game Boy family's, and are left out of those systems' in-game menus.
+- A new default wallpaper, with new stickers, in slotPlus and in slotPlusUltra.
+
+## [1.9.0-plus2.3](https://github.com/nelynes/slotPlus/releases/tag/v1.9.0-plus2.3)
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- Cart Slot, a new row on the General page of Settings: set it to Bespoke and the slot at the bottom of each shelf becomes the back of that system's handheld, where its carts go in.
+
+## [1.9.0-plus2.2](https://github.com/nelynes/slotPlus/releases/tag/v1.9.0-plus2.2)
+
+slotPlus brought up to Slot 1.9.0, with Slot 1.8.1 on the way. Both versions get everything below.
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- Saves, save states, settings and the log reach the card as soon as they are written, and a game's own save is written every minute while it plays, so a reset or a dead battery loses far less.
+- Undo Save and Undo Load: for 30 seconds after a save or a load, the in-game menu offers to undo it, under Resume. X on the state switcher does the same.
+- Load State on Insert, a new row on the Gameplay page, decides whether putting a cart in loads its state. Auto Save on Eject is now Save State on Eject.
+- A core that stops answering no longer freezes the handheld, and a game that crashes while loading starts you on the shelf next time instead of loading it again.
+- GBA bezels on 640x480 handhelds: put .png files in `Bezels/GBA` and pick one under Settings > Screen > Game Boy Advance > Bezel.
+- Game Boy games on an MBC2 cartridge, such as Kirby's Pinball Land, no longer freeze after the boot screen.
+- Fast Forward can be turned off, save states are smaller, and holding Up or Down on the shelf to jump a letter at a time no longer empties it.
+- The shelves follow Slot's new order: Game Boy Advance, Game Boy Color, Game Boy, then WonderSwan and Atari Lynx (and the Game Gear, NeoGeo Pocket and TurboGrafx-16 in slotPlusUltra).
+- Card repair no longer hangs on a badly damaged card, and the BaseOS startup sound plays again.
 
 ## [1.11.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.11.0)
 
@@ -75,6 +132,38 @@
 - Save states and rewind are smaller: slot no longer keeps the extra space mGBA sets aside before a game finds its save chip. Metroid Fusion's states drop from 528 KB to 430 KB. ([#126](https://github.com/BrandonKowalski/slot/issues/126))
 - Fast Forward can be set to Off, so holding it does nothing. ([#123](https://github.com/BrandonKowalski/slot/issues/123))
 
+## [1.8.0-plus2.2](https://github.com/nelynes/slotPlus/releases/tag/v1.8.0-plus2.2)
+
+slotPlus 2.2 adds a rotation picker for Atari Lynx games. Both versions get it.
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+- Atari Lynx: START on a Lynx cart turns it over to choose how the handheld is held for that game: Upright, 90CCW, 90CW or 180. The game starts upright for that hold, with the D-pad turned to match, and the choice is kept in `Config/lynx_hold.txt`.
+- Atari Lynx: a game made to be held turned clockwise, such as Klax, now plays that way at full size, instead of upside down with the handheld turned the other way. SELECT switches between the chosen rotation and the picture upright.
+- The card's `Labels/README.txt` and `Bezels/README.txt` cover slotPlus's systems and point to Cart Studio+.
+
+## [1.8.0-plus2.1](https://github.com/nelynes/slotPlus/releases/tag/v1.8.0-plus2.1)
+
+slotPlus 2.1 brings slotPlus up to Slot 1.8.0. It comes in two versions, both built from this release:
+
+- **`slot-plus.zip`, slotPlus:** Game Boy Advance, Game Boy and Game Boy Color, plus WonderSwan and Atari Lynx.
+- **`slot-plusultra.zip`, slotPlusUltra:** everything in slotPlus, plus Game Gear, NeoGeo Pocket and TurboGrafx-16.
+
+To upgrade, replace the `System` folder on your card with the one from the zip.
+
+### Both versions
+
+- Everything from Slot 1.8.0, below: remappable controls, Brightness and Blue Light rows, one Palette row for the Game Boy, SD card repair and safer saving. Run-Ahead is gone from slotPlus too.
+- HDMI: pulling the cable on an RG SP no longer brings the picture back squashed on the handheld's screen. Slot now takes the screen's size from the display driver, and a handheld already stuck squashed is put right the next time Slot starts.
+- The In-Game controls page covers the WonderSwan and Atari Lynx. Both keep the L and R rows, since L1 and R1 are the Lynx's Option 1 and Option 2 and the WonderSwan's Y pad. In a WonderSwan game the Turbo A and Turbo B rows are called X Button and Y Button, since those buttons also work the Y pad with R1 held and the X pad in vertical games.
+
+### slotPlusUltra
+
+- The Game Gear, NeoGeo Pocket and TurboGrafx-16 get the In-Game controls page without L and R rows, since L1 and R1 stretch the picture there.
+- The SD card repair stops the NeoGeo Pocket core first, as powering off does, so its save is written if the card still takes it.
+- The Game Gear, NeoGeo Pocket and TurboGrafx-16 bezels are fitted to the screen's own size, as Slot 1.8.0 does for the Game Boy's.
+- The Screen settings page scrolls, since General and the eight consoles are more rows than fit.
+
 ## [1.8.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.8.0)
 
 - Controls are remappable. Split between three categories: In-Game buttons, Shortcuts, Shelf keys. All three are global. ([#23](https://github.com/BrandonKowalski/slot/issues/23), [#92](https://github.com/BrandonKowalski/slot/issues/92))
@@ -102,6 +191,71 @@
 - The red card alarm no longer clears when an unrelated write succeeds, and a failed save state raises it too.
 - Deleting a save state asks first: Y opens the question, X deletes and B keeps it.
 
+## [1.7.0-plus2.0](https://github.com/nelynes/slotPlus/releases/tag/v1.7.0-plus2.0)
+
+slotPlus 2.0 comes in two versions, both built from this release. Pick one from the release's downloads:
+
+- **`slot-plus.zip`, slotPlus:** Game Boy Advance, Game Boy and Game Boy Color, plus WonderSwan and Atari Lynx.
+- **`slot-plusultra.zip`, slotPlusUltra:** everything in slotPlus, plus Game Gear, NeoGeo Pocket and TurboGrafx-16.
+
+To upgrade, replace the `System` folder on your card with the one from the zip. Switching between the two versions works the same way.
+
+### Both versions
+
+- HDMI output on handhelds with a mini-HDMI port, such as the RG SP. Plug in a TV and the shelf and games show on the TV at 1080p, with the sound there too and the handheld's screen off. Plug in or pull the cable at any time: Slot saves the game, starts again on the other screen within a few seconds and picks up where you were. Closing the lid doesn't sleep the handheld while it's on the TV.
+- The README now covers both versions, with a table of the added systems and which version has each, and shows the Plus and Ultra shelves in motion. Controls, label art sizes, bezels, saves and the games that turn sideways are in a new systems guide, [SYSTEMS.md](SYSTEMS.md).
+
+### slotPlusUltra: TurboGrafx-16
+
+- TurboGrafx-16 HuCard games (`.pce`) get their own shelf, for the TurboExpress. Put them in `Games/TG16/`. They run on the Beetle PCE Fast core with the two-button pad. No BIOS is needed. CD and SuperGrafx games are not supported.
+- HuCards are drawn as the real card: white, with gold contacts across the top over a dark textured panel, a square label in the lower half (art goes in `Labels/TG16/`, 191 px wide and up to 163 tall; it keeps its own shape, spans the card's width and sits at the bottom, so a shorter label leaves plain card above it, as on real HuCards) and a ridged grip tab at the foot. A HuCard turns end over end before it goes into the slot, so it goes in contacts first, and turns back upright when it comes out.
+- The TurboGrafx-16 picture is shown at 2x and follows the width each game draws, from 256 up to the 512-wide mode. L1 stretches it to fill the screen and R1 gives it back. The Screen menu has a TurboGrafx-16 page with its own Shader (Off, LCD3x, Grid or Dot, Grid by default) and Bezel: four bundled, TG16 (a dark face with the TurboGrafx-16 logo down the left side) and PCE (the PC Engine's white case either side of the screen), each with a Wide version for games that draw 320 wide, or your own PNGs in `Bezels/TG16/`. A bundled bezel can now have a name of its own in the Bezel row, rather than Default.
+- The buttons follow the TurboExpress: the left face button is II, the right one I, Start is Run and Select is Select.
+- The `TG16` folders under `Games`, `Labels`, `Saves`, `States` and `Bezels` are created for you on first boot.
+
+### slotPlusUltra: NeoGeo Pocket
+
+- NeoGeo Pocket and NeoGeo Pocket Color games (`.ngp`, `.ngc`, `.ngpc`) get one shared shelf. Put them in `Games/NGP/`. They run on the Beetle NeoPop core, in English where a game has both languages. No BIOS is needed.
+- NeoGeo Pocket carts are drawn in 1.7.0's look: a ridged cap, a wide label in a recessed frame (art goes in `Labels/NGP/`, about 246x133) and a lower band with a down arrow and SNK and NGP plaques pressed into it, their letters raised, with a dark grey default shell.
+- The NeoGeo Pocket picture is shown actual size at 3x. L1 stretches it to fill the screen and R1 gives it back. The Screen menu has a NeoGeo Pocket page with its own Shader (Off, LCD3x, Grid or Simpletex) and Bezel: a bundled Default with the NeoGeo Pocket name and logo down the left side, or your own PNGs in `Bezels/NGP/`.
+- NeoGeo Pocket saves go to `Saves/NGP/`. The core writes them when the game stops, so slot now stops it before powering off or restarting.
+- The buttons follow the NeoGeo Pocket's layout: the left face button is its A and the right one its B. Start is Option.
+- The `NGP` folders under `Games`, `Labels`, `Saves`, `States` and `Bezels` are created for you on first boot.
+
+### slotPlusUltra: Game Gear
+
+- Sega Game Gear games (`.gg`) get their own shelf. Put them in `Games/GG/`. They run on the Gearsystem core. No BIOS is needed.
+- Game Gear carts are drawn in 1.7.0's look: grey moulded plastic tinted by the shell colour, with the raised hood and grip ridges over a squarish label (art goes in `Labels/GG/`, about 290x200), and a black default shell.
+- The Game Gear picture is shown actual size at 3x. L1 stretches it to fill the screen and R1 gives it back.
+- The Screen menu has a Game Gear page with its own Shader (Off, LCD3x, Grid or Simpletex) and Bezel. For the bezel there is a bundled Default, a black face with the Game Gear's green power light glowing above the screen, as well as your own PNGs in `Bezels/GG/` and the SP frame on 4:3 screens. SELECT + B / A in a game changes the Game Gear shader too.
+- SELECT does nothing in a Game Gear game. Gearsystem would take it as a console reset, which the Game Gear does not have.
+- The `GG` folders under `Games`, `Labels`, `Saves`, `States` and `Bezels` are created for you on first boot.
+
+### slotPlusUltra: everything else
+
+- The 1.7.0-plus1.1 menu freeze fix covers the Game Gear and NeoGeo Pocket too.
+- On 4:3 handhelds such as the RG 35XXSP, a stretched game now fills the whole screen instead of its 3:2 window above the SP frame. This is every system but the Game Boy and Game Boy Color, which keep 1.7.0's stretch.
+- The Bezel rows on every added system's Screen page now show which bezel is picked.
+
+## [1.7.0-plus1.2](https://github.com/nelynes/slotPlus/releases/tag/v1.7.0-plus1.2)
+
+- WonderSwan carts default to the shell the game came in: black for a WonderSwan game (`.ws`), frosted clear with the board showing for a WonderSwan Color game (`.wsc`). Before, every WonderSwan cart was clear. A shell set in `Config/cart_shell.txt` still wins.
+
+## [1.7.0-plus1.1](https://github.com/nelynes/slotPlus/releases/tag/v1.7.0-plus1.1)
+
+- Fixed: opening the menu froze the handheld after playing a WonderSwan or Atari Lynx game, until it was switched off.
+
+## [1.7.0-plus1](https://github.com/nelynes/slotPlus/releases/tag/v1.7.0-plus1)
+
+slotPlus: Slot 1.7.0 plus WonderSwan and Atari Lynx.
+
+- Brings in everything from Slot 1.7.0, below.
+- WonderSwan and Lynx carts are redrawn in 1.7.0's look: grey moulded plastic tinted by the shell colour, with light and dark themes. The WonderSwan has its oval nameplate and the bare board below its shoulder; the Lynx is the curved-lip card with its contacts behind a clear strip. Their label art sizes change a little: about 324x132 for WonderSwan and 284x190 for Lynx.
+- The Screen menu has a WonderSwan page and an Atari Lynx page, each with its own Shader and Bezel. A bezel for either is your own PNG in `Bezels/WS/` or `Bezels/Lynx/`, or the SP frame on 4:3 screens.
+- The Transparent shader is on both the Game Boy and Game Boy Color pages.
+- WonderSwan gets LCD3x, which 1.7.0 offers for GB and GBC.
+- A new Transparent screen shader for Game Boy and Game Boy Color games. It is LCD3x with the screen left unlit: light pixels let a warm, grainy backing show through instead of glaring white, and dark pixels cast soft drop shadows onto it. Pick it from the Shader row on the Game Boy or Game Boy Color page of the Screen menu, or with SELECT + B / A in a game. The idea comes from Matt Akins' Pixel Transparency shader for RetroArch; slot's version is written from scratch.
+
 ## [1.7.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.7.0)
 
 - The slot, carts and shelf now have a skeuomorphic effect, with light and dark themes and bundled wallpapers. Huge thanks to Markus for this amazing work! ([#74](https://github.com/BrandonKowalski/slot/issues/74), @MarkusMaribu)
@@ -127,6 +281,42 @@
 - gpSP no longer crashes when a crowded boot left its JIT cache unmapped.
 - Core options follow the platform that is playing. ([#82](https://github.com/BrandonKowalski/slot/issues/82))
 - Card logs moved into a `Logs` folder, and the session log rotates. Card alarms are logged too.
+
+## [1.6.0-lyx2](https://github.com/nelynes/slotPlus/releases/tag/v1.6.0-lyx2)
+
+- WonderSwan and Atari Lynx games get their own screen shaders. The Screen menu has a WS / WSC Shader row (Off, Grid or Simpletex) and a Lynx Shader row (Off, LCD3x, Grid or Dot), and SELECT + B / A in a game changes that system's shader alone. Before, the WonderSwan shared the Game Boy's shader and the Lynx shared the GBA's.
+- Each starts on the shader it was sharing, so nothing changes until you pick a different one.
+
+## [1.6.0-lyx](https://github.com/nelynes/slotPlus/releases/tag/v1.6.0-lyx)
+
+slotPlus: Slot 1.6.0 plus WonderSwan and Atari Lynx.
+
+- Atari Lynx games (`.lnx`, `.lyx`) get their own shelf. Put them in `Games/Lynx/`. They run on the Beetle Lynx core.
+- Atari Lynx games need `lynxboot.img`, which is not included. Put your own copy in `BIOS/`.
+- Lynx carts have their own shape, a label (art goes in `Labels/Lynx/`) and a dark default shell.
+- Games made to be held on their side are played with the handheld turned 90 degrees counter-clockwise, like the vertical WonderSwan games: the picture fills the screen and the D-pad follows it. Klax, Gauntlet III, Lexis and NFL Football are recognised by name, so any dump of them works. `Config/lynx_rotation.txt` sets it for any other game.
+- SELECT in a Lynx game that turns flips it to the usual way of holding the handheld: the picture upright and tall with bars at the sides. Press it again to turn the handheld back. Each launch starts turned.
+- The `Lynx` folders under `Games`, `Labels`, `Saves` and `States` are created for you on first boot.
+- Lynx games run at their own refresh rate. The core calls it 75 frames a second, but each game sets its own, so slot reads the real rate from the game's audio and runs it at that.
+- Lynx has no battery saves. Use save states.
+
+## [1.6.0-ws3](https://github.com/nelynes/slotPlus/releases/tag/v1.6.0-ws3)
+
+- WonderSwan games now run on automatic frameskip, like GBA and GB. The setting was being sent to the Cygne core under the wrong name and ignored, so it ran with frameskip off. Heavy scenes hold their speed better.
+
+## [1.6.0-ws2](https://github.com/nelynes/slotPlus/releases/tag/v1.6.0-ws2)
+
+slotPlus: Slot 1.6.0 plus WonderSwan.
+
+- WonderSwan and WonderSwan Color games (`.ws`, `.wsc`) get their own shelf. Put them in `Games/WS/`. They run on the Beetle WonderSwan (Cygne) core.
+- WonderSwan carts have their own wide shape with a stepped plug, a wide label (art goes in `Labels/WS/`), and a smoke-translucent default shell.
+- The WonderSwan's Y pad is reachable: hold L1 and the D-pad becomes the Y pad, hold R1 and X / A / B / Y become the Y pad.
+- Turbo and the picture-mode shortcuts are off for WonderSwan games so the shoulder buttons can act as modifiers. SELECT turns a vertical game upright and back.
+- SELECT only rotates vertical games. Horizontal WonderSwan games ignore it, so they can't be turned onto a layout their buttons don't follow.
+- Vertical games get their own buttons: the D-pad is the Y pad, the face buttons are the X pad, L1 is A and R1 is B. The mapping follows whether the picture is upright (SELECT) or the device is turned counter-clockwise.
+- Vertical games fit the screen: the whole picture shows at 2x with black bars at the sides. GBA, GB and GBC are unchanged.
+- The `WS` folders under `Games`, `Labels`, `Saves` and `States` are created for you on first boot.
+- The core picker works again on GBA games.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 
