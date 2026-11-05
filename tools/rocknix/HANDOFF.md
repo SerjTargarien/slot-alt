@@ -61,7 +61,12 @@ OS copy (`/etc/wpa_supplicant.conf`) is deleted and `dev.sh install` no longer w
   setting is off on this card.
 - **BusyBox** gained `ntpd` and `rfkill` (`board/rgb20sx/busybox.fragment`). A changed
   fragment needs `make busybox-dirclean` before `dev.sh build`.
-- **Not checked yet:** box-art fetch and RomM over slot's Wi-Fi; the radio really
+- **Files: Gamebit** (menu, then Network, then Gamebit), slot's own web file manager
+  (`crates/slot/src/server`, pages from `System/web`), serves the card on port 80 with a PIN
+  and a QR code. It works on slot² as it is; the user is testing it in depth. No FTP or
+  SFTP is planned unless Gamebit falls short (`gesftpserver` would add SFTP to Dropbear).
+- **Checked by the user:** box-art fetch. RomM isn't used.
+- **Not checked yet:** the radio really
   powering off in games without `slotsq-dev` (the battery run will show it). The boot
   logo refresh stays off (`BOOT_LOGO=0`).
 - **Self-update is off** (`SELF_UPDATE=0`): no "Check for updates" row, since an
