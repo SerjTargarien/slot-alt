@@ -103,10 +103,10 @@ installed by copying the dtb to the card's `device_trees/slotsq.dtb` (the old on
 capped top or bottom.
 
 **Next, in order (user's priorities, 2026-11-05 evening):**
-1. **A battery run on our kernel without `slotsq-dev`**: the radio should now be off in
-   games (worth 0.13-0.19 W, PLAN.md), and CPU idle states may differ from ROCKNIX's. Log
-   with `SLOT_TRACE_POWER=1` in `/run/slot.env` (the frontend writes `Logs/power.log`),
-   then `python3 -I tools/rocknix/medians.py NAME`.
+1. ~~Battery run~~ done: the radio off in games saves 0.04 W (1.83 W to 1.79 W in game,
+   PLAN.md). To measure again: `SLOT_TRACE_POWER=1` in `/run/slot.env` (the frontend
+   writes `Logs/power.log`), move `slotsq-dev` aside, restart slot, then
+   `python3 -I tools/rocknix/medians.py NAME` on the saved logs.
 2. **More menu rows on a tall canvas** (`QUICK_VISIBLE` is 6).
 3. Whichever comes first:
    - **Self-update from our own GitHub releases**, together with the update scenes,
@@ -201,6 +201,14 @@ Findings:
   worth saving, so it will become the dev card for phase 1. Say so before writing to it.
 - A Sony DualSense was paired over Bluetooth during the session. It shows up as an input
   device.
+
+## Remote commands on slot² (a trap)
+
+End a remote command with only the restart in the background, as its own statement:
+`...; setsid sh -c "kill -TERM \$(pidof ld-linux-aarch64.so.1)" < /dev/null > /dev/null 2>&1 &`.
+Writing `a && b && setsid ... &` backgrounds the whole `&&` chain, which then dies with
+the SSH session, so nothing after the first step happens (a reboot and a restart were
+lost this way).
 
 ## Dev loop
 

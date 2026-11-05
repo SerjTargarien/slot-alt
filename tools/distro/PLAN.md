@@ -239,6 +239,20 @@ medians over 75 s each, `logs/power-slotsq-wifi.log`:
 | `ip link set wlan0 down` | 1.595 W |
 | `rtw88_8723ds` unloaded | 1.581 W |
 
+**Battery run with slot running Wi-Fi (2026-11-05 evening),** our kernel with the linear
+backlight, brightness level 10 (`brightness=4`), Monster Rancher Explorer on Gambatte,
+back to back at 51% and 50%, `logs/power-slotsq-A.log` and `-B.log`:
+
+| Run | In-game median | CPU median | Missed vblanks |
+|---|---|---|---|
+| A: Wi-Fi kept in games (`slotsq-dev`), power save on | 1.83 W | 1416 MHz | 0 |
+| B: slot lets Wi-Fi go in games (radio down) | 1.79 W | 1416 MHz | 0 |
+
+- Letting the radio go saves about 0.04 W (2%), as the bench numbers above predicted
+  (power save on 1.636 W, link down 1.595 W). Power save already took most of it.
+- Not comparable with the earlier 2.02 W Gambatte run: another game, and the backlight
+  scale was different then.
+
 Design that follows (phase 3):
 - power save on whenever Wi-Fi is connected;
 - the radio off whenever slot doesn't need Wi-Fi (its own Wi-Fi setting off);
