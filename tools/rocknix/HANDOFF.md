@@ -6,7 +6,9 @@ Last updated 2026-11-05, evening. Read this first, then
 
 Branch: `claude/beautiful-feynman-ffzfnx` (fork `SerjTargarien/slot-alt` of
 `BrandonKowalski/slot`). Upstream `main` was still exactly our fork point `f1f6ef9` on
-2026-11-05. Commits from this session are local only, not pushed.
+2026-11-05. Pushed to the fork on 2026-11-05 (all commits authored by Serj Targarien, no
+trailers; the history was rewritten once, so old commit links from before then are dead).
+No release until slot² is stable and feature complete.
 
 ## Resume here (2026-11-05, evening)
 
