@@ -1279,6 +1279,14 @@ impl Frontend {
         self.session.core_settling()
     }
 
+    pub fn launching(&self) -> bool {
+        self.session.launching()
+    }
+
+    pub fn leaving(&self) -> bool {
+        self.session.leaving()
+    }
+
     pub fn advance_at(&mut self, input: &mut dyn InputSource, now: Millis, dt: f32) {
         let events = input.poll(now);
         self.session.feed(events, now);

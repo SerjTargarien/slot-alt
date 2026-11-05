@@ -221,9 +221,17 @@ pub fn run() {
         let dropped = pacer.swapped(work, swap_took > Duration::from_millis(1));
         if let Some((cap, governor)) = &mut clock {
             let budget = pacer.period.saturating_sub(pacer.margin);
-            if let Some(khz) = governor.frame(work, gpu, dropped || late, budget) {
+            let (khz, why) = if frontend.launching() {
+                (governor.launching(), " for the launch")
+            } else if frontend.leaving() {
+                governor.leaving();
+                (None, "")
+            } else {
+                (governor.frame(work, gpu, dropped || late, budget), "")
+            };
+            if let Some(khz) = khz {
                 cap.set(khz);
-                eprintln!("slot: clock: {} MHz", khz / 1000);
+                eprintln!("slot: clock: {} MHz{why}", khz / 1000);
             }
         }
         if slot::latency::tracing() {

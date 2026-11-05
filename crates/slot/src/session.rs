@@ -171,6 +171,16 @@ impl Session {
                 .is_some_and(|e| e.state() == CoreState::Loading)
     }
 
+    /// A game is being inserted or its core, save and state are loading.
+    pub fn launching(&self) -> bool {
+        self.inserting() || self.core_settling()
+    }
+
+    /// A game is being saved and put away.
+    pub fn leaving(&self) -> bool {
+        self.ejecting()
+    }
+
     pub fn has_core(&self) -> bool {
         self.emu.is_some() || self.opening.is_some()
     }

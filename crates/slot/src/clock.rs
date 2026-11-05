@@ -116,6 +116,29 @@ impl Governor {
         }
     }
 
+    /// Called every frame while a game launches: the cap goes to the top step so the
+    /// game never starts at the menu's clock, and the calm count restarts, so it steps
+    /// down again only after calm seconds of play.
+    pub fn launching(&mut self) -> Option<u32> {
+        self.forget();
+        self.set(self.steps.len() - 1)
+    }
+
+    /// Called every frame while a game is put away. Its save takes one long frame that
+    /// a faster clock would not shorten, so those frames are left out.
+    pub fn leaving(&mut self) {
+        self.forget();
+    }
+
+    fn forget(&mut self) {
+        self.checked = 0;
+        self.misses = 0;
+        self.window = Peak::default();
+        self.cpu_bound_peak = Duration::ZERO;
+        self.calm = 0;
+        self.calm_peak = Peak::default();
+    }
+
     fn set(&mut self, index: usize) -> Option<u32> {
         let changed = index != self.index;
         self.index = index;

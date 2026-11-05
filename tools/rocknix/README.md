@@ -72,6 +72,10 @@ What step 1 adds:
   - **Down a step** after three calm seconds, if the predicted work at the lower clock
     stays under 75% of the budget. Only the CPU part of the work is scaled for that
     prediction; time spent waiting for the GPU is not.
+  - **To the top step** while a game is inserted and its core, save and state load, so a
+    game never starts at the menu's clock. The usual calm seconds then bring it down.
+  - **Unchanged while a game is put away.** Its save takes one long frame (80 to 130 ms)
+    that a faster clock would not shorten, so those frames are left out.
 
   `SLOT_CLOCK=max` turns it off. The GPU keeps its own `simple_ondemand` governor unless
   `SLOT_GPU_GOVERNOR` is set, with a 400 MHz floor (see the launch script). The launch
@@ -85,12 +89,13 @@ What step 1 adds:
   | `schedutil` | 2.3-2.4 W, misses up to 2/3 of vblanks | ~2.4 W, misses | ~2.2 W, misses |
   | First capped version | stayed at 1800 MHz | 1104 MHz, ~2.3 W, no misses | 816-1104 MHz, 2.1-2.2 W, no misses |
   | GPU on `simple_ondemand` (200 MHz) | 1800 MHz, 2.6-2.8 W | 1800 MHz, ~2.47 W | 1800 MHz, 2.33 W |
-  | CPU-bound rule, 400 MHz GPU floor | | | 1104 MHz, 2.03 W, no misses in play |
+  | CPU-bound rule, 400 MHz GPU floor | 1800 MHz, ~2.7 W | 1104 MHz, 2.13 W, no misses in play | 1104 MHz, 2.03 W, no misses in play |
 
   The last two rows are in-game medians. With the GPU at 200 MHz its wait was two thirds
   of a Gambatte frame, which pushed the CPU to 1800 MHz under the earlier rules. With the
   CPU-bound rule and no floor, Gambatte held 1416 MHz at 2.06 W; with the GPU on
-  `performance`, 816 MHz at 2.06 W.
+  `performance`, 816 MHz at 2.06 W. mGBA's CPU part alone is about 6 ms on average and
+  up to 10 ms at 1800 MHz, so 1800 MHz is its floor under these rules.
 
   The fixed baseline is about 1.8 W.
 - **Buttons** (`slot/src/input/evdev.rs`): a standard-gamepad table on ROCKNIX. The

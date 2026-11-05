@@ -192,6 +192,40 @@ fn a_step_up_holds_off_the_next_step_down_for_three_seconds() {
 }
 
 #[test]
+fn a_launch_jumps_to_the_top_step_once_and_holds_off_the_step_down() {
+    let mut g = governor();
+    run(&mut g, 180 * 6, 1.0, false);
+    assert_eq!(g.khz(), 408_000);
+    assert_eq!(g.launching(), Some(1_800_000));
+    assert_eq!(g.launching(), None);
+    assert_eq!(run(&mut g, 179, 2.0, false), Vec::<u32>::new());
+    assert_eq!(run(&mut g, 1, 2.0, false), vec![1_608_000]);
+}
+
+#[test]
+fn frames_while_leaving_a_game_neither_raise_nor_lower_the_cap() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    for _ in 0..180 * 2 {
+        g.leaving();
+    }
+    assert_eq!(run(&mut g, 179, 2.0, false), Vec::<u32>::new());
+    assert_eq!(g.khz(), before);
+}
+
+#[test]
+fn leaving_a_game_forgets_misses_from_the_frames_just_before() {
+    let mut g = governor();
+    run(&mut g, 180 * 3, 2.0, false);
+    let before = g.khz();
+    run(&mut g, 1, 120.0, true);
+    g.leaving();
+    assert_eq!(run(&mut g, 29, 2.0, false), Vec::<u32>::new());
+    assert_eq!(g.khz(), before);
+}
+
+#[test]
 fn the_top_step_is_never_exceeded() {
     let mut g = governor();
     assert_eq!(run(&mut g, 300, 15.0, true), Vec::<u32>::new());
