@@ -2,7 +2,8 @@
 
 Status: direction agreed 2026-11-05 (option C). Phase 0 done: direct ALSA, the Mali blob.
 Phase 1 done: our root boots and SSH logins work (init at 1.97 s, SSH at 6.7-9.7 s,
-54 MB RAM). How it boots, and every
+54 MB RAM). Phase 2 under way: our slot fork runs on rgbslot, started by hand (picture, buttons, FN,
+sound, clock cap all work). Next: start it at boot. How it boots, and every
 trap found on the way, is in `BRINGUP.md`.
 
 ## Goals
@@ -181,6 +182,35 @@ RK3566's speed, built and pinned like the current three cores.
 - A/B root slots with a trial boot and rollback, as BaseOS does, but signed.
 - A CI job that builds the image and the update file.
 - Pin and track the ROCKNIX release we harvest from, or our own kernel build.
+
+## Phase 2 results so far (2026-11-05)
+
+**Upstream slot v1.14.0 (`slot-v1.14.0-h700.zip`) on rgbslot, unchanged,** run through its
+own `launch_frontend.sh` with `SLOT_ROOT=/mnt/sdcard/upstream`:
+
+| Layer | Result |
+|---|---|
+| Launch contract, boot logo step | ran. `--install-bootlogo` only looks for a GPT partition named `boot-resource`, found none and wrote nothing |
+| Platform | read the 720x720 panel from fb0, backlight, battery, RTC |
+| Display | failed silently: the surface was created and the first frame drawn at 2.3 s, but nothing reached the panel (Mali GBM blob, no fbdev path) |
+| Buttons | opened pwrkey, gpio-keys-control and gpio-keys-vol with the Anbernic table; no adc-keys, no FN |
+| Wi-Fi | slot owns it: it ran `slotlink.sh wifi start Config/wifi.conf`, which restarts `wpa_supplicant` with the card's own (here empty) network list, dropping our connection about 40 s after start |
+| Audio | started with no error, but `plug:default` is card 0, which is HDMI |
+
+What follows for the OS:
+- Display and buttons need slot's device layer, as decided.
+- Once slot runs, the OS must not run its own `wpa_supplicant`. Saved networks belong in
+  the card's `Config/wifi.conf`, slot's own list.
+- `/etc/asound.conf` must point `default` at `rk817ext`.
+
+**Our fork on rgbslot** (`System/` copied from the ROCKNIX card, binary `06e6b5c2`), started
+with `SLOT_ROOT=/mnt/sdcard SLOT_PLATFORM=rocknix SLOT_ALSA_DEVICE=plughw:CARD=rk817ext,DEV=0`
+and the GPU floor written by hand (`min_freq` 400 MHz):
+- Picture, buttons, FN (through the ADC), sound from the speaker and the clock cap all
+  work. The user found nothing off.
+- First frame 2.29 s after slot starts. Surface creation takes 1.1 s, against 0.03-0.08 s
+  under ROCKNIX: probably the cold 57 MB libmali read from a card now running at 50 MHz.
+- One ROCKNIX leftover: slot calls `timedatectl set-ntp`, which doesn't exist here.
 
 ## Decisions (2026-11-05)
 
