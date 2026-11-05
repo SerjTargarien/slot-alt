@@ -101,7 +101,7 @@ survey() {
 	section "wifi"
 	run "ls /sys/class/net"
 	run "iw list 2>/dev/null | sed -n '/Supported interface modes/,/Band 2\|software interface/p' | head -n 20"
-	run "iw dev"
+	run "iw dev | grep -E 'Interface|type|channel'"
 	run "command -v iw iwctl connmanctl wpa_cli wpa_supplicant hostapd udhcpc"
 }
 
