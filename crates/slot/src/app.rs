@@ -1963,6 +1963,7 @@ impl App {
             | QuickRow::GameStylusDown
             | QuickRow::GameStylusLeft
             | QuickRow::GameStylusRight
+            | QuickRow::GameRotate
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -3003,6 +3004,17 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    /// Slot²: the WonderSwan game in the slot was turned; it starts that way next time.
+    pub fn keep_ws_portrait(&mut self, portrait: bool) {
+        if self.game_in_slot().is_none() {
+            return;
+        }
+        if let Some(game) = &mut self.game {
+            game.ws_portrait = Some(portrait);
+        }
+        self.keep_game();
     }
 
     /// Whether the game in the slot has its own `setting`.
@@ -5199,6 +5211,7 @@ impl App {
             | QuickRow::GameStylusDown
             | QuickRow::GameStylusLeft
             | QuickRow::GameStylusRight
+            | QuickRow::GameRotate
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -5637,6 +5650,7 @@ impl App {
             | QuickRow::GameStylusDown
             | QuickRow::GameStylusLeft
             | QuickRow::GameStylusRight
+            | QuickRow::GameRotate
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot

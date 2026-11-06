@@ -233,3 +233,17 @@ fn the_ds_page_has_its_screens_and_a_stylus_on_the_right_stick() {
         "only the DS has them"
     );
 }
+
+#[test]
+fn the_wonderswan_turns_with_select_and_nothing_else_has_rotate() {
+    let ws = SystemControls::default_for(Platform::Ws);
+    assert!(inputs(Platform::Ws).contains(&Input::Rotate));
+    assert_eq!(
+        ws.row(Input::Rotate),
+        [Some(plain(Device::Select)), None, None]
+    );
+    assert_eq!(label(Platform::Ws, Input::Rotate), "Rotate");
+    for platform in Platform::ALL.into_iter().filter(|p| *p != Platform::Ws) {
+        assert!(!inputs(platform).contains(&Input::Rotate), "{platform:?}");
+    }
+}

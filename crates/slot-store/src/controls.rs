@@ -48,10 +48,13 @@ pub enum Input {
     StylusDown,
     StylusLeft,
     StylusRight,
+    /// Slot²: the WonderSwan's turn, which drives slot rather than the core: it turns the
+    /// game between held upright and held wide (design/ws-orientation.md).
+    Rotate,
 }
 
 impl Input {
-    pub const COUNT: usize = 24;
+    pub const COUNT: usize = 25;
 
     pub const ALL: [Input; Input::COUNT] = [
         Input::Up,
@@ -78,6 +81,7 @@ impl Input {
         Input::StylusDown,
         Input::StylusLeft,
         Input::StylusRight,
+        Input::Rotate,
     ];
 
     fn index(self) -> usize {
@@ -110,6 +114,7 @@ impl Input {
             Input::StylusDown => "stylus_down",
             Input::StylusLeft => "stylus_left",
             Input::StylusRight => "stylus_right",
+            Input::Rotate => "rotate",
         }
     }
 
@@ -125,6 +130,7 @@ impl Input {
                 | Input::StylusDown
                 | Input::StylusLeft
                 | Input::StylusRight
+                | Input::Rotate
         )
     }
 
@@ -162,7 +168,8 @@ impl Input {
             | Input::StylusUp
             | Input::StylusDown
             | Input::StylusLeft
-            | Input::StylusRight => return None,
+            | Input::StylusRight
+            | Input::Rotate => return None,
         })
     }
 }
@@ -179,7 +186,7 @@ pub fn inputs(platform: Platform) -> &'static [Input] {
         Platform::Gba | Platform::Gbav | Platform::Lynx => {
             &[Up, Down, Left, Right, A, B, Select, Start, L, R]
         }
-        Platform::Ws => &[Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start],
+        Platform::Ws => &[Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start, Rotate],
         Platform::Nds => &[
             Up,
             Down,
@@ -380,6 +387,8 @@ fn default_row(platform: Platform, input: Input) -> Row {
         Input::StylusDown => one(plain(Device::RsDown)),
         Input::StylusLeft => one(plain(Device::RsLeft)),
         Input::StylusRight => one(plain(Device::RsRight)),
+        // The WonderSwan has no SELECT, which the core turned the picture with.
+        Input::Rotate => one(plain(Device::Select)),
     }
     .map(|b: Option<Binding>| b.filter(|_| inputs(platform).contains(&input)))
 }
@@ -473,6 +482,7 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (_, Input::StylusUp) => "Stylus Up",
         (_, Input::StylusDown) => "Stylus Down",
         (_, Input::StylusLeft) => "Stylus Left",
+        (_, Input::Rotate) => "Rotate",
         (_, Input::StylusRight) => "Stylus Right",
     }
 }

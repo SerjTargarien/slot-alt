@@ -630,6 +630,9 @@ pub struct GameSettings {
     pub play: PlayOverrides,
     pub shortcuts: GameShortcuts,
     pub controls: GameControls,
+    /// A WonderSwan game's orientation as it was last left: held upright (`true`) or wide
+    /// (design/ws-orientation.md). `None` starts it the way its cart says.
+    pub ws_portrait: Option<bool>,
     /// Lines this build doesn't know, kept as they were.
     other: Vec<(String, String)>,
 }
@@ -644,6 +647,7 @@ impl GameSettings {
             play: PlayOverrides::default(),
             shortcuts: GameShortcuts::default(),
             controls: GameControls::default(),
+            ws_portrait: None,
             other: Vec::new(),
         }
     }
@@ -667,11 +671,29 @@ impl GameSettings {
         }
         text.push_str(&self.shortcuts.text());
         text.push_str(&self.controls.text());
+        if let Some(portrait) = self.ws_portrait {
+            let way = if portrait { "portrait" } else { "landscape" };
+            text.push_str(&format!("{WS_ORIENTATION}={way}\n"));
+        }
         for (k, v) in &self.other {
             text.push_str(&format!("{k}={v}\n"));
         }
         text
     }
+}
+
+const WS_ORIENTATION: &str = "ws_orientation";
+
+fn read_ws_orientation(to: &mut Option<bool>, key: &str, value: &str) -> bool {
+    if key != WS_ORIENTATION {
+        return false;
+    }
+    *to = match value {
+        "portrait" => Some(true),
+        "landscape" => Some(false),
+        _ => None,
+    };
+    true
 }
 
 pub fn game_file(root: &Path, platform: Platform, stem: &str) -> PathBuf {
@@ -691,7 +713,8 @@ pub fn read_game(root: &Path, platform: Platform, stem: &str) -> GameSettings {
         let known = game.screen.read(key, value)
             || game.play.read(key, value)
             || game.shortcuts.read(key, value)
-            || game.controls.read(platform, key, value);
+            || game.controls.read(platform, key, value)
+            || read_ws_orientation(&mut game.ws_portrait, key, value);
         if !known {
             game.other.push((key.to_string(), value.to_string()));
         }

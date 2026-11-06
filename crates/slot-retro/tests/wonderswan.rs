@@ -110,10 +110,14 @@ mod vertical {
     }
 
     #[test]
-    fn select_does_nothing_in_a_horizontal_game_so_it_cannot_be_turned() {
+    fn select_never_reaches_the_core_whichever_way_the_game_is_held() {
         let out = ButtonMask(ButtonMask::SELECT | ButtonMask::START | ButtonMask::A)
             .wonderswan_for(WsLayout::Horizontal);
         assert_eq!(out.0, ButtonMask::START | ButtonMask::A);
+        for layout in [WsLayout::Upright, WsLayout::Sideways] {
+            let out = ButtonMask(ButtonMask::SELECT | ButtonMask::START).wonderswan_for(layout);
+            assert_eq!(out.0, ButtonMask::START, "{layout:?}");
+        }
     }
 
     #[test]
@@ -174,10 +178,9 @@ mod vertical {
     }
 
     #[test]
-    fn start_and_select_pass_straight_through() {
+    fn start_passes_straight_through() {
         for f in [upright, sideways] {
             assert_eq!(f(ButtonMask::START), ButtonMask::START);
-            assert_eq!(f(ButtonMask::SELECT), ButtonMask::SELECT);
         }
     }
 

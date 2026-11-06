@@ -110,3 +110,25 @@ fn a_games_own_controls_rows_read_back_and_others_are_dropped() {
     assert_eq!(back.controls, game.controls);
     assert_eq!(back.controls.apply(&system), now);
 }
+
+#[test]
+fn a_wonderswan_games_orientation_reads_back() {
+    let d = tempfile::tempdir().unwrap();
+    let mut game = GameSettings::new(Platform::Ws, "Klonoa");
+    game.ws_portrait = Some(true);
+    write_game(d.path(), &game).unwrap();
+    let file = game_file(d.path(), Platform::Ws, "Klonoa");
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "ws_orientation=portrait\n"
+    );
+    assert_eq!(
+        read_game(d.path(), Platform::Ws, "Klonoa").ws_portrait,
+        Some(true)
+    );
+    std::fs::write(&file, "ws_orientation=sideways\n").unwrap();
+    assert_eq!(
+        read_game(d.path(), Platform::Ws, "Klonoa").ws_portrait,
+        None
+    );
+}

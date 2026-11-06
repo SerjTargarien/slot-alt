@@ -154,6 +154,7 @@ fn bit(input: Input) -> u16 {
         | Input::StylusUp
         | Input::StylusDown
         | Input::StylusLeft
-        | Input::StylusRight => 0,
+        | Input::StylusRight
+        | Input::Rotate => 0,
     }
 }

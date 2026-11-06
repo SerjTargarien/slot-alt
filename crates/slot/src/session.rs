@@ -49,6 +49,11 @@ pub struct Session {
     reloading: bool,
     driven: bool,
     ws_vertical: bool,
+    /// Slot²: the WonderSwan game is held upright (the core draws it portrait), as it
+    /// was opened or last turned (design/ws-orientation.md).
+    ws_portrait: bool,
+    /// Rotate was down last frame, so a hold turns the game once.
+    ws_rotate_held: bool,
     /// SELECT flips this Lynx game between the turned and the upright layout.
     lynx_select: bool,
     /// The Lynx game is held the usual way, drawn upright with bars at the sides.
@@ -88,6 +93,8 @@ impl Session {
             reloading: false,
             driven: false,
             ws_vertical: false,
+            ws_portrait: false,
+            ws_rotate_held: false,
             lynx_select: false,
             lynx_upright: false,
             lynx_held: "off",
@@ -387,6 +394,7 @@ impl Session {
         let platform = self.app.playing_platform();
         let controls = *self.app.controls_of(platform);
         self.sync_ds(&controls, platform);
+        self.sync_ws(&controls, platform);
         if let Some(emu) = &self.emu {
             let mask = self.pad.mask(&controls, platform, self.app.stylus_is_out());
             let mask = match self.app.core() {
@@ -449,12 +457,37 @@ impl Session {
         }
     }
 
+    /// Slot²: the buttons follow the picture as the core draws it, not the cart: drawn
+    /// tall, the game is held upright; drawn wide, a vertical game is held sideways.
     fn ws_layout(&self) -> WsLayout {
-        match (self.ws_vertical, self.app.frame_is_tall()) {
-            (false, _) => WsLayout::Horizontal,
-            (true, true) => WsLayout::Upright,
-            (true, false) => WsLayout::Sideways,
+        match (self.app.frame_is_tall(), self.ws_vertical) {
+            (true, _) => WsLayout::Upright,
+            (false, true) => WsLayout::Sideways,
+            (false, false) => WsLayout::Horizontal,
         }
+    }
+
+    /// Slot²: Rotate turns the WonderSwan game between upright and wide, and the game
+    /// keeps the way it was left.
+    fn sync_ws(&mut self, controls: &SystemControls, platform: Platform) {
+        if platform != Platform::Ws {
+            self.ws_rotate_held = false;
+            return;
+        }
+        let down = self
+            .pad
+            .pressed(controls, platform, false)
+            .contains(&Input::Rotate);
+        let fresh = down && !self.ws_rotate_held;
+        self.ws_rotate_held = down;
+        if !fresh || !self.playing() {
+            return;
+        }
+        self.ws_portrait = !self.ws_portrait;
+        if let Some(emu) = &self.emu {
+            emu.set_option(WS_ROTATE, ws_rotation(self.ws_portrait));
+        }
+        self.app.keep_ws_portrait(self.ws_portrait);
     }
 
     /// SELECT switches between the way the handheld was being held and the
@@ -840,6 +873,14 @@ impl Session {
                 // A Lynx game's turn and a WonderSwan game's orientation come
                 // from files too, so they are read here with the rest.
                 let ws_vertical = platform == Platform::Ws && slot_store::ws_vertical(&rom);
+                // Slot²: the game opens as it was last left, else as its cart says.
+                let ws_portrait = platform == Platform::Ws
+                    && slot_store::games::read_game(&root, platform, &stem)
+                        .ws_portrait
+                        .unwrap_or(ws_vertical);
+                if platform == Platform::Ws {
+                    opened.core.set_option(WS_ROTATE, ws_rotation(ws_portrait));
+                }
                 let lynx_turn = (platform == Platform::Lynx)
                     .then(|| crate::hold_picker::lynx_setup(&root, &stem));
                 Loaded {
@@ -851,6 +892,7 @@ impl Session {
                     sav,
                     resume,
                     ws_vertical,
+                    ws_portrait,
                     lynx_turn,
                 }
             })
@@ -901,6 +943,8 @@ impl Session {
         }
         self.app.set_resume_unread(resume_unread);
         self.ws_vertical = loaded.ws_vertical;
+        self.ws_portrait = loaded.ws_portrait;
+        self.ws_rotate_held = false;
         self.lynx_select = false;
         self.lynx_upright = false;
         if let Some(setup) = loaded.lynx_turn {
@@ -963,7 +1007,18 @@ struct Loaded {
     sav: std::io::Result<Option<Vec<u8>>>,
     resume: std::io::Result<Option<Vec<u8>>>,
     ws_vertical: bool,
+    ws_portrait: bool,
     lynx_turn: Option<crate::hold_picker::LynxSetup>,
+}
+
+/// The core's own turn: Portrait draws the WonderSwan held upright, Landscape wide.
+const WS_ROTATE: &str = "wswan_rotate_display";
+
+fn ws_rotation(portrait: bool) -> &'static str {
+    match portrait {
+        true => "portrait",
+        false => "landscape",
+    }
 }
 
 struct Opening {

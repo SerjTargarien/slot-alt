@@ -118,6 +118,7 @@ pub enum QuickRow {
     GameStylusDown,
     GameStylusLeft,
     GameStylusRight,
+    GameRotate,
     ScSave,
     ScLoad,
     ScScreenshot,
@@ -213,7 +214,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 194] = [
+    pub const ALL: [QuickRow; 195] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -318,6 +319,7 @@ impl QuickRow {
         QuickRow::GameStylusDown,
         QuickRow::GameStylusLeft,
         QuickRow::GameStylusRight,
+        QuickRow::GameRotate,
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScScreenshot,
@@ -503,7 +505,7 @@ impl QuickRow {
 
     /// A system's controls page: every input any system has, each system showing its own
     /// (see `slot_store::controls::inputs`).
-    pub const CONTROLS: [QuickRow; 24] = [
+    pub const CONTROLS: [QuickRow; 25] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
@@ -528,6 +530,7 @@ impl QuickRow {
         QuickRow::GameStylusDown,
         QuickRow::GameStylusLeft,
         QuickRow::GameStylusRight,
+        QuickRow::GameRotate,
     ];
 
     /// Slot²: General, then the systems with shortcuts of their own, in `SHORTCUT_SYSTEMS`
@@ -1077,7 +1080,8 @@ impl QuickRow {
             | QuickRow::GameStylusUp
             | QuickRow::GameStylusDown
             | QuickRow::GameStylusLeft
-            | QuickRow::GameStylusRight => self
+            | QuickRow::GameStylusRight
+            | QuickRow::GameRotate => self
                 .input()
                 .map_or("", |i| controls::label(Platform::Gba, i)),
             QuickRow::ControlsGb => "Game Boy",
@@ -1278,6 +1282,7 @@ impl QuickRow {
             QuickRow::GameStylusDown => Input::StylusDown,
             QuickRow::GameStylusLeft => Input::StylusLeft,
             QuickRow::GameStylusRight => Input::StylusRight,
+            QuickRow::GameRotate => Input::Rotate,
             _ => return None,
         })
     }

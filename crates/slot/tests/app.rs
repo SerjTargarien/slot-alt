@@ -2764,3 +2764,42 @@ fn the_shader_shortcut_does_nothing_in_the_save_state_switcher() {
     assert_eq!(slot_store::read_slot_state(d.path()).shader_gba, before);
     assert_eq!(a.toast(), None);
 }
+
+/// Slot²: a WonderSwan game's orientation as its file keeps it.
+fn ws_portrait(root: &Path, stem: &str) -> Option<bool> {
+    slot_store::games::read_game(root, Platform::Ws, stem).ws_portrait
+}
+
+#[test]
+fn rotate_turns_a_wonderswan_game_and_it_keeps_the_way_it_was_left() {
+    let d = root_with_one_cart("WS", "Klonoa.ws");
+    let mut s = session_playing(d.path());
+    assert_eq!(
+        ws_portrait(d.path(), "Klonoa"),
+        None,
+        "it opens as its cart says"
+    );
+    let mut now = s.app().now();
+    let mut tap = |s: &mut Session| {
+        s.feed([RawEvent::Down(Btn::Select)], now);
+        for _ in 0..6 {
+            now += 16;
+            s.feed([], now);
+            s.update(1.0 / 60.0);
+        }
+        s.feed([RawEvent::Up(Btn::Select)], now);
+        for _ in 0..12 {
+            now += 16;
+            s.feed([], now);
+            s.update(1.0 / 60.0);
+        }
+    };
+    tap(&mut s);
+    assert_eq!(
+        ws_portrait(d.path(), "Klonoa"),
+        Some(true),
+        "SELECT turned it upright"
+    );
+    tap(&mut s);
+    assert_eq!(ws_portrait(d.path(), "Klonoa"), Some(false), "and back");
+}

@@ -507,7 +507,8 @@ fn the_in_game_pages_hold_their_rows_in_order() {
             "Stylus Up",
             "Stylus Down",
             "Stylus Left",
-            "Stylus Right"
+            "Stylus Right",
+            "Rotate"
         ]
     );
     assert_eq!(
