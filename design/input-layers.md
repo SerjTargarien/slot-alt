@@ -49,19 +49,23 @@ Slot² doesn't patch over a device's quirks or tune the kernel.
 
 4. **Slot² tunes the kernel** (the poll rewrite). Keep it only for BaseOS, which has no
    device description and whose kernel we can't change; on a system with
-   `/etc/slot-device` it's the OS's job.
+   `/etc/slot-device` it's the OS's job. Done.
 5. **L3 and R3 aren't read.** The RGB20SX's `gpio-keys-control` reports `BTN_THUMBL` and
    `BTN_THUMBR`, and both sticks click (confirmed by the user). Make them physical inputs,
-   bindable and labelled L3 and R3.
-6. **Directions are merged per device, not across devices.** The D-pad comes from
+   bindable and labelled L3 and R3. Done.
+6. **Backlog (2026-11-06), done only if it causes trouble: directions are merged per
+   device, not across devices.** If it is done, it is one general change: every input
+   device read into a single input, one place that knows the state of every button and
+   axis, rather than a fix for the D-pad and stick alone. The D-pad comes from
    `gpio-keys-control` as keys and the left stick from `adc-joystick`; each reader thread
    tracks only its own. Steering the menus with the stick while the D-pad is held, or the
    reverse, can let one release the other's Up. The merge (the D-pad wins over a steering
    stick) belongs in one place that sees every device.
-7. **The stick changes role only on its next movement.** Entering or leaving a game while
+7. **Backlog, with 6: the stick changes role only on its next movement.** Entering or leaving a game while
    it is tilted keeps its old button (Up or LS Up) until it moves. Part of 6: the merge
    point releases the old role's buttons as soon as the context changes.
 8. **The controls design note says the RGB20SX has no stick clicks.** Correct it with 5.
+   Done with 5.
 
 ## Order
 
@@ -74,7 +78,8 @@ Slot² doesn't patch over a device's quirks or tune the kernel.
    a row, or switching game and shelf with a stick tilted.
 2. **Slot²: commit what is on the device** (sticks, DS controls, SELECT chords): done,
    the DS controls checked by the user (the DS's screens still want polish, later).
-3. **Slot²: items 4-8**, built and tested together, then committed.
+3. **Slot²: items 4, 5 and 8**, built and tested together, then committed. Items 6 and 7
+   wait in the backlog.
 
 Each step is checked on the device before the next. Base² and Slot² are committed
 separately.

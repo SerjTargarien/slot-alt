@@ -45,7 +45,11 @@ impl DeviceInput {
                 node.display(),
                 device_name(sys, &node)
             );
-            quicken_poll(sys, &node);
+            // Slot²: an OS with a device description sets its own poll rates (CONTRACT.md);
+            // only BaseOS, whose kernel slot can't change, gets them quickened.
+            if !Path::new(crate::hardware::DESCRIPTION).exists() {
+                quicken_poll(sys, &node);
+            }
             let queue = pending.clone();
             let steers = stick.clone();
             let name = node.display().to_string();

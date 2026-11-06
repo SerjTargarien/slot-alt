@@ -252,6 +252,8 @@ fn gamepad_btn(code: u16) -> Option<Btn> {
         0x13a => Btn::Select,
         0x13b => Btn::Start,
         0x13c => Btn::Menu,
+        0x13d => Btn::L3,
+        0x13e => Btn::R3,
         0x220 => Btn::Up,
         0x221 => Btn::Down,
         0x222 => Btn::Left,

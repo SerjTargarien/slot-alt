@@ -439,3 +439,14 @@ fn a_stick_resting_near_the_line_does_not_chatter() {
     // Under a third: let go.
     assert_eq!(hat.feed(abs(0x00, 600)), vec![RawEvent::Up(Btn::LsRight)]);
 }
+
+#[test]
+fn a_gamepads_stick_clicks_are_l3_and_r3() {
+    use slot::input::evdev::{code_to_btn_in, Layout};
+    assert_eq!(code_to_btn_in(Layout::Gamepad, 0x13d), Some(Btn::L3));
+    assert_eq!(code_to_btn_in(Layout::Gamepad, 0x13e), Some(Btn::R3));
+    assert_eq!(
+        slot::input::btn_device(Btn::L3),
+        Some(slot_store::Device::L3)
+    );
+}

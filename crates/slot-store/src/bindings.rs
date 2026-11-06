@@ -32,6 +32,9 @@ pub enum Device {
     RsDown,
     RsLeft,
     RsRight,
+    /// Slot²: the sticks pressed in.
+    L3,
+    R3,
 }
 
 impl Device {
@@ -39,7 +42,7 @@ impl Device {
         matches!(self, Device::Select | Device::Start)
     }
 
-    pub const ALL: [Device; 22] = [
+    pub const ALL: [Device; 24] = [
         Device::Up,
         Device::Down,
         Device::Left,
@@ -62,6 +65,8 @@ impl Device {
         Device::RsDown,
         Device::RsLeft,
         Device::RsRight,
+        Device::L3,
+        Device::R3,
     ];
 
     pub fn key(self) -> &'static str {
@@ -88,6 +93,8 @@ impl Device {
             Device::RsDown => "rs_down",
             Device::RsLeft => "rs_left",
             Device::RsRight => "rs_right",
+            Device::L3 => "l3",
+            Device::R3 => "r3",
         }
     }
 
@@ -115,6 +122,8 @@ impl Device {
             Device::RsDown => "RS DOWN",
             Device::RsLeft => "RS LEFT",
             Device::RsRight => "RS RIGHT",
+            Device::L3 => "L3",
+            Device::R3 => "R3",
         }
     }
 

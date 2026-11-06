@@ -39,7 +39,7 @@ What the device has: Up, Down, Left, Right, A, B, X, Y, L1, R1, L2, R2, Select, 
 plus each stick's four directions as buttons (LS Up/Down/Left/Right, RS
 Up/Down/Left/Right; a direction counts as pressed past about half travel, with hysteresis
 so it doesn't chatter). Menu stays slot's (menus and chords) and isn't bindable. The
-RGB20SX has no stick clicks.
+sticks also click in (L3 and R3).
 
 A **binding** is one physical input, optionally held with a modifier: Menu, Select, or any
 other physical input (a chord, such as L1+Up). That's today's `Binding`, plus the stick

@@ -28,6 +28,9 @@ pub enum Btn {
     RsDown,
     RsLeft,
     RsRight,
+    /// Slot²: the sticks pressed in.
+    L3,
+    R3,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
