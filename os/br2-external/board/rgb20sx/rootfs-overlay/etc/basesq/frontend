@@ -1,0 +1,86 @@
+#!/bin/sh
+# basesq frontend: runs slot from the card. BusyBox init starts this again whenever it
+# exits. Like BaseOS, System/frontend wins if a card has one, else System/slot.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SD=/mnt/sdcard
+LOGS="$SD/Logs"
+LOADER=/lib/ld-linux-aarch64.so.1
+
+say() {
+	echo "$(cut -d' ' -f1 /proc/uptime) $*" >> "$SD/basesq-boot.log"
+	echo "basesq: $*" > /dev/tty0 2>/dev/null
+}
+
+if [ -x "$SD/System/frontend" ] || [ -f "$SD/System/frontend" ]; then
+	app="$SD/System/frontend"
+elif [ -f "$SD/System/slot" ]; then
+	app="$SD/System/slot"
+else
+	say "no System/slot on the card"
+	sleep 5
+	exit 1
+fi
+
+export SLOT_ROOT="$SD"
+export SLOT_RUN=/run
+# slot reads the device from /etc/slot-device. Our kernel reports FN as a key; ROCKNIX's
+# (the fallback, dev.sh kernel-back) drops it, so slot reads FN from the ADC there.
+case "$(uname -r)" in
+# -slotsq: our kernel before Base² got its name.
+*-basesq | *-slotsq) ;;
+*) export SLOT_FN_ADC=/sys/bus/iio/devices/iio:device0/in_voltage0_raw ;;
+esac
+
+# Development: with a basesq-dev file on the card, slot keeps Wi-Fi up in games too, so
+# SSH stays reachable. Remove it for battery runs.
+[ -f "$SD/basesq-dev" ] && export SLOT_WIFI_KEEP=1
+
+# Development: extra variables for the next start, e.g. SLOT_TALL_PANELS=0 to compare
+# layouts. /run is a tmpfs, so this never survives a reboot.
+[ -f /run/slot.env ] && . /run/slot.env
+
+mkdir -p "$LOGS"
+[ -f "$LOGS/slot.log" ] && mv -f "$LOGS/slot.log" "$LOGS/slot.log.1"
+
+# Measurement: SLOT_TRACE_POWER=1 (in /run/slot.env) logs battery draw and clocks to
+# Logs/power.log every SLOT_POWER_EVERY seconds while slot runs, in the format
+# tools/slotsq/medians.py reads (the same as ROCKNIX's launch script).
+power_line() {
+	line="$(date +%T)"
+	for p in /sys/class/power_supply/*; do
+		[ -r "$p/current_avg" ] && [ -r "$p/voltage_avg" ] || continue
+		i="$(cat "$p/current_avg")"
+		v="$(cat "$p/voltage_avg")"
+		line="$line battery $((${i#-} / 1000 * (v / 1000) / 1000)) mW $(cat "$p/capacity" 2> /dev/null)% $(cat "$p/status" 2> /dev/null)"
+		break
+	done
+	for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq; do
+		[ -r "$f" ] && line="$line cpu $(($(cat "$f") / 1000)) MHz"
+	done
+	for f in /sys/class/devfreq/*gpu*/cur_freq; do
+		[ -r "$f" ] && line="$line gpu $(($(cat "$f") / 1000000)) MHz"
+	done
+	echo "$line"
+}
+if [ "${SLOT_TRACE_POWER:-0}" != 0 ]; then
+	[ -f "$LOGS/power.log" ] && mv -f "$LOGS/power.log" "$LOGS/power.log.1"
+	echo "$(date +%T) slot starting, wifi kept in games: ${SLOT_WIFI_KEEP:-0}" > "$LOGS/power.log"
+	(
+		while kill -0 $$ 2> /dev/null; do
+			power_line >> "$LOGS/power.log"
+			sleep "${SLOT_POWER_EVERY:-5}"
+		done
+	) &
+fi
+say "starting $app"
+began="$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)"
+cd "$SD"
+"$LOADER" "$app" > "$LOGS/slot.log" 2>&1 < /dev/null
+status=$?
+say "slot exited with status $status"
+now="$(cut -d' ' -f1 /proc/uptime | cut -d. -f1)"
+# Don't spin if it dies at once.
+[ $((now - began)) -lt 5 ] && sleep 3
+exit "$status"

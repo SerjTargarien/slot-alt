@@ -1,0 +1,16 @@
+# What slot needs to know about this device (crates/slot/src/hardware.rs). Missing keys
+# keep what slot does on BaseOS.
+NAME="Base² RGB20SX"
+# The Mali GBM build on DRM/KMS; BaseOS uses fbdev.
+DISPLAY=kms
+# Gamepad key codes (BTN_SOUTH and so on), not Anbernic's.
+BUTTONS=gamepad
+# Our kernel reports FN as a key. The frontend sets SLOT_FN_ADC when ROCKNIX's kernel runs,
+# which drops it.
+FN_ADC=
+CPU_CAP=1
+# slot runs Wi-Fi (card/System/slotlink.sh, Config/wifi.conf); the OS doesn't start it.
+WIFI=1
+BOOT_LOGO=0
+# An upstream slot build can't drive this display yet, so no "Check for updates".
+SELF_UPDATE=0

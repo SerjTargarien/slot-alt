@@ -414,20 +414,20 @@ pub struct SlotState {
     pub scale_gbc: Scale,
     pub stretch_gb: Stretch,
     pub stretch_gbc: Stretch,
-    /// Stretch switched on, per platform, where a panel has one stretch style (slot²'s
+    /// Stretch switched on, per platform, where a panel has one stretch style (the RGB20SX's
     /// square panel); elsewhere stretch is per game (`Config/video_mode.txt`).
     pub stretched_gb: bool,
     pub stretched_gbc: bool,
-    /// slot²: the Game Gear and NeoGeo Pocket scale like the Game Boy (Integer or Fit)
+    /// Slot²: the Game Gear and NeoGeo Pocket scale like the Game Boy (Integer or Fit)
     /// and stretch on or off, one value per platform.
     pub scale_gg: Scale,
     pub scale_ngp: Scale,
     pub stretched_gg: bool,
     pub stretched_ngp: bool,
-    /// slot²: the TurboGrafx-16 too (Integer or Fit, stretch on or off).
+    /// Slot²: the TurboGrafx-16 too (Integer or Fit, stretch on or off).
     pub scale_tg16: Scale,
     pub stretched_tg16: bool,
-    /// slot²: the WonderSwan and Lynx too, in either orientation.
+    /// Slot²: the WonderSwan and Lynx too, in either orientation.
     pub scale_ws: Scale,
     pub scale_lynx: Scale,
     pub stretched_ws: bool,

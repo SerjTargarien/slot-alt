@@ -1953,7 +1953,7 @@ fn l_and_r_change_the_mode_on_a_game_gear_cart() {
     let d = tmp_root_with_gg_carts(&["Sonic Chaos", "Zzz"]);
     let mut s = session_playing(d.path());
     assert_eq!(s.app().core(), Core::Gearsystem);
-    // slot²: the 160x144 picture itself is drawn, scaled like a Game Boy's.
+    // Slot²: the 160x144 picture itself is drawn, scaled like a Game Boy's.
     let picture = [40.0 / 240.0, 8.0 / 160.0, 160.0 / 240.0, 144.0 / 160.0];
     assert_eq!(s.app().source_rect(), picture);
     assert!(!s.app().picture_fills(), "it opened stretched");
@@ -2535,7 +2535,7 @@ fn the_shader_shortcut_steps_only_the_neogeo_pocket_shader_in_a_pocket_game() {
 fn l_and_r_change_the_mode_on_a_neogeo_pocket_cart_and_never_reach_the_core() {
     let d = root_with_one_cart("NGP", "Metal Slug.ngp");
     let mut s = session_playing(d.path());
-    // slot²: the 160x152 picture itself is drawn, scaled like a Game Boy's.
+    // Slot²: the 160x152 picture itself is drawn, scaled like a Game Boy's.
     assert_ne!(s.app().source_rect(), WHOLE_TEXTURE);
     assert!(!s.app().picture_fills());
     // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
@@ -2640,7 +2640,7 @@ fn the_shader_shortcut_steps_only_the_turbografx_shader_in_a_hucard_game() {
 fn l_and_r_change_the_mode_on_a_hucard_and_select_and_run_reach_the_core() {
     let d = root_with_one_cart("TG16", "Bonk's Adventure.pce");
     let mut s = session_playing(d.path());
-    // slot²: stretching fills the screen with the same picture.
+    // Slot²: stretching fills the screen with the same picture.
     assert!(!s.app().picture_fills());
     // The Stretch On and Off shortcuts default to Menu+L1 and Menu+R1.
     s.feed([RawEvent::Down(Btn::Menu)], 90);

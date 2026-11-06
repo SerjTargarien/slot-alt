@@ -1,5 +1,0 @@
-# slotsq: BusyBox init runs the boot script once, then keeps the frontend running.
-::sysinit:/etc/slotsq/boot
-::respawn:/etc/slotsq/frontend
-::shutdown:/etc/slotsq/shutdown
-::restart:/sbin/init

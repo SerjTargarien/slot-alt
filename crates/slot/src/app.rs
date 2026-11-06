@@ -2506,7 +2506,7 @@ impl App {
         self.quick_achievement_faces = faces;
     }
 
-    /// slotPlus: menu rows shown greyed out, reached but not opened. slot² hides the
+    /// slotPlus: menu rows shown greyed out, reached but not opened. Slot² hides the
     /// RetroAchievements row instead while it is switched off (`hidden_rows`).
     pub fn disabled_rows(&self) -> &'static [QuickRow] {
         &[]
@@ -2999,7 +2999,7 @@ impl App {
         )
     }
 
-    /// How a picture is sized and which part of the buffer it shows. slot²: a
+    /// How a picture is sized and which part of the buffer it shows. Slot²: a
     /// TurboGrafx-16 game changes its width as it goes and a WonderSwan or Lynx game turns on
     /// its side, so their picture follows the frame the core last drew; it scales to Integer
     /// or Fit and stretches to the whole screen, in either orientation.
@@ -3022,10 +3022,10 @@ impl App {
         (sizing, crop)
     }
 
-    /// A panel taller than 4:3 (slot²'s square one) has a single stretch style, so its
-    /// Stretch rows switch stretch on and off instead. That is one value per platform,
-    /// shared by the shelf's Screen page, the in-game row and the Stretch shortcuts, like
-    /// Scale; upstream keeps stretch per game.
+    /// A panel taller than 4:3 (such as the RGB20SX's square one) has a single stretch
+    /// style, so its Stretch rows switch stretch on and off instead. That is one value per
+    /// platform, shared by the shelf's Screen page, the in-game row and the Stretch
+    /// shortcuts, like Scale; upstream keeps stretch per game.
     fn tall(&self) -> bool {
         self.canvas().extra() > 0.0
     }
@@ -12414,7 +12414,7 @@ fn shares_stretch(platform: Platform) -> bool {
     )
 }
 
-/// slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, and no bezel is
+/// Slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, and no bezel is
 /// made for those sizes yet (slotPlus's were for the old fixed size), so none is drawn.
 fn unbezelled(platform: Platform) -> bool {
     matches!(

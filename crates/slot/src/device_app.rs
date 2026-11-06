@@ -86,7 +86,7 @@ pub fn run() {
         hw.name, hw.display, hw.buttons, hw.fn_adc, hw.cpu_cap, hw.wifi
     );
     // slotPlus's HDMI drives the H700's sunxi display driver under BaseOS's fbdev. A KMS
-    // device (slot²) doesn't run it at all.
+    // device (Base² on the RGB20SX) doesn't run it at all.
     let sunxi_hdmi = hw.display == slot::hardware::Display::Fbdev;
     // Put the picture on a TV if an HDMI cable is in, or back on the panel if
     // it was on one and the cable is out. This has to happen before graphics

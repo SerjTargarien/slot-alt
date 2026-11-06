@@ -1,0 +1,5 @@
+# basesq: BusyBox init runs the boot script once, then keeps the frontend running.
+::sysinit:/etc/basesq/boot
+::respawn:/etc/basesq/frontend
+::shutdown:/etc/basesq/shutdown
+::restart:/sbin/init

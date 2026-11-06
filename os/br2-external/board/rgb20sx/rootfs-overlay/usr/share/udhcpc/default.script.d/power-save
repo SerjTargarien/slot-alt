@@ -1,0 +1,7 @@
+#!/bin/sh
+# Wi-Fi power save keeps the connection and saves 0.13 W on the shelf
+# (os/PLAN.md). Run by udhcpc's default.script once slot's network is up.
+case "$1" in
+bound | renew) iw dev "$interface" set power_save on 2> /dev/null ;;
+esac
+exit 0

@@ -1,0 +1,76 @@
+#!/bin/sh
+# basesq boot: give the next boot back to ROCKNIX (one-shot boots), load the GPU and Wi-Fi
+# drivers, and start SSH. slot itself brings Wi-Fi up.
+# Progress goes to the panel (tty0) and to basesq-boot.log on the SLOT partition.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts /dev/shm
+mount -t devpts devpts /dev/pts
+mount -t tmpfs -o mode=0755 tmpfs /run
+mount -t tmpfs tmpfs /tmp
+mount -o remount,rw /
+# The frontend's own state off the card (CONTRACT.md); a root installed before Base² made
+# it in the image gets it here.
+mkdir -p /data
+
+LOG=/run/basesq-boot.log
+
+# The partition with a given filesystem label, or $2 when none is found.
+labelled() {
+	dev="$(blkid 2>/dev/null | sed -n "s/^\([^:]*\):.* LABEL=\"$1\".*/\1/p" | head -1)"
+	echo "${dev:-$2}"
+}
+say() {
+	line="$(cut -d' ' -f1 /proc/uptime) $*"
+	echo "$line" >> "$LOG"
+	echo "basesq: $*" > /dev/tty0 2>/dev/null
+	sync
+}
+say "init started"
+
+# One boot only: the ROCKNIX card's extlinux.conf goes back to booting ROCKNIX before
+# anything else here can fail.
+mkdir -p /flash
+flash="$(labelled ROCKNIX /dev/mmcblk1p1)"
+if mount -t vfat "$flash" /flash; then
+	if [ -f /flash/extlinux/extlinux.conf.rocknix ]; then
+		cp /flash/extlinux/extlinux.conf.rocknix /flash/extlinux/extlinux.conf
+		sync
+		say "next boot is ROCKNIX again"
+	fi
+	umount /flash
+else
+	say "could not mount the ROCKNIX boot partition $flash"
+fi
+
+mkdir -p /mnt/sdcard
+card="$(labelled SLOT /dev/mmcblk2p1)"
+if mount -t vfat -o noatime "$card" /mnt/sdcard; then
+	say "SLOT mounted from $card"
+	# Write the log to the card as it grows, so a hang still leaves a trail.
+	cp "$LOG" /mnt/sdcard/basesq-boot.log
+	LOG=/mnt/sdcard/basesq-boot.log
+else
+	say "could not mount SLOT from $card"
+fi
+
+for m in mali_kbase rtw88_8723ds; do
+	modprobe "$m" && say "loaded $m" || say "could not load $m"
+done
+
+# The GPU's own governor keeps it at 200 MHz under slot's short bursts, and the long GPU
+# wait then pushes the CPU up. A 400 MHz floor measured cheapest (os/PLAN.md).
+gpu=/sys/class/devfreq/fde60000.gpu
+[ -w "$gpu/min_freq" ] && echo 400000000 > "$gpu/min_freq" && say "GPU floor 400 MHz"
+
+# slot runs Wi-Fi (/etc/slot-device has WIFI=1): it starts wpa_supplicant on the card's
+# Config/wifi.conf through System/slotlink.sh, and udhcpc's hooks turn power save on. SSH
+# listens on whatever network slot joins.
+mkdir -p /etc/dropbear
+dropbear -R -s && say "ssh started"
+say "boot script done"

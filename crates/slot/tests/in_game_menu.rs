@@ -975,7 +975,7 @@ fn a_wonderswan_game_has_no_scale_stretch_or_blending_to_set() {
     assert_eq!(a.playing_platform(), Platform::Ws);
     let hidden = a.in_game_hidden();
     assert!(hidden.contains(&QuickRow::Blending), "Blending is hidden");
-    // slot²: a WonderSwan game scales (Integer or Fit) like the others. (Its Stretch row
+    // Slot²: a WonderSwan game scales (Integer or Fit) like the others. (Its Stretch row
     // switches stretch on a tall panel; on this 3:2 one stretch stays per game.)
     assert!(!hidden.contains(&QuickRow::Scale), "Scale is shown");
     let (_d, a) = playing();

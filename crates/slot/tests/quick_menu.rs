@@ -1692,7 +1692,7 @@ fn the_wonderswan_and_the_lynx_each_have_a_screen_page_with_their_own_shader() {
 }
 
 #[test]
-#[ignore = "slot²: WonderSwan games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
+#[ignore = "Slot²: WonderSwan games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn a_wonderswan_bezel_cycles_through_the_cards_own_pngs_and_none() {
     let (d, mut a, _) = on_carousel();
     let dir = d.path().join("Bezels").join("WS");
@@ -1745,7 +1745,7 @@ fn the_game_gear_has_a_screen_page_with_its_own_shader_and_no_transparent() {
 }
 
 #[test]
-#[ignore = "slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
+#[ignore = "Slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn a_game_gear_bezel_cycles_through_default_the_cards_own_pngs_and_none() {
     let (d, mut a, _) = on_carousel();
     let dir = d.path().join("Bezels").join("GG");
@@ -1765,7 +1765,7 @@ fn a_game_gear_bezel_cycles_through_default_the_cards_own_pngs_and_none() {
 }
 
 #[test]
-#[ignore = "slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
+#[ignore = "Slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn the_neogeo_pocket_has_a_screen_page_with_its_own_shader_and_bezel() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::NgpShader);
@@ -1802,7 +1802,7 @@ fn the_neogeo_pocket_has_a_screen_page_with_its_own_shader_and_bezel() {
 }
 
 #[test]
-#[ignore = "slot²: TurboGrafx-16 games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
+#[ignore = "Slot²: TurboGrafx-16 games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn the_turbografx_16_has_a_screen_page_with_its_own_shader_and_bezel() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::Tg16Shader);
@@ -1853,7 +1853,7 @@ fn the_turbografx_16_has_a_screen_page_with_its_own_shader_and_bezel() {
 }
 
 #[test]
-#[ignore = "slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
+#[ignore = "Slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, where no bezel fits yet, so their Bezel rows are hidden"]
 fn the_game_gear_bezel_offers_its_bundled_default() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::GgBezel);

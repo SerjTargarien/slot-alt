@@ -1,1 +1,0 @@
-source "$BR2_EXTERNAL_SLOTSQ_PATH/package/mali-kbase/Config.in"
