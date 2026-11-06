@@ -156,7 +156,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(QuickRow::ScreenTg16.label(), "TurboGrafx-16");
     assert_eq!(
         QuickRow::SCREEN_NDS.map(QuickRow::label),
-        ["Shader", "Bezel"]
+        ["Layout", "Shader", "Scale", "Stretch", "Bezel"]
     );
     assert_eq!(QuickRow::ScreenNds.label(), "Nintendo DS");
     assert_eq!(
@@ -368,6 +368,10 @@ fn the_values_read_as_the_menu_prints_them() {
             "Ghosting",
             "HTTPS",
             "HTTP",
+            "Both Screens",
+            "One Screen",
+            "Main and Small",
+            "Picture in Picture",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -473,6 +477,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
         QuickRow::PLAY_SCREEN,
         [
             QuickRow::Shader,
+            QuickRow::Layout,
             QuickRow::Bezel,
             QuickRow::Scale,
             QuickRow::Stretch,
@@ -545,7 +550,7 @@ fn in_game_rows_read_as_the_menu_shows_them() {
 
 #[test]
 fn a_hidden_palette_and_bezel_leave_nine_screen_rows() {
-    let hidden = [QuickRow::Palette, QuickRow::Bezel];
+    let hidden = [QuickRow::Palette, QuickRow::Bezel, QuickRow::Layout];
     assert_eq!(
         QuickRow::Shader.shown(&hidden),
         vec![
@@ -566,26 +571,26 @@ fn a_hidden_palette_and_bezel_leave_nine_screen_rows() {
 #[test]
 fn the_in_game_screen_panel_shows_three_rows_and_scrolls_the_rest() {
     assert_eq!(
-        slot_ui::quick_window(QuickRow::Shader, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_window(QuickRow::Shader, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         (0, 3)
     );
     assert_eq!(
-        slot_ui::quick_window(QuickRow::Bezel, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_window(QuickRow::Bezel, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         (0, 3)
     );
     assert_eq!(
-        slot_ui::quick_window(QuickRow::Scale, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_window(QuickRow::Scale, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         (1, 3)
     );
     assert_eq!(
-        slot_ui::quick_window(QuickRow::Stretch, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_window(QuickRow::Stretch, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         (2, 3)
     );
     assert_eq!(
-        slot_ui::quick_window(QuickRow::PlayContrast, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_window(QuickRow::PlayContrast, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         (8, 3)
     );
-    let hidden = [QuickRow::Palette, QuickRow::Bezel];
+    let hidden = [QuickRow::Palette, QuickRow::Bezel, QuickRow::Layout];
     assert_eq!(
         slot_ui::quick_window(QuickRow::PlayContrast, &hidden, slot_ui::Canvas::FRAMED),
         (6, 3)
@@ -594,7 +599,7 @@ fn the_in_game_screen_panel_shows_three_rows_and_scrolls_the_rest() {
 
 #[test]
 fn a_scroll_bar_shows_only_on_a_page_with_rows_out_of_sight() {
-    let top = slot_ui::quick_scroll(QuickRow::Shader, &[], slot_ui::Canvas::FRAMED)
+    let top = slot_ui::quick_scroll(QuickRow::Shader, &[QuickRow::Layout], slot_ui::Canvas::FRAMED)
         .expect("eleven rows in three");
     assert!(
         (top.thumb_y - top.y).abs() < 0.5,
@@ -604,7 +609,7 @@ fn a_scroll_bar_shows_only_on_a_page_with_rows_out_of_sight() {
         (top.thumb_h - top.h / 11.0).abs() < 0.5,
         "the thumb is not one row of eleven"
     );
-    let end = slot_ui::quick_scroll(QuickRow::PlayContrast, &[], slot_ui::Canvas::FRAMED)
+    let end = slot_ui::quick_scroll(QuickRow::PlayContrast, &[QuickRow::Layout], slot_ui::Canvas::FRAMED)
         .expect("eleven rows in three");
     assert!(
         (end.thumb_y + end.thumb_h - (end.y + end.h)).abs() < 0.5,
@@ -613,17 +618,17 @@ fn a_scroll_bar_shows_only_on_a_page_with_rows_out_of_sight() {
     assert!(
         slot_ui::quick_scroll(
             QuickRow::Shader,
-            &[QuickRow::Palette, QuickRow::Bezel],
+            &[QuickRow::Palette, QuickRow::Bezel, QuickRow::Layout],
             slot_ui::Canvas::FRAMED
         )
         .is_some(),
         "nine rows in three still scroll"
     );
     assert_eq!(
-        slot_ui::quick_scroll(QuickRow::Rumble, &[], slot_ui::Canvas::FRAMED),
+        slot_ui::quick_scroll(QuickRow::Rumble, &[QuickRow::Layout], slot_ui::Canvas::FRAMED),
         None
     );
-    assert!(slot_ui::quick_scroll(QuickRow::GameUp, &[], slot_ui::Canvas::FRAMED).is_some());
+    assert!(slot_ui::quick_scroll(QuickRow::GameUp, &[QuickRow::Layout], slot_ui::Canvas::FRAMED).is_some());
 }
 
 #[test]

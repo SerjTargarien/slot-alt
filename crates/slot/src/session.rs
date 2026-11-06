@@ -784,7 +784,11 @@ impl Session {
         self.app
             .set_video_mode(crate::video_mode::video_mode_for(&self.root, stem));
         self.app
-            .set_ds_view(crate::video_mode::ds_view_for(&self.root, stem));
+            .set_ds_view(crate::video_mode::ds_view_for(
+                &self.root,
+                stem,
+                self.app.ds_starting_layout(),
+            ));
         self.app.set_link_loaded(serial);
         let root = self.root.clone();
         let stem = stem.to_owned();

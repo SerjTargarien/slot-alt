@@ -93,7 +93,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     );
     assert_eq!(
         all[27 + palettes + duplicates..],
-        (0..5).map(Toast::DsLayout).collect::<Vec<_>>()[..],
+        (0..4).map(Toast::DsLayout).collect::<Vec<_>>()[..],
         "the DS layouts come last, in the order SELECT + L2 steps them"
     );
     for (i, t) in all.iter().enumerate() {

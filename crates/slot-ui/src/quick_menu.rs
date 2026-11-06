@@ -79,6 +79,10 @@ pub enum QuickRow {
     ScreenNds,
     NdsShader,
     NdsBezel,
+    /// Slot²: the DS's layout a game starts with, its Scale and Stretch.
+    NdsLayout,
+    NdsScale,
+    NdsStretch,
     General,
     ShelfPrev,
     ShelfNext,
@@ -163,6 +167,8 @@ pub enum QuickRow {
     GbcBlending,
     GbBlending,
     Blending,
+    /// Slot²: the playing DS game's own layout.
+    Layout,
     Guide,
     ScGuide,
     ScStretchOn,
@@ -190,7 +196,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 177] = [
+    pub const ALL: [QuickRow; 181] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -260,6 +266,9 @@ impl QuickRow {
         QuickRow::ScreenNds,
         QuickRow::NdsShader,
         QuickRow::NdsBezel,
+        QuickRow::NdsLayout,
+        QuickRow::NdsScale,
+        QuickRow::NdsStretch,
         QuickRow::General,
         QuickRow::ShelfPrev,
         QuickRow::ShelfNext,
@@ -344,6 +353,7 @@ impl QuickRow {
         QuickRow::GbcBlending,
         QuickRow::GbBlending,
         QuickRow::Blending,
+        QuickRow::Layout,
         QuickRow::Guide,
         QuickRow::ScGuide,
         QuickRow::ScStretchOn,
@@ -569,7 +579,13 @@ impl QuickRow {
         QuickRow::Tg16Scale,
         QuickRow::Tg16Stretch,
     ];
-    pub const SCREEN_NDS: [QuickRow; 2] = [QuickRow::NdsShader, QuickRow::NdsBezel];
+    pub const SCREEN_NDS: [QuickRow; 5] = [
+        QuickRow::NdsLayout,
+        QuickRow::NdsShader,
+        QuickRow::NdsScale,
+        QuickRow::NdsStretch,
+        QuickRow::NdsBezel,
+    ];
 
     pub const SCREEN_GBA: [QuickRow; 5] = [
         QuickRow::GbaShader,
@@ -626,8 +642,9 @@ impl QuickRow {
         QuickRow::PlayControls,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 11] = [
+    pub const PLAY_SCREEN: [QuickRow; 12] = [
         QuickRow::Shader,
+        QuickRow::Layout,
         QuickRow::Bezel,
         QuickRow::Scale,
         QuickRow::Stretch,
@@ -682,7 +699,11 @@ impl QuickRow {
             | QuickRow::Tg16Bezel
             | QuickRow::Tg16Scale
             | QuickRow::Tg16Stretch => &QuickRow::SCREEN_TG16,
-            QuickRow::NdsShader | QuickRow::NdsBezel => &QuickRow::SCREEN_NDS,
+            QuickRow::NdsShader
+            | QuickRow::NdsBezel
+            | QuickRow::NdsLayout
+            | QuickRow::NdsScale
+            | QuickRow::NdsStretch => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBlending
@@ -758,7 +779,8 @@ impl QuickRow {
             | QuickRow::Bezel
             | QuickRow::Scale
             | QuickRow::Stretch
-            | QuickRow::Blending => &QuickRow::PLAY_SCREEN,
+            | QuickRow::Blending
+            | QuickRow::Layout => &QuickRow::PLAY_SCREEN,
             _ => &QuickRow::MAIN,
         }
     }
@@ -1038,6 +1060,9 @@ impl QuickRow {
             QuickRow::ScreenNds => "Nintendo DS",
             QuickRow::NdsShader => "Shader",
             QuickRow::NdsBezel => "Bezel",
+            QuickRow::NdsLayout | QuickRow::Layout => "Layout",
+            QuickRow::NdsScale => "Scale",
+            QuickRow::NdsStretch => "Stretch",
         }
     }
 
@@ -1261,10 +1286,15 @@ pub enum QuickValue {
     Ghosting,
     Https,
     Http,
+    /// Slot²: the DS's layouts, in `DS_LAYOUTS` order.
+    DsStacked,
+    DsSingle,
+    DsBelow,
+    DsCorner,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 53] = [
+    pub const ALL: [QuickValue; 57] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1318,6 +1348,10 @@ impl QuickValue {
         QuickValue::Ghosting,
         QuickValue::Https,
         QuickValue::Http,
+        QuickValue::DsStacked,
+        QuickValue::DsSingle,
+        QuickValue::DsBelow,
+        QuickValue::DsCorner,
     ];
 
     pub const LEVELS: [QuickValue; 16] = [
@@ -1407,6 +1441,10 @@ impl QuickValue {
             QuickValue::Ghosting => "Ghosting",
             QuickValue::Https => "HTTPS",
             QuickValue::Http => "HTTP",
+            QuickValue::DsStacked => crate::toast::DS_LAYOUTS[0],
+            QuickValue::DsSingle => crate::toast::DS_LAYOUTS[1],
+            QuickValue::DsBelow => crate::toast::DS_LAYOUTS[2],
+            QuickValue::DsCorner => crate::toast::DS_LAYOUTS[3],
         }
     }
 
@@ -2091,9 +2129,10 @@ impl QuickMenu<'_> {
             }
         };
         let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
+        // Slot²: the widest row shown, so a hidden row doesn't pull the column aside.
         let main_w = self
             .row
-            .page()
+            .shown(self.hidden)
             .iter()
             .filter_map(|r| label(*r))
             .map(|l| l[1].1)

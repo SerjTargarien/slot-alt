@@ -42,11 +42,10 @@ pub enum Toast {
 }
 
 /// The names of a DS game's layouts, in the order SELECT + L2 steps them.
-pub const DS_LAYOUTS: [&str; 5] = [
+pub const DS_LAYOUTS: [&str; 4] = [
     "Both Screens",
     "One Screen",
-    "Full Screen",
-    "Side by Side",
+    "Main and Small",
     "Picture in Picture",
 ];
 

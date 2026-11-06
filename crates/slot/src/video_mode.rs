@@ -213,28 +213,30 @@ impl DsScreen {
     }
 }
 
-/// How a DS game's two screens are laid out over the 720x480 canvas.
+/// How a DS game's two screens are laid out. Slot²: each layout is placed on the whole
+/// canvas it is drawn on (720x720 on the RGB20SX's square panel), at Integer or Fit.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum DsLayout {
-    /// Both, the main one above the other, filling the height at 1.25x.
+    /// Both, the main one above the other.
     #[default]
     Stacked,
-    /// The main screen alone at 2x.
+    /// The main screen alone. The only layout Stretch fills the screen with.
     Single,
-    /// The main screen alone, as big as the canvas takes at 4:3: 2.5x.
-    Fill,
-    /// The main screen at 2x, the other small beside it.
-    Side,
-    /// The main screen filling the height, the other at 1x in its corner.
+    /// The main screen, with the other at a third of its size centred below it.
+    Below,
+    /// The main screen, with the other at 1x over its bottom-right corner.
     Corner,
 }
 
+/// A DS screen's size in pixels.
+const DS_W: f32 = 256.0;
+const DS_H: f32 = 192.0;
+
 impl DsLayout {
-    pub const ALL: [DsLayout; 5] = [
+    pub const ALL: [DsLayout; 4] = [
         DsLayout::Stacked,
         DsLayout::Single,
-        DsLayout::Fill,
-        DsLayout::Side,
+        DsLayout::Below,
         DsLayout::Corner,
     ];
 
@@ -242,20 +244,20 @@ impl DsLayout {
         match self {
             DsLayout::Stacked => "stacked",
             DsLayout::Single => "single",
-            DsLayout::Fill => "fill",
-            DsLayout::Side => "side",
+            DsLayout::Below => "below",
             DsLayout::Corner => "corner",
         }
     }
 
-    /// The PNG for this layout in a DS bezel set: a folder in `Bezels/NDS/`.
-    pub fn bezel_file(self) -> &'static str {
-        match self {
-            DsLayout::Stacked => "both-screens.png",
-            DsLayout::Single => "one-screen.png",
-            DsLayout::Fill => "full-screen.png",
-            DsLayout::Side => "side-by-side.png",
-            DsLayout::Corner => "picture-in-picture.png",
+    /// The PNG for this layout in a DS bezel set (a folder in `Bezels/NDS/`). The sets are
+    /// drawn for the 720x480 band at upstream's sizes, so only those layouts have one.
+    pub fn bezel_file(self, fit: bool) -> Option<&'static str> {
+        match (self, fit) {
+            (DsLayout::Stacked, true) => Some("both-screens.png"),
+            (DsLayout::Single, false) => Some("one-screen.png"),
+            (DsLayout::Single, true) => Some("full-screen.png"),
+            (DsLayout::Corner, true) => Some("picture-in-picture.png"),
+            _ => None,
         }
     }
 
@@ -264,23 +266,61 @@ impl DsLayout {
         DsLayout::ALL.iter().position(|l| *l == self).unwrap_or(0)
     }
 
-    fn parse(s: &str) -> Option<DsLayout> {
-        DsLayout::ALL.into_iter().find(|l| l.as_str() == s)
+    /// A layout by its name. Upstream's Full Screen is One Screen at Fit, and its Side by
+    /// Side, made for the wide band, becomes Main and Small.
+    pub fn parse(s: &str) -> Option<DsLayout> {
+        match s {
+            "fill" => Some(DsLayout::Single),
+            "side" => Some(DsLayout::Below),
+            _ => DsLayout::ALL.into_iter().find(|l| l.as_str() == s),
+        }
     }
 
     /// The layout SELECT + L2 steps to.
     pub fn next(self) -> DsLayout {
         DsLayout::ALL[(self.index() + 1) % DsLayout::ALL.len()]
     }
+
+    pub fn step(self, right: bool) -> DsLayout {
+        let n = DsLayout::ALL.len();
+        DsLayout::ALL[(self.index() + if right { 1 } else { n - 1 }) % n]
+    }
 }
 
-/// One screen drawn: the part of the buffer it is, and where on the 720x480
-/// canvas it goes, in pixels.
+/// One screen drawn: the part of the buffer it is, and where on the canvas it goes, in
+/// canvas units.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct DsPart {
     pub screen: DsScreen,
     pub src: [f32; 4],
     pub dst: [f32; 4],
+}
+
+/// How a DS game's screens are sized on a canvas of `w` by `h`: at Integer or Fit, and
+/// whether One Screen stretches over all of it.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct DsFrame {
+    pub w: f32,
+    pub h: f32,
+    pub fit: bool,
+    pub stretch: bool,
+}
+
+impl DsFrame {
+    /// The scale a picture of `pw` by `ph` is drawn at: the most that fits, whole at
+    /// Integer (never under 1x).
+    fn scale(self, pw: f32, ph: f32) -> f32 {
+        let s = (self.w / pw).min(self.h / ph);
+        match self.fit {
+            true => s,
+            false => s.floor().max(1.0),
+        }
+    }
+
+    /// A box of `w` by `h` centred on the canvas, its top-left corner.
+    fn centred(self, w: f32, h: f32) -> (f32, f32) {
+        (((self.w - w) / 2.0).round(), ((self.h - h) / 2.0).round())
+    }
 }
 
 /// A DS game's view of its two screens: which is the main one, L2 swaps
@@ -334,9 +374,9 @@ impl DsView {
         }
     }
 
-    /// The screens drawn: the main one, and the other where the layout shows
+    /// The screens drawn on `frame`: the main one, and the other where the layout shows
     /// it too, drawn over the main one.
-    pub fn parts(self) -> (DsPart, Option<DsPart>) {
+    pub fn parts(self, frame: DsFrame) -> (DsPart, Option<DsPart>) {
         let part = |screen: DsScreen, dst| DsPart {
             screen,
             src: screen.source_rect(),
@@ -344,37 +384,62 @@ impl DsView {
         };
         let (main, other) = (self.main, self.main.other());
         match self.layout {
-            DsLayout::Stacked => (
-                part(main, [200.0, 0.0, 320.0, 240.0]),
-                Some(part(other, [200.0, 240.0, 320.0, 240.0])),
-            ),
-            DsLayout::Single => (part(main, [104.0, 48.0, 512.0, 384.0]), None),
-            DsLayout::Fill => (part(main, [40.0, 0.0, 640.0, 480.0]), None),
-            // 512 at 2x leaves 208 beside it: the other screen at 208x156.
-            DsLayout::Side => (
-                part(main, [0.0, 48.0, 512.0, 384.0]),
-                Some(part(other, [512.0, 48.0, 208.0, 156.0])),
-            ),
-            DsLayout::Corner => (
-                part(main, [40.0, 0.0, 640.0, 480.0]),
-                Some(part(other, [424.0, 288.0, 256.0, 192.0])),
-            ),
+            DsLayout::Stacked => {
+                let s = frame.scale(DS_W, DS_H * 2.0);
+                let (w, h) = ((DS_W * s).round(), (DS_H * s).round());
+                let (x, y) = frame.centred(w, h * 2.0);
+                (
+                    part(main, [x, y, w, h]),
+                    Some(part(other, [x, y + h, w, h])),
+                )
+            }
+            DsLayout::Single if frame.stretch => (part(main, [0.0, 0.0, frame.w, frame.h]), None),
+            DsLayout::Single => (part(main, single(frame)), None),
+            DsLayout::Below => {
+                // The pair is as tall as it is wide: 192 for the main one, 64 below.
+                let s = frame.scale(DS_W, DS_W);
+                let (w, h) = ((DS_W * s).round(), (DS_H * s).round());
+                let (x, y) = frame.centred(w, w);
+                let (sw, sh) = ((w / 3.0).round(), (h / 3.0).round());
+                (
+                    part(main, [x, y, w, h]),
+                    Some(part(other, [x + ((w - sw) / 2.0).round(), y + h, sw, sh])),
+                )
+            }
+            DsLayout::Corner => {
+                let [x, y, w, h] = single(frame);
+                (
+                    part(main, [x, y, w, h]),
+                    Some(part(other, [x + w - DS_W, y + h - DS_H, DS_W, DS_H])),
+                )
+            }
         }
     }
 
-    /// Whether the main screen is drawn big enough for a shader: from 2x.
-    /// Both stacked, at 1.25x, has no room for its cells, and the other
-    /// screen, drawn over the main one, is always plain.
-    pub fn shaded(self) -> bool {
-        self.layout != DsLayout::Stacked
+    /// Whether the main screen is drawn big enough for a shader: from 2x. The
+    /// other screen, drawn small or beside it, is always plain.
+    pub fn shaded(self, frame: DsFrame) -> bool {
+        self.parts(frame).0.dst[2] >= DS_W * 2.0
     }
 }
 
-pub fn ds_view_for(root: &Path, stem: &str) -> DsView {
+/// One screen alone at the frame's scale, centred.
+fn single(frame: DsFrame) -> [f32; 4] {
+    let s = frame.scale(DS_W, DS_H);
+    let (w, h) = ((DS_W * s).round(), (DS_H * s).round());
+    let (x, y) = frame.centred(w, h);
+    [x, y, w, h]
+}
+
+/// A DS game's view as it was last left, or the shelf's layout for a game never played.
+pub fn ds_view_for(root: &Path, stem: &str, starts: DsLayout) -> DsView {
     ini::value(root, DS_VIEW_FILE, stem)
         .as_deref()
         .and_then(DsView::parse)
-        .unwrap_or_default()
+        .unwrap_or(DsView {
+            layout: starts,
+            ..DsView::default()
+        })
 }
 
 pub fn write_ds_view(root: &Path, stem: &str, view: DsView) -> std::io::Result<()> {

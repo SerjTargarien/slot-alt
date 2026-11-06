@@ -431,6 +431,12 @@ pub struct SlotState {
     pub scale_lynx: Scale,
     pub stretched_ws: bool,
     pub stretched_lynx: bool,
+    /// Slot²: the DS's screens scale to Integer or Fit; Stretch fills the panel with one
+    /// screen (its One Screen layout only); and the layout a game starts with, by the
+    /// name slot gives it (`stacked`, `single`, `below`, `corner`).
+    pub scale_nds: Scale,
+    pub stretched_nds: bool,
+    pub nds_layout: String,
     pub blending_gba: Blending,
     pub blending_gb: Blending,
     pub blending_gbc: Blending,
@@ -658,6 +664,9 @@ impl Default for SlotState {
             scale_lynx: Scale::Integer,
             stretched_ws: false,
             stretched_lynx: false,
+            scale_nds: Scale::Fit,
+            stretched_nds: false,
+            nds_layout: "stacked".into(),
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -797,6 +806,9 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("scale_lynx={}\n", s.scale_lynx.name()));
     text.push_str(&format!("stretched_ws={}\n", s.stretched_ws as u8));
     text.push_str(&format!("stretched_lynx={}\n", s.stretched_lynx as u8));
+    text.push_str(&format!("scale_nds={}\n", s.scale_nds.name()));
+    text.push_str(&format!("stretched_nds={}\n", s.stretched_nds as u8));
+    text.push_str(&format!("nds_layout={}\n", s.nds_layout));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -887,6 +899,9 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut scale_ws = None;
     let mut scale_lynx = None;
     let mut stretched_ws = None;
+    let mut scale_nds = None;
+    let mut stretched_nds = None;
+    let mut nds_layout = None;
     let mut stretched_lynx = None;
     let mut blending_gba = None;
     let mut blending_gb = None;
@@ -962,6 +977,9 @@ fn parse(text: &str) -> Option<SlotState> {
             "scale_ws" => scale_ws = Scale::parse(value),
             "scale_lynx" => scale_lynx = Scale::parse(value),
             "stretched_ws" => stretched_ws = flag(value),
+            "scale_nds" => scale_nds = Scale::parse(value),
+            "stretched_nds" => stretched_nds = flag(value),
+            "nds_layout" => nds_layout = Some(value.trim().to_string()).filter(|v| !v.is_empty()),
             "stretched_lynx" => stretched_lynx = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
             "blending_gb" => blending_gb = Blending::parse(value),
@@ -1074,6 +1092,9 @@ fn parse(text: &str) -> Option<SlotState> {
         scale_ws: scale_ws.unwrap_or(fallback.scale_ws),
         scale_lynx: scale_lynx.unwrap_or(fallback.scale_lynx),
         stretched_ws: stretched_ws.unwrap_or(fallback.stretched_ws),
+        scale_nds: scale_nds.unwrap_or(fallback.scale_nds),
+        stretched_nds: stretched_nds.unwrap_or(fallback.stretched_nds),
+        nds_layout: nds_layout.unwrap_or(fallback.nds_layout),
         stretched_lynx: stretched_lynx.unwrap_or(fallback.stretched_lynx),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),
         blending_gb: blending_gb.unwrap_or(fallback.blending_gb),

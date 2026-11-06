@@ -45,7 +45,7 @@ use crate::update::{
     no_update_jobs, Kind, Release, UpdateEvent, UpdateFail, UpdateJob, UpdateJobs,
 };
 use crate::stylus::Stylus;
-use crate::video_mode::{self, DsLayout, DsPart, DsScreen, DsView, VideoMode};
+use crate::video_mode::{self, DsFrame, DsLayout, DsPart, DsScreen, DsView, VideoMode};
 use slot_store::{
     read_carousel, read_shortcuts, write_carousel, write_shortcuts, Binding, CarouselKeys, Device,
     Modifier, ShortcutKeys, LID_OFF_MIN,
@@ -1525,8 +1525,9 @@ impl App {
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
         let platform = self.playing_platform();
-        let no_bezel =
-            (platform.hardware() == Platform::Gba && !self.framed_panel()) || unbezelled(platform);
+        let no_bezel = (platform.hardware() == Platform::Gba && !self.framed_panel())
+            || unbezelled(platform)
+            || (platform == Platform::Nds && self.tall());
         let mut hidden = Vec::new();
         // None of the added systems' cores has colour correction to set. Their
         // bezel is None, the SP frame on a 4:3 panel, or a png of the card's own.
@@ -1550,8 +1551,16 @@ impl App {
         if self.scale_choices(self.playing_platform()).len() < 2 {
             hidden.push(QuickRow::Scale);
         }
-        if self.stretch_choices(self.playing_platform()).len() < 2 && !self.stretch_switch() {
+        // The DS's Stretch fills the panel with One Screen, so it shows only there.
+        let stretch_row = match platform {
+            Platform::Nds => self.tall() && self.ds_view.layout == DsLayout::Single,
+            _ => self.stretch_choices(platform).len() >= 2 || self.stretch_switch(),
+        };
+        if !stretch_row {
             hidden.push(QuickRow::Stretch);
+        }
+        if platform != Platform::Nds {
+            hidden.push(QuickRow::Layout);
         }
         // slotPlus's other cores have no frame blending to pick.
         if Blending::choices(self.core).len() < 2 {
@@ -1696,6 +1705,8 @@ impl App {
             (QuickRow::Scale, Platform::Lynx) => QuickRow::LynxScale,
             (QuickRow::Stretch, Platform::Ws) => QuickRow::WsStretch,
             (QuickRow::Stretch, Platform::Lynx) => QuickRow::LynxStretch,
+            (QuickRow::Scale, Platform::Nds) => QuickRow::NdsScale,
+            (QuickRow::Stretch, Platform::Nds) => QuickRow::NdsStretch,
             (QuickRow::PlayBrightness, _) => QuickRow::Brightness,
             (QuickRow::PlayBlueLight, _) => QuickRow::BlueLight,
             (QuickRow::PlaySaturation, _) => QuickRow::Saturation,
@@ -1728,6 +1739,10 @@ impl App {
             QuickRow::Tg16Scale => Some(scale_value(self.resolved_scale(Platform::Tg16))),
             QuickRow::WsScale => Some(scale_value(self.resolved_scale(Platform::Ws))),
             QuickRow::LynxScale => Some(scale_value(self.resolved_scale(Platform::Lynx))),
+            QuickRow::NdsScale => Some(scale_value(self.resolved_scale(Platform::Nds))),
+            QuickRow::NdsStretch => Some(QuickValue::flag(self.state.stretched_nds)),
+            QuickRow::NdsLayout => Some(ds_layout_value(self.ds_starting_layout())),
+            QuickRow::Layout => Some(ds_layout_value(self.ds_view.layout)),
             QuickRow::GbStretch
             | QuickRow::GbcStretch
             | QuickRow::GgStretch
@@ -2042,6 +2057,10 @@ impl App {
     }
 
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
+        // Slot²: DS bezel sets are drawn for the band, not the square panel's layouts.
+        if platform == Platform::Nds && self.tall() {
+            return BezelPick::None;
+        }
         let pick = match platform {
             Platform::Gba | Platform::Gbav => &self.state.bezel_gba,
             Platform::Gb => &self.state.bezel_gb,
@@ -2291,6 +2310,11 @@ impl App {
         }
         if !self.framed_panel() {
             hidden.push(QuickRow::GbaBezel);
+        }
+        if self.tall() {
+            hidden.push(QuickRow::NdsBezel);
+        } else {
+            hidden.push(QuickRow::NdsStretch);
         }
         hidden.extend([
             QuickRow::GgBezel,
@@ -2810,18 +2834,43 @@ impl App {
         }
     }
 
-    /// The DS screens drawn, the main one and maybe the other over it.
+    /// How the DS's screens are sized: on the whole canvas, at its Scale, and stretched
+    /// where the panel has a stretch switch and it is on (One Screen only).
+    fn ds_frame(&self) -> DsFrame {
+        let c = self.canvas();
+        DsFrame {
+            w: c.w,
+            h: c.h,
+            fit: self.resolved_scale(Platform::Nds) == Scale::Fit,
+            stretch: self.tall() && self.state.stretched_nds,
+        }
+    }
+
+    /// The layout a DS game never played before starts with (the shelf's Layout row).
+    pub fn ds_starting_layout(&self) -> DsLayout {
+        DsLayout::parse(&self.state.nds_layout).unwrap_or_default()
+    }
+
+    /// The DS screens drawn, the main one and maybe the other over it, in canvas units.
     pub fn ds_parts(&self) -> (DsPart, Option<DsPart>) {
-        self.ds_view_shown().parts()
+        self.ds_view_shown().parts(self.ds_frame())
+    }
+
+    /// A rect in canvas units where the compositor places the game: in 720x480 units of
+    /// the panel on a framed panel (the DS uses the whole of it), of the band otherwise.
+    fn on_panel(&self, r: [f32; 4]) -> [f32; 4] {
+        let c = self.canvas();
+        let (sx, sy) = (OUT_W as f32 / c.w, OUT_H as f32 / c.h);
+        [r[0] * sx, r[1] * sy, r[2] * sx, r[3] * sy]
     }
 
     /// The DS's other screen, where its layout draws one over the main one:
-    /// the part of the buffer, and where on the canvas.
+    /// the part of the buffer, and where the compositor places it.
     pub fn game_inset(&self) -> Option<([f32; 4], [f32; 4])> {
         if self.playing_platform() != Platform::Nds {
             return None;
         }
-        self.ds_parts().1.map(|p| (p.src, p.dst))
+        self.ds_parts().1.map(|p| (p.src, self.on_panel(p.dst)))
     }
 
     /// Whether the game is drawn sharp bilinear: a DS game, whose layouts
@@ -2833,7 +2882,10 @@ impl App {
     /// The PNG a DS bezel set draws for the layout on screen, while a DS
     /// game plays.
     pub fn ds_bezel_file(&self) -> Option<&'static str> {
-        (self.playing_platform() == Platform::Nds).then(|| self.ds_view.layout.bezel_file())
+        let fit = self.resolved_scale(Platform::Nds) == Scale::Fit;
+        (self.playing_platform() == Platform::Nds)
+            .then(|| self.ds_view.layout.bezel_file(fit))
+            .flatten()
     }
 
     /// Swap which of a DS game's screens is the main one, L2's job.
@@ -3046,6 +3098,7 @@ impl App {
             Platform::Tg16 => self.state.stretched_tg16,
             Platform::Ws => self.state.stretched_ws,
             Platform::Lynx => self.state.stretched_lynx,
+            Platform::Nds => self.state.stretched_nds,
             _ => self.state.stretched_gb,
         }
     }
@@ -3058,6 +3111,7 @@ impl App {
             Platform::Tg16 => self.state.stretched_tg16 = on,
             Platform::Ws => self.state.stretched_ws = on,
             Platform::Lynx => self.state.stretched_lynx = on,
+            Platform::Nds => self.state.stretched_nds = on,
             _ => self.state.stretched_gb = on,
         }
     }
@@ -3090,7 +3144,7 @@ impl App {
             Platform::Tg16 => self.state.scale_tg16,
             Platform::Ws => self.state.scale_ws,
             Platform::Lynx => self.state.scale_lynx,
-            _ => Scale::default(),
+            Platform::Nds => self.state.scale_nds,
         }
     }
 
@@ -3109,8 +3163,8 @@ impl App {
     pub fn game_layout(&self) -> GameLayout {
         if self.playing_platform() == Platform::Nds {
             return GameLayout {
-                panel: false,
-                rect: self.ds_parts().0.dst,
+                panel: self.framed_panel(),
+                rect: self.on_panel(self.ds_parts().0.dst),
             };
         }
         let (sizing, source) = self.picture();
@@ -3166,6 +3220,10 @@ impl App {
     }
 
     pub fn scale_choices(&self, platform: Platform) -> Vec<Scale> {
+        // Slot²: the DS lays its screens out itself (`DsView::parts`).
+        if platform == Platform::Nds {
+            return vec![Scale::Integer, Scale::Fit];
+        }
         let mut seen = Vec::new();
         let mut choices = Vec::new();
         for &scale in Self::scale_candidates(platform) {
@@ -3200,6 +3258,12 @@ impl App {
 
     pub fn resolved_scale(&self, platform: Platform) -> Scale {
         let stored = self.scale_of(platform);
+        if platform == Platform::Nds {
+            return match stored {
+                Scale::Integer => Scale::Integer,
+                _ => Scale::Fit,
+            };
+        }
         let shown = self.shown_as(platform, VideoMode::Actual, stored, Stretch::Classic);
         self.scale_choices(platform)
             .into_iter()
@@ -3254,7 +3318,7 @@ impl App {
             Platform::Tg16 => self.state.scale_tg16 = to,
             Platform::Ws => self.state.scale_ws = to,
             Platform::Lynx => self.state.scale_lynx = to,
-            _ => {}
+            Platform::Nds => self.state.scale_nds = to,
         }
     }
 
@@ -3877,7 +3941,7 @@ impl App {
     /// is drawn big enough for it, from 2x.
     pub fn drawn_shader(&self) -> Shader {
         match self.playing_platform() {
-            Platform::Nds if !self.ds_view_shown().shaded() => Shader::Off,
+            Platform::Nds if !self.ds_view_shown().shaded(self.ds_frame()) => Shader::Off,
             _ => self.screen_shader(),
         }
     }
@@ -4677,6 +4741,10 @@ impl App {
             | QuickRow::NgpBezel
             | QuickRow::Tg16Bezel
             | QuickRow::NdsBezel
+            | QuickRow::NdsLayout
+            | QuickRow::NdsScale
+            | QuickRow::NdsStretch
+            | QuickRow::Layout
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
@@ -4828,7 +4896,8 @@ impl App {
         | QuickRow::NgpScale
         | QuickRow::Tg16Scale
         | QuickRow::WsScale
-        | QuickRow::LynxScale = row
+        | QuickRow::LynxScale
+        | QuickRow::NdsScale = row
         {
             let platform = match row {
                 QuickRow::GbaScale => Platform::Gba,
@@ -4838,6 +4907,7 @@ impl App {
                 QuickRow::Tg16Scale => Platform::Tg16,
                 QuickRow::WsScale => Platform::Ws,
                 QuickRow::LynxScale => Platform::Lynx,
+                QuickRow::NdsScale => Platform::Nds,
                 _ => Platform::Gbc,
             };
             self.cycle_scale(platform, right);
@@ -4850,7 +4920,8 @@ impl App {
         | QuickRow::NgpStretch
         | QuickRow::Tg16Stretch
         | QuickRow::WsStretch
-        | QuickRow::LynxStretch = row
+        | QuickRow::LynxStretch
+        | QuickRow::NdsStretch = row
         {
             let platform = stretch_row_platform(row);
             if self.tall() {
@@ -4886,6 +4957,16 @@ impl App {
             };
             self.cycle_bezel(platform, right);
             self.persist();
+            return;
+        }
+        if row == QuickRow::NdsLayout {
+            self.state.nds_layout = self.ds_starting_layout().step(right).as_str().into();
+            self.persist();
+            return;
+        }
+        if row == QuickRow::Layout {
+            self.ds_view.layout = self.ds_view.layout.step(right);
+            self.keep_ds_view();
             return;
         }
         if row == QuickRow::Wallpaper {
@@ -5074,6 +5155,10 @@ impl App {
             | QuickRow::NgpBezel
             | QuickRow::Tg16Bezel
             | QuickRow::NdsBezel
+            | QuickRow::NdsLayout
+            | QuickRow::NdsScale
+            | QuickRow::NdsStretch
+            | QuickRow::Layout
             | QuickRow::ScreenWs
             | QuickRow::ScreenLynx
             | QuickRow::ScreenGg
@@ -12508,6 +12593,16 @@ fn blending_value(blending: Blending) -> QuickValue {
     }
 }
 
+/// A DS layout's name, as its rows show it.
+fn ds_layout_value(layout: DsLayout) -> QuickValue {
+    match layout {
+        DsLayout::Stacked => QuickValue::DsStacked,
+        DsLayout::Single => QuickValue::DsSingle,
+        DsLayout::Below => QuickValue::DsBelow,
+        DsLayout::Corner => QuickValue::DsCorner,
+    }
+}
+
 fn scale_value(scale: Scale) -> QuickValue {
     match scale {
         Scale::SpFrame => QuickValue::SpFrame,
@@ -12550,6 +12645,7 @@ fn stretch_row_platform(row: QuickRow) -> Platform {
         QuickRow::Tg16Stretch => Platform::Tg16,
         QuickRow::WsStretch => Platform::Ws,
         QuickRow::LynxStretch => Platform::Lynx,
+        QuickRow::NdsStretch => Platform::Nds,
         _ => Platform::Gb,
     }
 }
