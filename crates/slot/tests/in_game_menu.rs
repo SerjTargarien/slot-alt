@@ -1012,3 +1012,43 @@ fn a_wonderswan_game_has_no_scale_stretch_or_blending_to_set() {
         "a GBA game keeps Blending"
     );
 }
+
+#[test]
+fn a_row_with_the_games_own_value_offers_y_for_the_systems() {
+    let (_d, mut a) = playing();
+    menu_faces(&mut a);
+    go_to(&mut a, QuickRow::Shader);
+    frames(&mut a, 30);
+    assert!(!legend_missing(&a, 400), "the footer is up");
+    assert!(legend_missing(&a, 412), "the system's value has no Default");
+    press(&mut a, Btn::Right);
+    assert!(
+        !legend_missing(&a, 412),
+        "the game's own value offers Default"
+    );
+    press(&mut a, Btn::Y);
+    assert!(legend_missing(&a, 412));
+}
+
+#[test]
+fn a_row_with_the_games_own_value_makes_room_for_its_three_legends() {
+    let (_d, mut a) = playing();
+    menu_faces(&mut a);
+    let bar = TexId::from_raw(950);
+    a.set_plugged_face(bar);
+    let plugged = |a: &App| {
+        let mut out = Vec::new();
+        a.draw(&mut out);
+        out.iter()
+            .any(|d| matches!(*d, Draw::Part { tex, .. } | Draw::Tex { tex, .. } if tex == bar))
+    };
+    go_to(&mut a, QuickRow::Shader);
+    frames(&mut a, 30);
+    assert!(!plugged(&a), "two legends leave the cart in the slot");
+    press(&mut a, Btn::Right);
+    frames(&mut a, 30);
+    assert!(
+        plugged(&a),
+        "Back, Default and Change run along the whole slot bar"
+    );
+}

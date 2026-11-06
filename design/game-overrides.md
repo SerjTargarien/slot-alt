@@ -1,6 +1,52 @@
-# Screen settings: system defaults, game overrides
+# Game overrides: system defaults, a game's own values
 
-Status: agreed with the user on 2026-11-06; not built yet.
+Status: agreed with the user on 2026-11-06; decisions of the same day below ("Decided").
+Step 1 built (screen overrides); steps 2 to 4 not yet.
+
+## Decided (2026-11-06, after the shortcut pages)
+
+- **One file per game**, `Config/games/<system>/<file name>.txt` (the ROM's file name
+  without its extension; `<system>` as `Config/controls/`), holding only what that game
+  changed: its screen settings, its shortcut keys and its controls. No file means the game
+  follows its system. This replaces the `game_screen.txt` and `controls/game/` of the
+  model below.
+- **Games are found by system and file name**, as saves, states and the other per-game
+  files are. A renamed ROM loses its settings until its file is renamed too (the card is
+  reachable through Gamebit); an updated ROM under the same name keeps them. Not by hash
+  (an update changes it) nor by header ID (not every system has one, and a hack shares
+  its base game's).
+- **Controls per game now**, not later: in a game, Screen, Controls and Shortcuts all edit
+  the game, and Y puts a row back to the system's. The shelf's pages set the systems'
+  defaults.
+- **A new in-game Shortcuts page**, a fourth row of the in-game Settings (Screen,
+  Gameplay, Controls, Shortcuts): the general shortcuts and the playing system's, as this
+  game's keys.
+- Build order, each checked on the device before the next: the per-game file and the
+  Screen overrides; then Shortcuts; then Controls; then the shelf's system first.
+
+## Step 1 as built
+
+- `slot_store::games`: `Screen` (one system's screen settings, read and set on
+  `SlotState`), `ScreenOverrides` (a game's own values, `None` follows the system) and the
+  game's file, which keeps lines a later build writes (shortcuts, controls) as they were.
+- The app loads the game's file when its core starts (`load_game`, from the session, and
+  `follow_game` for a game already in the slot), and builds `game_view`: `slot.state` with
+  the game's values over its system's. Every screen value is read through `view()`, which
+  is that view while the game is in the slot and `slot.state` otherwise, so the shelf's
+  pages show the systems' values.
+- A change in a game runs through `edit_game`: the usual code changes `state` while it
+  holds the game's view, and what changed on the game's system goes to the game's file;
+  `slot.state` isn't written. That covers the in-game Screen rows (Shader, Color
+  Correction, Palette, Bezel, Scale, Stretch, Frame Blending) and the Shader, Palette,
+  Colour Correction and Stretch shortcuts.
+- A value set back to the system's follows the system again (and leaves the file), so the
+  file holds only what differs. Y on a row with the game's own value does the same; the
+  footer offers Y (Default) only there.
+- The game's own value is drawn in `GAME_INK` (amber for now, `slot_ui::quick_menu`), a
+  multiply over its pale face (`Draw::Tinted`).
+- Left as they were: `video_mode.txt`, upstream's per-game stretch on 4:3 panels, where
+  the stretch has no system value to follow; and `nds_view.txt`, the DS's screens, layout
+  and stylus screen, already per game.
 
 ## What the user asked for
 
@@ -68,16 +114,17 @@ with the user on the device.
 - `slot-store`: the override file (read, write, remove one setting), and a resolved
   "settings for this game" view the session and the renderer read instead of `slot.state`
   directly.
-- `slot`: the in-game rows write overrides; the shelf rows keep writing `slot.state`;
-  `video_mode.txt` folds into the new file for the systems that stretch.
+- `slot`: the in-game rows write overrides; the shelf rows keep writing `slot.state`.
 - `slot-ui`: a page whose order can change at run time (today a page is a fixed list:
   `QuickRow::page`, `shown`, `up`/`down`, `quick_window` all read it), and tinted faces for
   labels and values (a third face beside the dim and lit ones).
 
 ## Building it
 
-1. Overrides for the Screen settings, with Y to clear and the tint on values.
-2. The shelf's system first and tinted, on Screen and Controls > In-Game.
-3. Later: game overrides for controls.
+1. The per-game file, and overrides for the Screen settings, with Y to clear and the tint
+   on values.
+2. The in-game Shortcuts page, with the game's own keys.
+3. Controls per game: the in-game Controls page edits the game.
+4. The shelf's system first and tinted, on Screen and Controls > In-Game.
 
 Each step is tested on the device before the next.

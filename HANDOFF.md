@@ -116,7 +116,10 @@ The order is decided with the user at the start of a session; see the list below
    2026-11-06; the pages to check on the device); then per-game keys, with the per-game
    screen settings.
 3. **Game overrides and the shelf's system first**
-   ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
+   ([design/game-overrides.md](design/game-overrides.md)): one file per game
+   (`Config/games/<system>/<file name>.txt`). Step 1, the in-game Screen settings as the
+   game's own, built 2026-11-06, to check on the device; then the in-game Shortcuts page,
+   controls per game, and the shelf's system first.
 4. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):

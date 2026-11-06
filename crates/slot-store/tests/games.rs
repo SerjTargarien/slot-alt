@@ -1,0 +1,65 @@
+use slot_store::games::{
+    game_file, read_game, write_game, GameSettings, ScreenOverrides, ScreenSetting,
+};
+use slot_store::{BezelPick, GbColors, Platform, Scale, Shader, SlotState};
+
+#[test]
+fn a_game_without_its_own_values_is_its_systems_screen() {
+    let s = SlotState::default();
+    let system = s.screen(Platform::Gb);
+    assert_eq!(ScreenOverrides::default().apply(&system), system);
+}
+
+#[test]
+fn a_screen_set_on_one_system_leaves_the_others_alone() {
+    let mut s = SlotState::default();
+    let before = s.screen(Platform::Ws);
+    let mut gb = s.screen(Platform::Gb);
+    gb.shader = Shader::Off;
+    gb.scale = Scale::Fit;
+    gb.stretched = !gb.stretched;
+    s.set_screen(Platform::Gb, &gb);
+    assert_eq!(s.screen(Platform::Gb), gb);
+    assert_eq!(s.screen(Platform::Ws), before);
+    assert_eq!(s.screen(Platform::Gbav), s.screen(Platform::Gba));
+}
+
+#[test]
+fn only_what_differs_from_the_system_is_the_games_own() {
+    let system = SlotState::default().screen(Platform::Gb);
+    let mut now = system.clone();
+    now.shader = Shader::Off;
+    now.bezel = BezelPick::None;
+    let mut own = ScreenOverrides::default();
+    own.record(&system, &now);
+    assert_eq!(own.shader, Some(Shader::Off));
+    assert_eq!(own.bezel, Some(BezelPick::None));
+    assert_eq!((own.scale, own.palette, own.stretched), (None, None, None));
+    assert_eq!(own.apply(&system), now);
+    own.record(&system, &system);
+    assert_eq!(own, ScreenOverrides::default());
+}
+
+#[test]
+fn a_games_file_reads_back_and_goes_once_it_holds_nothing() {
+    let d = tempfile::tempdir().unwrap();
+    let mut game = GameSettings::new(Platform::Gbav, "Emerald");
+    game.screen.shader = Some(Shader::Lcd3x);
+    game.screen.palette = Some(GbColors::Auto);
+    game.screen.stretched = Some(true);
+    write_game(d.path(), &game).unwrap();
+    let file = game_file(d.path(), Platform::Gba, "Emerald");
+    assert!(file.ends_with("Config/games/gba/Emerald.txt"), "{file:?}");
+    let back = read_game(d.path(), Platform::Gba, "Emerald");
+    assert_eq!(back.screen, game.screen);
+    for s in [
+        ScreenSetting::Shader,
+        ScreenSetting::Palette,
+        ScreenSetting::Stretched,
+    ] {
+        game.screen.clear(s);
+    }
+    write_game(d.path(), &game).unwrap();
+    assert!(!file.exists());
+    write_game(d.path(), &game).unwrap();
+}

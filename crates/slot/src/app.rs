@@ -7,6 +7,7 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::controls::{inputs, AllControls, SystemControls};
+use slot_store::games::{read_game, write_game, GameSettings, ScreenSetting};
 use slot_store::shortcuts::{
     has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
 };
@@ -589,6 +590,15 @@ pub struct App {
     shortcuts: ShortcutKeys,
     /// Slot²: each system's keys for its own shortcuts (design/shortcuts.md).
     system_shortcuts: AllShortcuts,
+    /// Slot²: the game in the slot's own settings (design/game-overrides.md), loaded when
+    /// it starts.
+    game: Option<GameSettings>,
+    /// `state` with that game's own values over its system's: what a game is shown and
+    /// played with while it is in the slot. Built when the game loads and when it changes.
+    game_view: Option<Box<SlotState>>,
+    /// While a change is made to the game's values: `state` holds the game's view then,
+    /// and isn't written to the card.
+    editing_game: bool,
     vol_before: Vec<(u8, bool, Millis)>,
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
@@ -859,6 +869,7 @@ pub(crate) fn shift_down(draws: &mut [Draw], dy: f32) {
         match draw {
             Draw::Rect { y, .. }
             | Draw::Tex { y, .. }
+            | Draw::Tinted { y, .. }
             | Draw::Part { y, .. }
             | Draw::Turned { y, .. } => *y += dy,
             Draw::Quad { corners, .. } => {
@@ -1056,6 +1067,9 @@ impl App {
             carousel: CarouselKeys::default(),
             shortcuts: ShortcutKeys::default(),
             system_shortcuts: AllShortcuts::from(&ShortcutKeys::default()),
+            game: None,
+            game_view: None,
+            editing_game: false,
             vol_before: Vec::new(),
             snapshot: None,
             core: Core::default(),
@@ -1670,7 +1684,7 @@ impl App {
     }
 
     pub fn gb_colors_label(&self) -> &'static str {
-        self.state.gb_colors().label()
+        self.view().gb_colors().label()
     }
 
     pub fn set_quick_palette_faces(&mut self, dim: (TexId, u32, u32), lit: (TexId, u32, u32)) {
@@ -1750,7 +1764,7 @@ impl App {
             QuickRow::WsScale => Some(scale_value(self.resolved_scale(Platform::Ws))),
             QuickRow::LynxScale => Some(scale_value(self.resolved_scale(Platform::Lynx))),
             QuickRow::NdsScale => Some(scale_value(self.resolved_scale(Platform::Nds))),
-            QuickRow::NdsStretch => Some(QuickValue::flag(self.state.stretched_nds)),
+            QuickRow::NdsStretch => Some(QuickValue::flag(self.view().stretched_nds)),
             QuickRow::NdsLayout => Some(ds_layout_value(self.ds_starting_layout())),
             QuickRow::Layout => Some(ds_layout_value(self.ds_view.layout)),
             QuickRow::NdsStylusScreen => Some(QuickValue::flag(self.state.nds_stylus_screen)),
@@ -1773,9 +1787,9 @@ impl App {
             | QuickRow::LynxStretch => None,
             QuickRow::GbStretch => Some(stretch_value(self.resolved_stretch(Platform::Gb))),
             QuickRow::GbcStretch => Some(stretch_value(self.resolved_stretch(Platform::Gbc))),
-            QuickRow::GbaBlending => Some(blending_value(self.state.blending_gba)),
-            QuickRow::GbcBlending => Some(blending_value(self.state.blending_gbc)),
-            QuickRow::GbBlending => Some(blending_value(self.state.blending_gb)),
+            QuickRow::GbaBlending => Some(blending_value(self.view().blending_gba)),
+            QuickRow::GbcBlending => Some(blending_value(self.view().blending_gbc)),
+            QuickRow::GbBlending => Some(blending_value(self.view().blending_gb)),
             QuickRow::Blending => Some(blending_value(self.blending_in_play())),
             QuickRow::Brightness => Some(QuickValue::level(self.brightness_level())),
             QuickRow::BlueLight => Some(match self.state.blue_light {
@@ -1794,21 +1808,23 @@ impl App {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
             QuickRow::GbaColourCorrection => {
-                Some(QuickValue::flag(self.state.colour_correction_gba))
+                Some(QuickValue::flag(self.view().colour_correction_gba))
             }
-            QuickRow::GbColourCorrection => Some(QuickValue::flag(self.state.colour_correction_gb)),
+            QuickRow::GbColourCorrection => {
+                Some(QuickValue::flag(self.view().colour_correction_gb))
+            }
             QuickRow::GbcColourCorrection => {
-                Some(QuickValue::flag(self.state.colour_correction_gbc))
+                Some(QuickValue::flag(self.view().colour_correction_gbc))
             }
             QuickRow::GbaShader => Some(shader_value(self.gba_shader())),
-            QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
-            QuickRow::GbcShader => Some(shader_value(self.state.shader_gbc)),
-            QuickRow::WsShader => Some(shader_value(self.state.shader_ws)),
-            QuickRow::LynxShader => Some(shader_value(self.state.shader_lynx)),
-            QuickRow::GgShader => Some(shader_value(self.state.shader_gg)),
-            QuickRow::NgpShader => Some(shader_value(self.state.shader_ngp)),
-            QuickRow::Tg16Shader => Some(shader_value(self.state.shader_tg16)),
-            QuickRow::NdsShader => Some(shader_value(self.state.shader_nds)),
+            QuickRow::GbShader => Some(shader_value(self.view().shader_gb)),
+            QuickRow::GbcShader => Some(shader_value(self.view().shader_gbc)),
+            QuickRow::WsShader => Some(shader_value(self.view().shader_ws)),
+            QuickRow::LynxShader => Some(shader_value(self.view().shader_lynx)),
+            QuickRow::GgShader => Some(shader_value(self.view().shader_gg)),
+            QuickRow::NgpShader => Some(shader_value(self.view().shader_ngp)),
+            QuickRow::Tg16Shader => Some(shader_value(self.view().shader_tg16)),
+            QuickRow::NdsShader => Some(shader_value(self.view().shader_nds)),
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.state.auto_load)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
@@ -2084,15 +2100,15 @@ impl App {
             return BezelPick::None;
         }
         let pick = match platform {
-            Platform::Gba | Platform::Gbav => &self.state.bezel_gba,
-            Platform::Gb => &self.state.bezel_gb,
-            Platform::Gbc => &self.state.bezel_gbc,
-            Platform::Ws => &self.state.bezel_ws,
-            Platform::Lynx => &self.state.bezel_lynx,
-            Platform::Gg => &self.state.bezel_gg,
-            Platform::Ngp => &self.state.bezel_ngp,
-            Platform::Tg16 => &self.state.bezel_tg16,
-            Platform::Nds => &self.state.bezel_nds,
+            Platform::Gba | Platform::Gbav => &self.view().bezel_gba,
+            Platform::Gb => &self.view().bezel_gb,
+            Platform::Gbc => &self.view().bezel_gbc,
+            Platform::Ws => &self.view().bezel_ws,
+            Platform::Lynx => &self.view().bezel_lynx,
+            Platform::Gg => &self.view().bezel_gg,
+            Platform::Ngp => &self.view().bezel_ngp,
+            Platform::Tg16 => &self.view().bezel_tg16,
+            Platform::Nds => &self.view().bezel_nds,
         };
         let choices = self.bezel_choices(platform);
         if choices.contains(pick) {
@@ -2840,6 +2856,153 @@ impl App {
         self.video_mode = mode;
     }
 
+    /// Slot²: reads the starting game's own settings, before its core opens.
+    pub fn load_game(&mut self, platform: Platform, stem: &str) {
+        self.game = Some(match &self.root {
+            Some(root) => read_game(root, platform, stem),
+            None => GameSettings::new(platform, stem),
+        });
+        self.build_game_view();
+    }
+
+    fn build_game_view(&mut self) {
+        self.game_view = self.game.as_ref().map(|g| {
+            let mut view = self.state.clone();
+            view.set_screen(g.platform, &g.screen.apply(&self.state.screen(g.platform)));
+            Box::new(view)
+        });
+    }
+
+    /// The stem of the game in the slot.
+    fn slot_stem(&self) -> Option<&str> {
+        match &self.phase {
+            Phase::Inserting { cart, .. }
+            | Phase::Playing { cart }
+            | Phase::Ejecting { cart, .. }
+            | Phase::Polaroids { cart } => Some(cart),
+            Phase::Doze { cart: Some(cart) } => Some(cart),
+            _ => None,
+        }
+    }
+
+    /// The game in the slot, once its settings are loaded. A game of another system with
+    /// the same name is loaded in its place when it starts (`load_game`).
+    fn game_in_slot(&self) -> Option<&GameSettings> {
+        let stem = self.slot_stem()?;
+        self.game.as_ref().filter(|g| g.stem == stem)
+    }
+
+    /// Loads the settings of a game that came into the slot without a core starting for
+    /// it here (a session resumed at boot).
+    fn follow_game(&mut self) {
+        if self.game_in_slot().is_some() || self.slot_stem().is_none() {
+            return;
+        }
+        if let Some((platform, stem)) = self.seated_cart().map(|c| (c.platform, c.stem.clone())) {
+            self.load_game(platform, &stem);
+        }
+    }
+
+    /// The settings a screen value is read from: the game's view while a game is in the
+    /// slot, the systems' own otherwise.
+    fn view(&self) -> &SlotState {
+        match (
+            &self.game_view,
+            self.editing_game || self.game_in_slot().is_none(),
+        ) {
+            (Some(view), false) => view,
+            _ => &self.state,
+        }
+    }
+
+    /// Makes a change (`edit`, written as for a system) to the game in the slot's own
+    /// values instead: `edit` runs with `state` holding the game's view, and what it
+    /// changed on the game's system is kept in the game's file. With no game in the
+    /// slot, `edit` changes the systems' settings as usual.
+    fn edit_game(&mut self, edit: impl FnOnce(&mut Self)) {
+        let Some(platform) = self.game_in_slot().map(|g| g.platform) else {
+            return edit(self);
+        };
+        if self.editing_game {
+            return edit(self);
+        }
+        let system = self.state.screen(platform);
+        let view = match self.game_view.take() {
+            Some(view) => *view,
+            None => self.state.clone(),
+        };
+        let systems = std::mem::replace(&mut self.state, view);
+        self.editing_game = true;
+        edit(self);
+        self.editing_game = false;
+        let now = self.state.screen(platform);
+        self.state = systems;
+        if let Some(game) = &mut self.game {
+            game.screen.record(&system, &now);
+        }
+        self.keep_game();
+    }
+
+    /// The game in the slot follows its system again in `setting`.
+    fn clear_game_setting(&mut self, setting: ScreenSetting) {
+        if self.game_in_slot().is_none() {
+            return;
+        }
+        if let Some(game) = &mut self.game {
+            game.screen.clear(setting);
+        }
+        self.keep_game();
+        match setting {
+            ScreenSetting::ColourCorrection => {
+                self.colour_pending = Some(self.colour_correction());
+            }
+            ScreenSetting::Palette => self.palette_pending = Some(self.gb_colors()),
+            ScreenSetting::Blending => self.blending_pending = Some(self.blending_in_play()),
+            _ => {}
+        }
+    }
+
+    /// Whether the game in the slot has its own `setting`.
+    fn game_owns(&self, setting: ScreenSetting) -> bool {
+        self.game_in_slot().is_some_and(|g| g.screen.has(setting))
+    }
+
+    /// Whether an in-game Screen row shows the game's own value. Stretch is Classic or
+    /// Full Screen on a 4:3 panel, On or Off on a taller one.
+    pub fn game_owns_row(&self, row: QuickRow) -> bool {
+        match game_screen_setting(row) {
+            Some(ScreenSetting::Stretch) => {
+                self.game_owns(ScreenSetting::Stretch) || self.game_owns(ScreenSetting::Stretched)
+            }
+            Some(setting) => self.game_owns(setting),
+            None => false,
+        }
+    }
+
+    /// Y on an in-game Screen row: the game follows its system there again.
+    fn clear_game_row(&mut self, row: QuickRow) {
+        match game_screen_setting(row) {
+            Some(ScreenSetting::Stretch) => {
+                self.clear_game_setting(ScreenSetting::Stretch);
+                self.clear_game_setting(ScreenSetting::Stretched);
+            }
+            Some(setting) => self.clear_game_setting(setting),
+            None => {}
+        }
+    }
+
+    fn keep_game(&mut self) {
+        self.build_game_view();
+        let (Some(root), Some(game)) = (&self.root, &self.game) else {
+            return;
+        };
+        let written = write_game(root, game);
+        if let Err(e) = &written {
+            eprintln!("slot: games: {e}");
+        }
+        self.card_writes.wrote("games", &written);
+    }
+
     /// A DS game's view of its screens, as it was last left.
     pub fn set_ds_view(&mut self, view: DsView) {
         self.ds_view = view;
@@ -2877,7 +3040,7 @@ impl App {
             w: c.w,
             h: c.h,
             fit: self.resolved_scale(Platform::Nds) == Scale::Fit,
-            stretch: self.tall() && self.state.stretched_nds,
+            stretch: self.tall() && self.view().stretched_nds,
         }
     }
 
@@ -3127,14 +3290,14 @@ impl App {
 
     fn stretched(&self, platform: Platform) -> bool {
         match platform {
-            Platform::Gbc => self.state.stretched_gbc,
-            Platform::Gg => self.state.stretched_gg,
-            Platform::Ngp => self.state.stretched_ngp,
-            Platform::Tg16 => self.state.stretched_tg16,
-            Platform::Ws => self.state.stretched_ws,
-            Platform::Lynx => self.state.stretched_lynx,
-            Platform::Nds => self.state.stretched_nds,
-            _ => self.state.stretched_gb,
+            Platform::Gbc => self.view().stretched_gbc,
+            Platform::Gg => self.view().stretched_gg,
+            Platform::Ngp => self.view().stretched_ngp,
+            Platform::Tg16 => self.view().stretched_tg16,
+            Platform::Ws => self.view().stretched_ws,
+            Platform::Lynx => self.view().stretched_lynx,
+            Platform::Nds => self.view().stretched_nds,
+            _ => self.view().stretched_gb,
         }
     }
 
@@ -3171,22 +3334,22 @@ impl App {
 
     fn scale_of(&self, platform: Platform) -> Scale {
         match platform {
-            Platform::Gba | Platform::Gbav => self.state.scale_gba,
-            Platform::Gb => self.state.scale_gb,
-            Platform::Gbc => self.state.scale_gbc,
-            Platform::Gg => self.state.scale_gg,
-            Platform::Ngp => self.state.scale_ngp,
-            Platform::Tg16 => self.state.scale_tg16,
-            Platform::Ws => self.state.scale_ws,
-            Platform::Lynx => self.state.scale_lynx,
-            Platform::Nds => self.state.scale_nds,
+            Platform::Gba | Platform::Gbav => self.view().scale_gba,
+            Platform::Gb => self.view().scale_gb,
+            Platform::Gbc => self.view().scale_gbc,
+            Platform::Gg => self.view().scale_gg,
+            Platform::Ngp => self.view().scale_ngp,
+            Platform::Tg16 => self.view().scale_tg16,
+            Platform::Ws => self.view().scale_ws,
+            Platform::Lynx => self.view().scale_lynx,
+            Platform::Nds => self.view().scale_nds,
         }
     }
 
     fn stretch_of(&self, platform: Platform) -> Stretch {
         match platform {
-            Platform::Gb => self.state.stretch_gb,
-            Platform::Gbc => self.state.stretch_gbc,
+            Platform::Gb => self.view().stretch_gb,
+            Platform::Gbc => self.view().stretch_gbc,
             // A Game Gear or Pocket picture stretches to fill the screen, as slotPlus's did.
             Platform::Gg | Platform::Ngp | Platform::Tg16 | Platform::Ws | Platform::Lynx => {
                 Stretch::FullScreen
@@ -3751,8 +3914,8 @@ impl App {
 
     fn set_picture(&mut self, mode: VideoMode) {
         if self.stretch_switch() {
-            self.set_stretched(self.playing_platform(), mode == VideoMode::Stretch);
-            return self.persist();
+            let platform = self.playing_platform();
+            return self.edit_game(|a| a.set_stretched(platform, mode == VideoMode::Stretch));
         }
         if self.video_mode == mode {
             return;
@@ -3990,8 +4153,8 @@ impl App {
     }
 
     fn gba_shader(&self) -> Shader {
-        match self.gba_shaders().contains(&self.state.shader_gba) {
-            true => self.state.shader_gba,
+        match self.gba_shaders().contains(&self.view().shader_gba) {
+            true => self.view().shader_gba,
             false => Shader::Off,
         }
     }
@@ -3999,14 +4162,14 @@ impl App {
     pub fn screen_shader(&self) -> Shader {
         match self.playing_platform() {
             Platform::Gba | Platform::Gbav => self.gba_shader(),
-            Platform::Gb => self.state.shader_gb,
-            Platform::Gbc => self.state.shader_gbc,
-            Platform::Ws => self.state.shader_ws,
-            Platform::Lynx => self.state.shader_lynx,
-            Platform::Gg => self.state.shader_gg,
-            Platform::Ngp => self.state.shader_ngp,
-            Platform::Tg16 => self.state.shader_tg16,
-            Platform::Nds => self.state.shader_nds,
+            Platform::Gb => self.view().shader_gb,
+            Platform::Gbc => self.view().shader_gbc,
+            Platform::Ws => self.view().shader_ws,
+            Platform::Lynx => self.view().shader_lynx,
+            Platform::Gg => self.view().shader_gg,
+            Platform::Ngp => self.view().shader_ngp,
+            Platform::Tg16 => self.view().shader_tg16,
+            Platform::Nds => self.view().shader_nds,
         }
     }
 
@@ -4029,9 +4192,9 @@ impl App {
 
     pub fn colour_correction_for(&self, platform: Platform) -> bool {
         match platform {
-            Platform::Gba | Platform::Gbav => self.state.colour_correction_gba,
-            Platform::Gb => self.state.colour_correction_gb,
-            Platform::Gbc => self.state.colour_correction_gbc,
+            Platform::Gba | Platform::Gbav => self.view().colour_correction_gba,
+            Platform::Gb => self.view().colour_correction_gb,
+            Platform::Gbc => self.view().colour_correction_gbc,
             // None of these cores has colour correction.
             Platform::Ws
             | Platform::Lynx
@@ -4044,9 +4207,9 @@ impl App {
 
     pub fn blending_for(&self, platform: Platform) -> Blending {
         match platform {
-            Platform::Gba | Platform::Gbav => self.state.blending_gba,
-            Platform::Gb => self.state.blending_gb,
-            Platform::Gbc => self.state.blending_gbc,
+            Platform::Gba | Platform::Gbav => self.view().blending_gba,
+            Platform::Gb => self.view().blending_gb,
+            Platform::Gbc => self.view().blending_gbc,
             // No frame blending on slotPlus's other systems' cores.
             _ => Blending::Off,
         }
@@ -4196,7 +4359,7 @@ impl App {
     }
 
     pub fn gb_colors(&self) -> GbColors {
-        self.state.gb_colors()
+        self.view().gb_colors()
     }
 
     pub fn card_read(
@@ -4575,6 +4738,9 @@ impl App {
                 _ => {}
             }
         }
+        if action == Action::GbaDown(Btn::Y) && game_screen_setting(row).is_some() {
+            return self.clear_game_row(row);
+        }
         self.in_game_menu = match action {
             Action::GbaDown(Btn::Up) => Some(row.up(hidden)),
             Action::GbaDown(Btn::Down) => Some(row.down(hidden)),
@@ -4933,6 +5099,10 @@ impl App {
         }
         if row == QuickRow::RaEncore {
             return self.set_encore(!self.achievement_settings.encore);
+        }
+        // Slot²: in a game, its Screen page sets the game's own values.
+        if game_screen_setting(row).is_some() && !self.editing_game {
+            return self.edit_game(|a| a.change_setting(row, right));
         }
         if row == QuickRow::Blending {
             let to = self
@@ -5440,19 +5610,19 @@ impl App {
         {
             return true;
         }
+        // Slot²: the screen shortcuts act in a game, so they set the game's own values.
         if let Action::ShaderNext | Action::ShaderPrev = action {
-            self.step_shader(action == Action::ShaderNext);
+            self.edit_game(|a| a.step_shader(action == Action::ShaderNext));
             return true;
         }
         if let Action::PaletteNext | Action::PalettePrev = action {
             if self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
                 let to = match action {
-                    Action::PalettePrev => self.state.gb_colors().prev(),
-                    _ => self.state.gb_colors().next(),
+                    Action::PalettePrev => self.view().gb_colors().prev(),
+                    _ => self.view().gb_colors().next(),
                 };
-                self.state.set_gb_colors(to);
+                self.edit_game(|a| a.state.set_gb_colors(to));
                 self.palette_pending = Some(to);
-                self.persist();
                 self.hud.toast(Toast::Palette(to), self.now());
             }
             return true;
@@ -5469,7 +5639,7 @@ impl App {
                 | Platform::Tg16
                 | Platform::Nds => return true,
             };
-            self.change_setting(row, true);
+            self.edit_game(|a| a.change_setting(row, true));
             let said = match self.colour_correction() {
                 true => Toast::ColourOn,
                 false => Toast::ColourOff,
@@ -5687,6 +5857,7 @@ impl App {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
+        self.follow_game();
         self.tick_stylus(dt);
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
@@ -6278,6 +6449,10 @@ impl App {
     }
 
     fn persist(&self) {
+        // A change to a game's own values is kept in its file, not slot.state.
+        if self.editing_game {
+            return;
+        }
         let Some(root) = self.root.as_ref().filter(|_| self.server.is_none()) else {
             return;
         };
@@ -6290,6 +6465,9 @@ impl App {
     }
 
     fn persist_soon(&self) {
+        if self.editing_game {
+            return;
+        }
         if let Some(root) = self.root.as_ref().filter(|_| self.server.is_none()) {
             self.state_writer.save(root, &self.state);
         }
@@ -6487,6 +6665,8 @@ impl App {
                 row: *row,
                 hidden: &self.hidden_rows(),
                 disabled: self.disabled_rows(),
+                // The shelf's pages set the systems' own values.
+                own: &[],
                 // Controls are the same for every game, so from the shelf the
                 // turbo rows keep their own names.
                 controls: self.controls_page(),
@@ -6700,12 +6880,17 @@ impl App {
         {
             let hidden = self.in_game_hidden();
             let bound = self.bound_faces();
+            let own: Vec<QuickRow> = QuickRow::PLAY_SCREEN
+                .into_iter()
+                .filter(|r| self.game_owns_row(*r))
+                .collect();
             QuickMenu {
                 row,
                 bound: Some(&bound),
                 description: self.description(row),
                 hidden: &hidden,
                 disabled: &[],
+                own: &own,
                 controls: self.controls_page(),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 achievements: [None; 3],
@@ -6796,13 +6981,13 @@ impl App {
         let row = match &self.phase {
             Phase::Playing { cart } if self.footer > 0.0 => {
                 let row = self.in_game_menu_shown().or(self.footer_row);
-                match row.is_some_and(QuickRow::binds) {
+                match row.is_some_and(|r| self.spreads_legends(r)) {
                     true => slot_ui::draw_plugged_slot(self.canvas(), self.plugged_now(), 1.0, out),
                     false => self.draw_seated_mouth(cart, out),
                 }
                 row
             }
-            Phase::QuickMenu { row } if row.binds() => {
+            Phase::QuickMenu { row } if self.spreads_legends(*row) => {
                 slot_ui::draw_plugged_slot(self.canvas(), self.plugged_now(), 1.0, out);
                 Some(*row)
             }
@@ -6914,6 +7099,13 @@ impl App {
         self.draw_side_legend(restart, true, self.legend_y(), out);
     }
 
+    /// Whether a row's footer spreads more than two legends along it (a binding row, a
+    /// row with the game's own value), which the full slot bar makes room for: the cart
+    /// in the slot's mouth would sit under them.
+    fn spreads_legends(&self, row: QuickRow) -> bool {
+        row.binds() || self.game_owns_row(row)
+    }
+
     fn draw_menu_legends(&self, row: QuickRow, y: f32, out: &mut Vec<Draw>) {
         let Some(faces) = &self.quick_menu_faces else {
             return;
@@ -6947,6 +7139,9 @@ impl App {
             };
             self.draw_spread_legends(&legends, y, 1.0, out);
             return;
+        }
+        if self.game_owns_row(row) {
+            return self.draw_spread_legends(&[back, default, change], y, 1.0, out);
         }
         let left = match row.page() == QuickRow::PLAY {
             true => resume,
@@ -12767,6 +12962,20 @@ fn stretch_row_platform(row: QuickRow) -> Platform {
 
 /// Whether a game of this platform can be stretched (the Stretch shortcuts): not the GBA,
 /// whose Scale has its own full screen, nor the DS, which has screen layouts.
+/// Slot²: the setting an in-game Screen row sets, which a game can have its own value for.
+fn game_screen_setting(row: QuickRow) -> Option<ScreenSetting> {
+    Some(match row {
+        QuickRow::Shader => ScreenSetting::Shader,
+        QuickRow::ColourCorrection => ScreenSetting::ColourCorrection,
+        QuickRow::Palette => ScreenSetting::Palette,
+        QuickRow::Bezel => ScreenSetting::Bezel,
+        QuickRow::Scale => ScreenSetting::Scale,
+        QuickRow::Stretch => ScreenSetting::Stretch,
+        QuickRow::Blending => ScreenSetting::Blending,
+        _ => return None,
+    })
+}
+
 fn stretches(platform: Platform) -> bool {
     !matches!(platform.hardware(), Platform::Gba | Platform::Nds)
 }

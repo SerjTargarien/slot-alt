@@ -198,8 +198,15 @@ fn on_a_square_panel_the_stretch_row_switches_stretch_like_l1_and_r1() {
     assert!(!a.picture_fills());
 }
 
+/// Slot²: Stretch On or Off a game has of its own, in its file.
+fn own_stretched(root: &std::path::Path, platform: Platform) -> Option<bool> {
+    slot_store::games::read_game(root, platform, "Game")
+        .screen
+        .stretched
+}
+
 #[test]
-fn on_a_square_panel_stretch_is_one_value_per_platform_shared_with_the_shelf() {
+fn on_a_square_panel_stretch_in_a_game_is_the_games_own() {
     let (d, mut a) = playing(Platform::Gb, (720, 720), SlotState::default());
     a.set_video_mode(VideoMode::Stretch);
     assert!(
@@ -212,7 +219,11 @@ fn on_a_square_panel_stretch_is_one_value_per_platform_shared_with_the_shelf() {
     assert_eq!(a.quick_value(QuickRow::GbcStretch), Some(QuickValue::Off));
     assert!(a.picture_fills());
     let saved = slot_store::read_slot_state(d.path());
-    assert!(saved.stretched_gb && !saved.stretched_gbc);
+    assert!(
+        !saved.stretched_gb && !saved.stretched_gbc,
+        "the systems keep theirs"
+    );
+    assert_eq!(own_stretched(d.path(), Platform::Gb), Some(true));
     a.apply(Action::QuickMenu);
     assert_eq!(a.in_game_menu(), None);
     a.apply(Action::StretchOff);
@@ -530,9 +541,11 @@ fn the_game_gear_and_pocket_stretch_to_the_whole_square_panel() {
         assert!(a.game_layout().panel);
         assert_ne!(a.source_rect(), slot_gfx::WHOLE_TEXTURE, "{platform:?}");
         let saved = slot_store::read_slot_state(d.path());
+        assert_eq!((saved.stretched_gg, saved.stretched_ngp), (false, false));
         assert_eq!(
-            (saved.stretched_gg, saved.stretched_ngp),
-            (platform == Platform::Gg, platform == Platform::Ngp)
+            own_stretched(d.path(), platform),
+            Some(true),
+            "{platform:?}"
         );
         a.apply(Action::QuickMenu);
         a.apply(Action::StretchOff);
@@ -593,7 +606,8 @@ fn a_turbografx_picture_stretches_to_the_whole_square_panel() {
     press(&mut a, Btn::Right);
     assert!(a.picture_fills());
     assert!(a.game_layout().panel);
-    assert!(slot_store::read_slot_state(d.path()).stretched_tg16);
+    assert!(!slot_store::read_slot_state(d.path()).stretched_tg16);
+    assert_eq!(own_stretched(d.path(), Platform::Tg16), Some(true));
     a.apply(Action::QuickMenu);
     a.apply(Action::StretchOff);
     assert!(!a.picture_fills());
@@ -657,9 +671,11 @@ fn a_wonderswan_or_lynx_game_stretches_to_the_whole_square_panel() {
         assert!(a.picture_fills(), "{platform:?}");
         assert!(a.game_layout().panel);
         let saved = slot_store::read_slot_state(d.path());
+        assert_eq!((saved.stretched_ws, saved.stretched_lynx), (false, false));
         assert_eq!(
-            (saved.stretched_ws, saved.stretched_lynx),
-            (platform == Platform::Ws, platform == Platform::Lynx)
+            own_stretched(d.path(), platform),
+            Some(true),
+            "{platform:?}"
         );
         a.apply(Action::QuickMenu);
         a.apply(Action::StretchOff);

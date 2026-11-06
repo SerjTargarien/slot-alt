@@ -14,6 +14,7 @@ mod core;
 pub mod gb;
 pub mod header_index;
 mod gb_palette;
+pub mod games;
 mod gba;
 mod guides;
 pub mod ini;

@@ -800,10 +800,9 @@ impl QuickRow {
             | QuickRow::LidOff
             | QuickRow::Wifi => &QuickRow::GENERAL,
             QuickRow::WifiPower | QuickRow::Networks => &QuickRow::WIFI,
-            QuickRow::CheckUpdates
-            | QuickRow::FetchArt
-            | QuickRow::Romm
-            | QuickRow::Server => &QuickRow::NETWORK,
+            QuickRow::CheckUpdates | QuickRow::FetchArt | QuickRow::Romm | QuickRow::Server => {
+                &QuickRow::NETWORK
+            }
             QuickRow::RaUsername | QuickRow::RaPassword | QuickRow::RaMode | QuickRow::RaEncore => {
                 &QuickRow::ACHIEVEMENTS
             }
@@ -835,7 +834,10 @@ impl QuickRow {
             r if r == QuickRow::ShortcutsGeneral || r.shortcut_system().is_some() => {
                 &QuickRow::SHORTCUT_PAGES
             }
-            r if r.shortcut().is_some_and(|s| shortcuts::systems_of(s).is_some()) => {
+            r if r
+                .shortcut()
+                .is_some_and(|s| shortcuts::systems_of(s).is_some()) =>
+            {
                 &QuickRow::SYSTEM_SHORTCUTS
             }
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
@@ -1267,7 +1269,9 @@ impl QuickRow {
 
     /// The system a row of the Shortcuts list opens.
     pub fn shortcut_system(self) -> Option<Platform> {
-        let at = QuickRow::SHORTCUT_PAGES[1..].iter().position(|r| *r == self)?;
+        let at = QuickRow::SHORTCUT_PAGES[1..]
+            .iter()
+            .position(|r| *r == self)?;
         Some(QuickRow::SHORTCUT_SYSTEMS[at])
     }
 
@@ -1277,7 +1281,10 @@ impl QuickRow {
             Platform::Gbav => Platform::Gba,
             p => p,
         };
-        match QuickRow::SHORTCUT_SYSTEMS.iter().position(|p| *p == platform) {
+        match QuickRow::SHORTCUT_SYSTEMS
+            .iter()
+            .position(|p| *p == platform)
+        {
             Some(at) => QuickRow::SHORTCUT_PAGES[at + 1],
             None => QuickRow::ShortcutsGeneral,
         }
@@ -2169,11 +2176,17 @@ pub struct QuickMenuFaces {
     pub descriptions: [(TexId, u32, u32); 2],
 }
 
+/// Slot²: the ink of a game's own value (design/game-overrides.md), multiplied over the
+/// value's pale face. To be chosen with the user on the device.
+pub const GAME_INK: [f32; 4] = [1.0, 0.72, 0.28, 1.0];
+
 pub struct QuickMenu<'a> {
     pub row: QuickRow,
     pub hidden: &'a [QuickRow],
     /// slotPlus: rows shown greyed out, which can be reached but not opened.
     pub disabled: &'a [QuickRow],
+    /// Slot²: rows whose value is the game's own, not its system's, drawn in `GAME_INK`.
+    pub own: &'a [QuickRow],
     /// The system whose controls page this is, which names its rows.
     pub controls: Platform,
     pub values: [Option<QuickValue>; QuickRow::ALL.len()],
@@ -2320,13 +2333,27 @@ impl QuickMenu<'_> {
             let room = right - label_end - QUICK_VALUE_GAP;
             let s = (room / (w as f32 - 2.0 * pad)).clamp(VALUE_MIN_SCALE, 1.0);
             let (sw, sh) = (w as f32 * s, h as f32 * s);
-            out.push(Draw::Tex {
-                x: (right - (w as f32 - pad) * s).round(),
-                y: (y + (h as f32 - sh) / 2.0).round(),
-                w: sw,
-                h: sh,
-                tex,
-                alpha: 1.0,
+            let (x, y) = (
+                (right - (w as f32 - pad) * s).round(),
+                (y + (h as f32 - sh) / 2.0).round(),
+            );
+            out.push(match self.own.contains(&row) {
+                true => Draw::Tinted {
+                    x,
+                    y,
+                    w: sw,
+                    h: sh,
+                    tex,
+                    colour: GAME_INK,
+                },
+                false => Draw::Tex {
+                    x,
+                    y,
+                    w: sw,
+                    h: sh,
+                    tex,
+                    alpha: 1.0,
+                },
             });
         }
         if let Some(bar) = quick_scroll(self.row, self.hidden, self.canvas) {

@@ -533,7 +533,8 @@ impl Session {
             self.achievements.network_available();
         }
         self.wifi_up = up;
-        self.app.set_achievements_want_wifi(self.achievements.wants_network());
+        self.app
+            .set_achievements_want_wifi(self.achievements.wants_network());
         if self.app.take_achievements_changed() {
             // The account or Encore changed in Settings: start again with the new file.
             // Unlocks are already on the card, so nothing is lost.
@@ -804,14 +805,14 @@ impl Session {
         launch(&format!("opening {stem} on {}", core.as_str()));
         self.app.set_core(core);
         self.app.set_platform(platform);
+        self.app.load_game(platform, stem);
         self.app
             .set_video_mode(crate::video_mode::video_mode_for(&self.root, stem));
-        self.app
-            .set_ds_view(crate::video_mode::ds_view_for(
-                &self.root,
-                stem,
-                self.app.ds_starting_layout(),
-            ));
+        self.app.set_ds_view(crate::video_mode::ds_view_for(
+            &self.root,
+            stem,
+            self.app.ds_starting_layout(),
+        ));
         self.app.set_link_loaded(serial);
         let root = self.root.clone();
         let stem = stem.to_owned();

@@ -56,11 +56,12 @@ The rule adds no input lag: the list of shortcuts was already rebuilt every fram
 
 ## 3. Per game (to build, with the per-game screen settings)
 
-- The in-game Shortcuts page edits this game's own keys over the system's and the
-  general ones; Y puts a row back to them. It shows the general shortcuts and the playing
-  system's.
-- One per-game layer serves shortcuts and the screen settings
-  ([game-overrides.md](game-overrides.md)), and later controls.
+- There is no in-game Shortcuts page yet: step 3 adds one, a fourth row of the in-game
+  Settings (Screen, Gameplay, Controls, Shortcuts).
+- It edits this game's own keys over the system's and the general ones; Y puts a row back
+  to them. It shows the general shortcuts and the playing system's.
+- The game's keys live in its own file with its screen settings and controls,
+  `Config/games/<system>/<file name>.txt` ([game-overrides.md](game-overrides.md)).
 
 ## Later
 

@@ -7,6 +7,7 @@ fn bottom_edge(d: &Draw) -> Option<f32> {
     match *d {
         Draw::Rect { y, h, .. }
         | Draw::Tex { y, h, .. }
+        | Draw::Tinted { y, h, .. }
         | Draw::Part { y, h, .. }
         | Draw::Turned { y, h, .. } => Some(y + h),
         Draw::Game | Draw::Shot { .. } | Draw::Capture | Draw::Quad { .. } | Draw::Paper { .. } => None,

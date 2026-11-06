@@ -24,6 +24,7 @@ pub fn shift(draws: &mut [Draw], dy: f32) {
         match d {
             Draw::Rect { y, .. }
             | Draw::Tex { y, .. }
+            | Draw::Tinted { y, .. }
             | Draw::Part { y, .. }
             | Draw::Turned { y, .. } => *y += dy,
             Draw::Quad { corners, .. } => {
@@ -53,6 +54,15 @@ pub enum Draw {
         h: f32,
         tex: TexId,
         alpha: f32,
+    },
+    /// Slot²: a texture with its colours multiplied by `colour`, to tint pale text.
+    Tinted {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        tex: TexId,
+        colour: [f32; 4],
     },
     Part {
         x: f32,
@@ -310,6 +320,17 @@ impl Sprites {
                     alpha,
                 } => match self.textures.get(tex.0) {
                     Some(t) => (x, y, w, h, *t, [1.0, 1.0, 1.0, alpha], 0.0, whole),
+                    None => continue,
+                },
+                Draw::Tinted {
+                    x,
+                    y,
+                    w,
+                    h,
+                    tex,
+                    colour,
+                } => match self.textures.get(tex.0) {
+                    Some(t) => (x, y, w, h, *t, colour, 0.0, whole),
                     None => continue,
                 },
                 Draw::Part {

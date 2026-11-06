@@ -44,6 +44,7 @@ mod flush;
 mod frames;
 mod gambatte_rumble;
 mod gambatte_save;
+mod game_overrides;
 mod gamepad_input;
 mod gb_palettes;
 mod gg_core;

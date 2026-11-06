@@ -581,6 +581,7 @@ fn a_cart_in_flight_is_not_also_left_standing_on_the_shelf() {
         .filter(|d| match **d {
             Draw::Rect { w, h, .. }
             | Draw::Tex { w, h, .. }
+            | Draw::Tinted { w, h, .. }
             | Draw::Part { w, h, .. }
             | Draw::Turned { w, h, .. } => {
                 w > 200.0
@@ -851,7 +852,10 @@ fn choosing_a_core_writes_it_and_closes() {
     app.apply(Action::GbaDown(Btn::Right));
     app.apply(Action::GbaDown(Btn::A));
 
-    assert_eq!(slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba), Core::Gpsp);
+    assert_eq!(
+        slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba),
+        Core::Gpsp
+    );
     assert_eq!(
         slot_store::core_for_platform(d.path(), "Zzz", Platform::Gba, Core::Mgba),
         Core::Mgba,
@@ -960,7 +964,10 @@ fn a_mid_hop_writes_where_the_chip_is_heading() {
     app.apply(Action::GbaDown(Btn::Right));
     app.update(0.05);
     app.apply(Action::GbaDown(Btn::A));
-    assert_eq!(slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba), Core::Gpsp);
+    assert_eq!(
+        slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba),
+        Core::Gpsp
+    );
 }
 
 #[test]
@@ -1014,7 +1021,10 @@ fn shutting_the_lid_closes_the_picker_without_writing() {
     app.apply(Action::GbaDown(Btn::Right));
     app.apply(Action::LidClose);
     assert_eq!(app.core_picker(), None, "the picker survived the lid");
-    assert_eq!(slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba), Core::Mgba);
+    assert_eq!(
+        slot_store::core_for_platform(d.path(), "Emerald", Platform::Gba, Core::Mgba),
+        Core::Mgba
+    );
 }
 
 #[test]
@@ -2467,6 +2477,13 @@ fn root_with_one_cart(dir: &str, file: &str) -> tempfile::TempDir {
     d
 }
 
+/// Slot²: the shader a game has of its own, in its file.
+fn own_shader(root: &Path, platform: Platform, stem: &str) -> Option<Shader> {
+    slot_store::games::read_game(root, platform, stem)
+        .screen
+        .shader
+}
+
 #[test]
 fn the_shader_shortcut_steps_only_the_wonderswan_shader_in_a_wonderswan_game() {
     let d = root_with_one_cart("WS", "Klonoa.ws");
@@ -2474,7 +2491,12 @@ fn the_shader_shortcut_steps_only_the_wonderswan_shader_in_a_wonderswan_game() {
     assert_eq!(s.app().screen_shader(), Shader::Simpletex);
     s.app_mut().apply(slot_input::Action::ShaderNext);
     let after = slot_store::read_slot_state(d.path());
-    assert_eq!(after.shader_ws, Shader::Shimmerless);
+    // Slot²: a shortcut in a game sets the game's own shader; the system keeps its own.
+    assert_eq!(
+        own_shader(d.path(), Platform::Ws, "Klonoa"),
+        Some(Shader::Shimmerless)
+    );
+    assert_eq!(after.shader_ws, Shader::Simpletex);
     assert_eq!(s.app().screen_shader(), Shader::Shimmerless);
     assert_eq!(
         (after.shader_gb, after.shader_gba, after.shader_lynx),
@@ -2490,7 +2512,11 @@ fn the_shader_shortcut_steps_only_the_lynx_shader_in_a_lynx_game() {
     assert_eq!(s.app().screen_shader(), Shader::Grid);
     s.app_mut().apply(slot_input::Action::ShaderPrev);
     let after = slot_store::read_slot_state(d.path());
-    assert_eq!(after.shader_lynx, Shader::Lcd3x);
+    assert_eq!(
+        own_shader(d.path(), Platform::Lynx, "Klax"),
+        Some(Shader::Lcd3x)
+    );
+    assert_eq!(after.shader_lynx, Shader::Grid);
     assert_eq!(s.app().screen_shader(), Shader::Lcd3x);
     assert_eq!(
         (after.shader_gba, after.shader_gb, after.shader_ws),
@@ -2506,7 +2532,11 @@ fn the_shader_shortcut_steps_only_the_game_gear_shader_in_a_game_gear_game() {
     assert_eq!(s.app().screen_shader(), Shader::Simpletex);
     s.app_mut().apply(slot_input::Action::ShaderPrev);
     let after = slot_store::read_slot_state(d.path());
-    assert_eq!(after.shader_gg, Shader::Grid);
+    assert_eq!(
+        own_shader(d.path(), Platform::Gg, "Columns"),
+        Some(Shader::Grid)
+    );
+    assert_eq!(after.shader_gg, Shader::Simpletex);
     assert_eq!(s.app().screen_shader(), Shader::Grid);
     assert_eq!(
         after.shader_gb,
@@ -2523,7 +2553,11 @@ fn the_shader_shortcut_steps_only_the_neogeo_pocket_shader_in_a_pocket_game() {
     assert_eq!(s.app().screen_shader(), Shader::Simpletex);
     s.app_mut().apply(slot_input::Action::ShaderPrev);
     let after = slot_store::read_slot_state(d.path());
-    assert_eq!(after.shader_ngp, Shader::Grid);
+    assert_eq!(
+        own_shader(d.path(), Platform::Ngp, "Metal Slug"),
+        Some(Shader::Grid)
+    );
+    assert_eq!(after.shader_ngp, Shader::Simpletex);
     assert_eq!(
         (after.shader_gb, after.shader_gg),
         (Shader::Simpletex, Shader::Simpletex),
@@ -2628,7 +2662,11 @@ fn the_shader_shortcut_steps_only_the_turbografx_shader_in_a_hucard_game() {
     assert_eq!(s.app().screen_shader(), Shader::Grid);
     s.app_mut().apply(slot_input::Action::ShaderPrev);
     let after = slot_store::read_slot_state(d.path());
-    assert_eq!(after.shader_tg16, Shader::Lcd3x);
+    assert_eq!(
+        own_shader(d.path(), Platform::Tg16, "Bonk's Adventure"),
+        Some(Shader::Lcd3x)
+    );
+    assert_eq!(after.shader_tg16, Shader::Grid);
     assert_eq!(
         (after.shader_gba, after.shader_ngp),
         (Shader::Grid, Shader::Simpletex),

@@ -299,3 +299,47 @@ fn the_controls_page_renders() {
     run_for(&mut f, &mut input, 0.2);
     composed(&mut f, &mut c, "controls-bound");
 }
+
+#[test]
+fn a_games_own_value_is_drawn_in_its_own_ink() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.4);
+    for btn in [Btn::Down, Btn::A, Btn::A] {
+        tap(&mut f, &mut input, btn);
+    }
+    run_for(&mut f, &mut input, 0.3);
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::Shader));
+    // How much warmer than grey the Shader row's value is.
+    let row = quick_row_top(QuickRow::Shader, &f.app().in_game_hidden(), BAND) as usize;
+    let warmth = |px: &[u8]| {
+        (row..row + 40)
+            .flat_map(|y| (420..OUT_W as usize).map(move |x| (x, y)))
+            .map(|(x, y)| at(px, x, y))
+            .filter(|p| bright(*p) > 300)
+            .map(|p| i32::from(p[0]) - i32::from(p[2]))
+            .sum::<i32>()
+    };
+    let system = composed(&mut f, &mut c, "value-system");
+    tap(&mut f, &mut input, Btn::Right);
+    run_for(&mut f, &mut input, 0.2);
+    assert!(f.app().game_owns_row(QuickRow::Shader));
+    let own = composed(&mut f, &mut c, "value-own");
+    let (system, own) = (warmth(&system), warmth(&own));
+    assert!(
+        own > system + 2000,
+        "the game's own value isn't tinted: {own} vs {system}"
+    );
+}
