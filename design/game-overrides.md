@@ -42,8 +42,11 @@ Step 1 built (screen overrides); steps 2 to 4 not yet.
 - A value set back to the system's follows the system again (and leaves the file), so the
   file holds only what differs. Y on a row with the game's own value does the same; the
   footer offers Y (Default) only there.
-- The game's own value is drawn in `GAME_INK` (amber for now, `slot_ui::quick_menu`), a
-  multiply over its pale face (`Draw::Tinted`).
+- The game's own value is drawn in `GAME_INK` (amber, `slot_ui::quick_menu`), a multiply
+  over its pale face (`Draw::Tinted`). The user checked it on the device on 2026-11-06 and
+  kept it; the shelf's system first takes the same ink.
+- A row whose footer spreads three legends (Back, Default, Change) shows the full slot
+  bar behind them, as binding rows do (`spreads_legends`).
 - Left as they were: `video_mode.txt`, upstream's per-game stretch on 4:3 panels, where
   the stretch has no system value to follow; and `nds_view.txt`, the DS's screens, layout
   and stylus screen, already per game.
@@ -106,8 +109,7 @@ When the shelf shows one system:
 - On Recents and Favorites, both lists keep their usual order and no tint.
 
 One ink means one thing: **this is about what you're looking at** (the system on the
-shelf, the game in the slot). It needs to read on every theme and over a game; pick it
-with the user on the device.
+shelf, the game in the slot): the amber of a game's own values.
 
 ## What it needs in the code
 
