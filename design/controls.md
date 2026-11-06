@@ -1,6 +1,6 @@
 # Controls: per-system, several buttons per input
 
-Status: proposal for review (2026-11-06). Nothing here is built yet.
+Status: agreed with the user on 2026-11-06; being built in the order below.
 
 ## What the user asked for
 
@@ -97,7 +97,7 @@ files, so nothing a user set is lost.
   in-game Controls page is the playing system's.
 - A row shows the input and its bindings: `Y1      RS Up · L1+Up`.
 - On a row: **A** adds a binding (press the buttons to bind; with three already, it
-  replaces the last), **X** removes the last one, **Y** puts the row back to its default.
+  replaces the oldest), **X** removes the last one, **Y** puts the row back to its default.
   The legend at the bottom says so.
 - A clash (the same binding on two inputs, or on an input and a shortcut active in that
   system) shows the same toast as today.
@@ -127,10 +127,12 @@ DS stylus on the right stick...) are decided afterwards, one system at a time.
 
 Each step is tested on the device before the next.
 
-## Questions for review
+## Decisions (2026-11-06)
 
-- The three keys on a row (A add, X remove last, Y default) — or another scheme?
-- Should the left stick's menu switch stay, or become plain bindings once sticks are
-  bindable?
-- The DS's slot controls (Swap Screens, Next Layout, Stylus) on its page as inputs, or
-  kept as shortcuts?
+- **Editing a row:** A adds a binding (with three already, it replaces the **oldest**), X
+  removes the last one, Y puts the row back to its default.
+- **The left stick's "steer like the D-pad" switch goes.** Sticks are plain bindable
+  inputs, and every system's defaults bind movement to both the D-pad and the left stick.
+- **The DS's slot controls (Swap Screens, Next Layout, Stylus) are inputs on its page.**
+  The principle: as little hard-coded input as possible. (Stretch already moved from fixed
+  L1/R1 to shortcuts.) Orientation stays as it is for now.

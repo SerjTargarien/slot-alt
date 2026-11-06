@@ -19,6 +19,15 @@ pub enum Btn {
     VolDown,
     Power,
     Lid,
+    /// Slot²: each stick's four directions, as buttons a control can be bound to.
+    LsUp,
+    LsDown,
+    LsLeft,
+    LsRight,
+    RsUp,
+    RsDown,
+    RsLeft,
+    RsRight,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

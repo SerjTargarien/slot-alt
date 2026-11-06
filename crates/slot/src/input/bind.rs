@@ -1,7 +1,7 @@
 use slot_input::{Action, Btn, Chord, Mod};
 use slot_store::{Binding, Device, Modifier, Shortcut};
 
-const PAIRS: [(Device, Btn); 14] = [
+const PAIRS: [(Device, Btn); 22] = [
     (Device::Up, Btn::Up),
     (Device::Down, Btn::Down),
     (Device::Left, Btn::Left),
@@ -16,6 +16,14 @@ const PAIRS: [(Device, Btn); 14] = [
     (Device::R2, Btn::R2),
     (Device::Select, Btn::Select),
     (Device::Start, Btn::Start),
+    (Device::LsUp, Btn::LsUp),
+    (Device::LsDown, Btn::LsDown),
+    (Device::LsLeft, Btn::LsLeft),
+    (Device::LsRight, Btn::LsRight),
+    (Device::RsUp, Btn::RsUp),
+    (Device::RsDown, Btn::RsDown),
+    (Device::RsLeft, Btn::RsLeft),
+    (Device::RsRight, Btn::RsRight),
 ];
 
 pub fn device_btn(d: Device) -> Btn {

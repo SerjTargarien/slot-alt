@@ -9,6 +9,7 @@ mod atomic;
 mod bindings;
 pub mod cart_shell;
 mod config;
+pub mod controls;
 mod core;
 pub mod gb;
 pub mod header_index;

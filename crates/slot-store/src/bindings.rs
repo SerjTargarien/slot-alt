@@ -23,6 +23,15 @@ pub enum Device {
     R2,
     Select,
     Start,
+    /// Slot²: each stick's four directions.
+    LsUp,
+    LsDown,
+    LsLeft,
+    LsRight,
+    RsUp,
+    RsDown,
+    RsLeft,
+    RsRight,
 }
 
 impl Device {
@@ -30,7 +39,7 @@ impl Device {
         matches!(self, Device::Select | Device::Start)
     }
 
-    pub const ALL: [Device; 14] = [
+    pub const ALL: [Device; 22] = [
         Device::Up,
         Device::Down,
         Device::Left,
@@ -45,6 +54,14 @@ impl Device {
         Device::R2,
         Device::Select,
         Device::Start,
+        Device::LsUp,
+        Device::LsDown,
+        Device::LsLeft,
+        Device::LsRight,
+        Device::RsUp,
+        Device::RsDown,
+        Device::RsLeft,
+        Device::RsRight,
     ];
 
     pub fn key(self) -> &'static str {
@@ -63,6 +80,14 @@ impl Device {
             Device::R2 => "r2",
             Device::Select => "select",
             Device::Start => "start",
+            Device::LsUp => "ls_up",
+            Device::LsDown => "ls_down",
+            Device::LsLeft => "ls_left",
+            Device::LsRight => "ls_right",
+            Device::RsUp => "rs_up",
+            Device::RsDown => "rs_down",
+            Device::RsLeft => "rs_left",
+            Device::RsRight => "rs_right",
         }
     }
 
@@ -82,10 +107,18 @@ impl Device {
             Device::R2 => "R2",
             Device::Select => "SELECT",
             Device::Start => "START",
+            Device::LsUp => "LS UP",
+            Device::LsDown => "LS DOWN",
+            Device::LsLeft => "LS LEFT",
+            Device::LsRight => "LS RIGHT",
+            Device::RsUp => "RS UP",
+            Device::RsDown => "RS DOWN",
+            Device::RsLeft => "RS LEFT",
+            Device::RsRight => "RS RIGHT",
         }
     }
 
-    fn parse(key: &str) -> Option<Device> {
+    pub(crate) fn parse(key: &str) -> Option<Device> {
         Device::ALL
             .into_iter()
             .find(|d| d.key().eq_ignore_ascii_case(key.trim()))
@@ -168,7 +201,7 @@ impl Binding {
         }
     }
 
-    fn key(binding: Option<Binding>) -> String {
+    pub(crate) fn key(binding: Option<Binding>) -> String {
         match binding {
             None => "none".to_string(),
             Some(Binding {
@@ -182,7 +215,7 @@ impl Binding {
         }
     }
 
-    fn parse(value: &str) -> Option<Option<Binding>> {
+    pub(crate) fn parse(value: &str) -> Option<Option<Binding>> {
         let value = value.trim();
         if value.eq_ignore_ascii_case("none") {
             return Some(None);
