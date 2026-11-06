@@ -113,11 +113,14 @@ The order is decided with the user at the start of a session; see the list below
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
 3. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it) against
    today's, timed, before anything else on DS speed ([cores/README.md](cores/README.md)).
-4. Check a vertical WonderSwan game and Klonoa's mid-game turn.
-5. Bezels at Integer and Fit for the new systems.
-6. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
+4. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
+   by itself. A game that changes orientation mid-game needs a way to follow it (by hand,
+   or from the core), and upright games want checking too.
+5. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
+6. Bezels at Integer and Fit for the new systems.
+7. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
    recompiler fixes) and Gearsystem (3.9.24).
-7. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+8. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
 
 Waiting on a decision or an outside party:
