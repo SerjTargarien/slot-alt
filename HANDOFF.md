@@ -72,16 +72,17 @@ Done and checked on the device:
 
 ## Next, in order
 
-1. **Button mapping** (the user's request): per-system mappings, and several physical
-   buttons on one emulated input. Trigger: WonderSwan items in Dicing Knight (the
-   WonderSwan has X1-X4 and Y1-Y4). Read `Controls`/`GameButton` (`slot-store`
-   `bindings.rs`), the In-Game Controls page, `Pad::mask` and slotPlus's per-core masks
-   (`session.rs`), then propose a design before building.
-2. The DS on the square screen: layouts that use it (stacked screens at about 1.9x).
-3. Check a vertical WonderSwan game and Klonoa's mid-game turn.
-4. Bezels at Integer and Fit for the new systems.
-5. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
-6. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
+1. **Button mapping** ([design/controls.md](design/controls.md)): per-system pages with up
+   to three bindings per input are built and checked on the device (`4bc35f3`). Left:
+   the DS's Swap Screens, Next Layout and Stylus as inputs; reading both sticks as
+   directions (and dropping "Left Stick as D-Pad"); better defaults per system.
+2. **Game overrides and the shelf's system first**
+   ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
+3. The DS on the square screen: layouts that use it (stacked screens at about 1.9x).
+4. Check a vertical WonderSwan game and Klonoa's mid-game turn.
+5. Bezels at Integer and Fit for the new systems.
+6. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
+7. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
    arrives; our own U-Boot.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
