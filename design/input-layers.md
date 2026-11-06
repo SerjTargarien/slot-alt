@@ -1,6 +1,6 @@
 # Input across Base² and Slot²
 
-Status: plan, agreed in outline with the user on 2026-11-06; not built.
+Status: done on 2026-11-06, bar the backlog (items 6 and 7).
 
 ## Where we are
 
@@ -78,8 +78,8 @@ Slot² doesn't patch over a device's quirks or tune the kernel.
    a row, or switching game and shelf with a stick tilted.
 2. **Slot²: commit what is on the device** (sticks, DS controls, SELECT chords): done,
    the DS controls checked by the user (the DS's screens still want polish, later).
-3. **Slot²: items 4, 5 and 8**, built and tested together, then committed. Items 6 and 7
-   wait in the backlog.
+3. **Slot²: items 4, 5 and 8, done**, built and tested together, then committed. Items 6
+   and 7 wait in the backlog.
 
 Each step is checked on the device before the next. Base² and Slot² are committed
 separately.

@@ -1,6 +1,7 @@
 # Controls: per-system, several buttons per input
 
-Status: agreed with the user on 2026-11-06; being built in the order below.
+Status: steps 1-3 built and checked on the device (2026-11-06); step 4, defaults per
+system, is next.
 
 ## What the user asked for
 

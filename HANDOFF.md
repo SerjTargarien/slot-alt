@@ -89,25 +89,42 @@ Done and checked on the device:
 - Scale (Integer or Fit, never "actual") and Stretch for Game Gear, NeoGeo Pocket,
   TurboGrafx-16 (following its width), WonderSwan and Lynx (either orientation, following
   the frame). No bezels at these sizes yet.
+- Controls ([design/controls.md](design/controls.md)): a page per system, up to three
+  bindings per input (chords, MENU and SELECT chords), each system's own names, both
+  sticks and L3/R3 as bindable inputs, the left stick steering outside games, the DS's
+  screens and stylus as inputs.
+- Base² reports the sticks the standard way (device tree, and a fix to the kernel's
+  `adc-joystick`, worth sending upstream) and polls them and FN at 10 ms
+  ([design/input-layers.md](design/input-layers.md)).
+- The DS on the whole square panel: four layouts at Integer or Fit, Stretch for one
+  screen, a Layout row on the shelf (a new game's) and in game (the game's own).
+- Tests: one program each for `slot` and `slot-ui`, render tests on Linux, a full run in
+  about 90 s, one known failure (see Testing).
+- Cores mapped in [cores/README.md](cores/README.md): all nine are slotPlus's
+  v1.14.0-plus2.6 builds.
 
 ## Next, in order
 
-1. **Button mapping** ([design/controls.md](design/controls.md)): per-system pages with up
-   to three bindings per input, both sticks as directions and the DS's controls as inputs
-   are built and checked on the device. Left: better defaults per system.
+The order is decided with the user at the start of a session; see the list below.
+
+1. **Default controls per system** ([design/controls.md](design/controls.md), step 4), one
+   system at a time with the user. First: the WonderSwan's Y pad (Dicing Knight's items).
 2. **Game overrides and the shelf's system first**
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
-3. **Input across the layers** ([design/input-layers.md](design/input-layers.md)): the
-   sticks the right way up and polled at 10 ms in Base²'s device tree, the input contract,
-   then L3/R3, one place that merges the D-pad and the stick, and no kernel tuning from
-   Slot² on Base².
-4. The DS on the square screen, polished like the other systems: layouts that use it
-   (stacked screens at about 1.9x), and its Screen settings.
-5. Check a vertical WonderSwan game and Klonoa's mid-game turn.
-6. Bezels at Integer and Fit for the new systems.
-7. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
-8. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
-   arrives; our own U-Boot.
+3. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it) against
+   today's, timed, before anything else on DS speed ([cores/README.md](cores/README.md)).
+4. Check a vertical WonderSwan game and Klonoa's mid-game turn.
+5. Bezels at Integer and Fit for the new systems.
+6. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
+   recompiler fixes) and Gearsystem (3.9.24).
+7. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+   `HDMI-A-1`); our own U-Boot.
+
+Waiting on a decision or an outside party:
+- The Game Boy label size (`tools/slotsq/known-failures`): upstream's tests disagree.
+- The `adc-joystick` fix, to send to the kernel (`os/.../0004-...patch`).
+- Input backlog ([design/input-layers.md](design/input-layers.md)): one merged input, only
+  if the D-pad and stick ever misbehave.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
 Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall, NDS 230x250.
