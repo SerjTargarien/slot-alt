@@ -20,6 +20,7 @@ pub mod ini;
 mod platform;
 mod ring;
 mod scan;
+pub mod shortcuts;
 mod shots;
 mod slot_state;
 mod stamp;

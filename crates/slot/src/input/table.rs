@@ -1,5 +1,6 @@
 use slot_input::{anywhere, Action, Contexts, Entry};
 use slot_store::controls::{inputs, SystemControls};
+use slot_store::shortcuts::{has, systems_of, SystemShortcuts};
 use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
@@ -15,17 +16,16 @@ struct Row {
 
 pub struct Table {
     rows: Vec<Row>,
-    stretches: bool,
 }
 
 impl Table {
-    /// The bindings in play: one system's controls (`stretches` says whether its games
-    /// take the Stretch shortcuts), the shortcuts and the shelf's keys.
+    /// The bindings in play: one system's controls, the general shortcuts and that
+    /// system's own (`system`; another system's aren't in play), and the shelf's keys.
     pub fn new(
         controls: &SystemControls,
         platform: Platform,
-        stretches: bool,
         shortcuts: &ShortcutKeys,
+        system: &SystemShortcuts,
         carousel: &CarouselKeys,
     ) -> Table {
         let game = inputs(platform).iter().flat_map(|&input| {
@@ -45,8 +45,15 @@ impl Table {
         });
         let rest = QuickRow::ALL.into_iter().filter_map(|row| {
             if let Some(s) = row.shortcut() {
+                if !has(platform, s) {
+                    return None;
+                }
                 let action = shortcut_action(s);
-                return shortcuts.get(s).map(|binding| Row {
+                let binding = match systems_of(s) {
+                    Some(_) => system.get(s),
+                    None => shortcuts.get(s),
+                };
+                return binding.map(|binding| Row {
                     row,
                     binding,
                     action: Some(action),
@@ -67,7 +74,6 @@ impl Table {
         });
         Table {
             rows: game.chain(rest).collect(),
-            stretches,
         }
     }
 
@@ -85,9 +91,8 @@ impl Table {
     }
 
     /// Another row sharing one of this row's bindings. A system's inputs are checked
-    /// against its own inputs and the shortcuts; the Stretch shortcuts only where that
-    /// system stretches. A shortcut that needs a button an input uses clashes with it
-    /// (in a game the input wins and the shortcut is left out).
+    /// against its own inputs and the shortcuts it has. A shortcut that needs a button an
+    /// input uses clashes with it (in a game the input wins and the shortcut is left out).
     pub fn clash(&self, row: QuickRow) -> Option<QuickRow> {
         let console = |r: &Row| r.action.is_none();
         let game = |r: &Row| r.row.input().is_some();
@@ -111,17 +116,12 @@ impl Table {
 }
 
 impl Table {
-    /// Rows that never apply at the same moment: the Stretch shortcuts and the inputs of
-    /// a system that doesn't stretch; the DS's Touch, which only acts while the stylus is
-    /// out, and the game's other inputs.
+    /// Rows that never apply at the same moment: the DS's Touch, which only acts while the
+    /// stylus is out, and the game's other inputs.
     fn apart(&self, a: QuickRow, b: QuickRow) -> bool {
-        let stretch = |r: QuickRow| matches!(r, QuickRow::ScStretchOn | QuickRow::ScStretchOff);
         let input = |r: QuickRow| r.input().is_some();
         let touch = |r: QuickRow| r == QuickRow::GameTouch;
-        let either = |f: &dyn Fn(QuickRow) -> bool, g: &dyn Fn(QuickRow) -> bool| {
-            (f(a) && g(b)) || (g(a) && f(b))
-        };
-        (!self.stretches && either(&stretch, &input)) || either(&touch, &input)
+        (touch(a) && input(b)) || (input(a) && touch(b))
     }
 }
 

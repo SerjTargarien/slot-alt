@@ -7,6 +7,9 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::controls::{inputs, AllControls, SystemControls};
+use slot_store::shortcuts::{
+    has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
+};
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Blending, Cart,
     Core, GbColors, Platform, Recent, Scale, Shader, ShotDir, ShotEntry, SlotState, StateEntry,
@@ -18,9 +21,9 @@ use slot_ui::{
     grown, lid_at, lid_from_shaped, lift_of, repeat_gap, seats, shelf_cart_shaped, BezelArt,
     ClockFaces, ClockPicker, ClockRow, ClockScreen, Draw, FfState, GbShell, Guide, Hud, HudKind,
     Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow,
-    QuickValue, Refusal, Seats, Shelf, ShotMode, ShotViewer, SlotChrome, TexId, Toast, CART_W, CHIP_H,
-    CHIP_W,
-    GBA_SEATS, HINT_EDGE, HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W, TURN_PAD,
+    QuickValue, Refusal, Seats, Shelf, ShotMode, ShotViewer, SlotChrome, TexId, Toast, CART_W,
+    CHIP_H, CHIP_W, GBA_SEATS, HINT_EDGE, HOP_LIFT, MOUTH_H, REPEAT_DELAY_MS, SHADOW_H, SHADOW_W,
+    TURN_PAD,
 };
 
 use crate::art::jobs::{no_art_jobs, ArtEvent, ArtJob, ArtJobs};
@@ -38,17 +41,17 @@ use crate::link_start::{link_port, LinkFail, LinkProgress, LinkStarter, LinkStep
 use crate::loading_mark::LoadingMark;
 use crate::persist::{self, Snapshot};
 use crate::print_scene::{print_draws, Cue, PrintArtState, PrintFrame, PrintTextures};
-use crate::unwrap_scene::{unwrap_draws, UnwrapScene, UnwrapTextures};
-use crate::server::{ServerNet, ServerPaper, ServerSession};
 use crate::romm::{no_romm_jobs, PairFail, RommEvent, RommJob, RommJobs};
+use crate::server::{ServerNet, ServerPaper, ServerSession};
+use crate::stylus::Stylus;
+use crate::unwrap_scene::{unwrap_draws, UnwrapScene, UnwrapTextures};
 use crate::update::{
     no_update_jobs, Kind, Release, UpdateEvent, UpdateFail, UpdateJob, UpdateJobs,
 };
-use crate::stylus::Stylus;
 use crate::video_mode::{self, DsFrame, DsLayout, DsPart, DsScreen, DsView, VideoMode};
 use slot_store::{
     read_carousel, read_shortcuts, write_carousel, write_shortcuts, Binding, CarouselKeys, Device,
-    Modifier, ShortcutKeys, LID_OFF_MIN,
+    Modifier, Shortcut, ShortcutKeys, LID_OFF_MIN,
 };
 
 pub const RECORDING: &str = "Recording";
@@ -379,7 +382,10 @@ pub struct PairFaces {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyboardFor {
-    Password { ssid: String, hidden: bool },
+    Password {
+        ssid: String,
+        hidden: bool,
+    },
     NetworkName,
     /// slotPlus: the RetroAchievements page's account.
     AchievementsUser,
@@ -581,6 +587,8 @@ pub struct App {
     binding_faces: HashMap<String, [(TexId, u32, u32); 2]>,
     carousel: CarouselKeys,
     shortcuts: ShortcutKeys,
+    /// Slot²: each system's keys for its own shortcuts (design/shortcuts.md).
+    system_shortcuts: AllShortcuts,
     vol_before: Vec<(u8, bool, Millis)>,
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
@@ -1047,6 +1055,7 @@ impl App {
             binding_faces: HashMap::new(),
             carousel: CarouselKeys::default(),
             shortcuts: ShortcutKeys::default(),
+            system_shortcuts: AllShortcuts::from(&ShortcutKeys::default()),
             vol_before: Vec::new(),
             snapshot: None,
             core: Core::default(),
@@ -1158,6 +1167,7 @@ impl App {
         app.gifts = crate::romm::Gifts::load(root);
         app.carousel = read_carousel(root);
         app.shortcuts = read_shortcuts(root);
+        app.system_shortcuts = AllShortcuts::read(root, &app.shortcuts);
         app.controls = AllControls::read(root);
         app.restock_recents();
         app.restock_favorites();
@@ -1956,7 +1966,16 @@ impl App {
             | QuickRow::ControlsGg
             | QuickRow::ControlsNgp
             | QuickRow::ControlsTg16
-            | QuickRow::ControlsNds => None,
+            | QuickRow::ControlsNds
+            | QuickRow::ShortcutsGeneral
+            | QuickRow::ShortcutsGb
+            | QuickRow::ShortcutsGbc
+            | QuickRow::ShortcutsGba
+            | QuickRow::ShortcutsGg
+            | QuickRow::ShortcutsNgp
+            | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsWs
+            | QuickRow::ShortcutsLynx => None,
         }
     }
 
@@ -2319,6 +2338,11 @@ impl App {
         } else {
             hidden.push(QuickRow::NdsStretch);
         }
+        // A system's shortcuts page shows only the shortcuts it has.
+        hidden.extend(QuickRow::SYSTEM_SHORTCUTS.into_iter().filter(|r| {
+            r.shortcut()
+                .is_some_and(|s| !has(self.controls_platform, s))
+        }));
         hidden.extend([
             QuickRow::GgBezel,
             QuickRow::NgpBezel,
@@ -3374,7 +3398,6 @@ impl App {
             _ => false,
         };
         let platform = self.playing_platform();
-        let stretches = stretches(platform);
         let game: Vec<slot_input::Chord> = inputs(platform)
             .iter()
             .flat_map(|&i| self.controls_of(platform).bindings(i))
@@ -3384,7 +3407,6 @@ impl App {
         self.binding_table()
             .entries()
             .into_iter()
-            .filter(|e| stretches || !matches!(e.action, Action::StretchOn | Action::StretchOff))
             .filter(|e| !off(e.action))
             .filter_map(|mut e| {
                 if shortcut(e.action) && game.iter().any(|g| crate::input::collides(e.chord, *g)) {
@@ -3493,8 +3515,8 @@ impl App {
         crate::input::Table::new(
             self.controls_of(platform),
             platform,
-            stretches(platform),
             &self.shortcuts,
+            self.system_shortcuts.get(platform),
             &self.carousel,
         )
     }
@@ -3519,15 +3541,36 @@ impl App {
 
     fn binding_of(&self, row: QuickRow) -> Option<Binding> {
         if let Some(s) = row.shortcut() {
-            return self.shortcuts.get(s);
+            return match systems_of(s) {
+                Some(_) => self.system_shortcuts.get(self.controls_page()).get(s),
+                None => self.shortcuts.get(s),
+            };
         }
         row.carousel_action().and_then(|a| self.carousel.get(a))
     }
 
     fn reset_page(&mut self, row: QuickRow) {
         self.reset_prompt = None;
-        let (what, written) = if row.shortcut().is_some() {
-            self.shortcuts = ShortcutKeys::default();
+        let (what, written) = if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
+            let platform = self.controls_page();
+            *self.system_shortcuts.get_mut(platform) = SystemShortcuts::from(&self.shortcuts);
+            let Some(root) = &self.root else {
+                return;
+            };
+            let keys = *self.system_shortcuts.get(platform);
+            (
+                "shortcuts",
+                write_system_shortcuts(root, platform, &keys, &self.shortcuts),
+            )
+        } else if row.shortcut().is_some() {
+            // The general page's own: the systems' keep theirs, which start from these.
+            let stock = ShortcutKeys::default();
+            for s in Shortcut::ALL
+                .into_iter()
+                .filter(|s| systems_of(*s).is_none())
+            {
+                self.shortcuts.set(s, stock.get(s));
+            }
             let Some(root) = &self.root else {
                 return;
             };
@@ -3550,8 +3593,15 @@ impl App {
             let platform = self.controls_page();
             self.controls_of(platform).row(input)
                 == SystemControls::default_for(platform).row(input)
+        } else if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
+            *self.system_shortcuts.get(self.controls_page())
+                == SystemShortcuts::from(&self.shortcuts)
         } else if row.shortcut().is_some() {
-            self.shortcuts == ShortcutKeys::default()
+            let stock = ShortcutKeys::default();
+            Shortcut::ALL
+                .into_iter()
+                .filter(|s| systems_of(*s).is_none())
+                .all(|s| self.shortcuts.get(s) == stock.get(s))
         } else {
             self.carousel == CarouselKeys::default()
         }
@@ -3594,6 +3644,17 @@ impl App {
         if let Some(input) = row.input() {
             if let Some(b) = binding {
                 self.edit_controls(|c, _| c.add(input, b));
+            }
+        } else if let Some(s) = row.shortcut().filter(|s| systems_of(*s).is_some()) {
+            let platform = self.controls_page();
+            self.system_shortcuts.get_mut(platform).set(s, binding);
+            if let Some(root) = &self.root {
+                let keys = *self.system_shortcuts.get(platform);
+                let written = write_system_shortcuts(root, platform, &keys, &self.shortcuts);
+                if let Err(e) = &written {
+                    eprintln!("slot: shortcuts: {e}");
+                }
+                self.card_writes.wrote("shortcuts", &written);
             }
         } else if let Some(s) = row.shortcut() {
             self.shortcuts.set(s, binding);
@@ -4474,9 +4535,10 @@ impl App {
             Action::GbaDown(Btn::Right) => return self.change_setting(row, true),
             Action::GbaDown(Btn::A) => return self.open_quick_row(row),
             Action::GbaDown(Btn::B) | Action::QuickMenu => {
-                let parent = match row.input() {
-                    Some(_) => Some(QuickRow::controls_of(self.controls_platform)),
-                    None => row.parent(),
+                let parent = match (row.input(), row.shortcut().and_then(systems_of)) {
+                    (Some(_), _) => Some(QuickRow::controls_of(self.controls_platform)),
+                    (_, Some(_)) => Some(QuickRow::shortcuts_of(self.controls_platform)),
+                    _ => row.parent(),
                 };
                 self.phase = match parent {
                     Some(row) => Phase::QuickMenu { row },
@@ -4623,7 +4685,9 @@ impl App {
             }
             QuickRow::RaPassword => self.open_keyboard(
                 "RetroAchievements Password",
-                Some(&self.achievement_settings.username.clone()).filter(|n| !n.is_empty()).map(String::as_str),
+                Some(&self.achievement_settings.username.clone())
+                    .filter(|n| !n.is_empty())
+                    .map(String::as_str),
                 KeyboardFor::AchievementsPassword,
                 slot_ui::Layout::General,
                 "",
@@ -4675,7 +4739,8 @@ impl App {
             | QuickRow::Wifi
             | QuickRow::Controls
             | QuickRow::ControlsShelf
-            | QuickRow::ControlsInGame => {
+            | QuickRow::ControlsInGame
+            | QuickRow::ShortcutsGeneral => {
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
@@ -4691,6 +4756,20 @@ impl App {
             | QuickRow::ControlsTg16
             | QuickRow::ControlsNds => {
                 self.controls_platform = row.control_system().unwrap_or(Platform::Gb);
+                if let Some(row) = row.child() {
+                    let row = row.shown(&self.hidden_rows())[0];
+                    self.phase = Phase::QuickMenu { row };
+                }
+            }
+            QuickRow::ShortcutsGb
+            | QuickRow::ShortcutsGbc
+            | QuickRow::ShortcutsGba
+            | QuickRow::ShortcutsGg
+            | QuickRow::ShortcutsNgp
+            | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsWs
+            | QuickRow::ShortcutsLynx => {
+                self.controls_platform = row.shortcut_system().unwrap_or(Platform::Gb);
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
@@ -5274,6 +5353,15 @@ impl App {
             | QuickRow::ControlsNgp
             | QuickRow::ControlsTg16
             | QuickRow::ControlsNds
+            | QuickRow::ShortcutsGeneral
+            | QuickRow::ShortcutsGb
+            | QuickRow::ShortcutsGbc
+            | QuickRow::ShortcutsGba
+            | QuickRow::ShortcutsGg
+            | QuickRow::ShortcutsNgp
+            | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsWs
+            | QuickRow::ShortcutsLynx
             | QuickRow::LidOff
             | QuickRow::FetchArt
             | QuickRow::Network
@@ -6453,8 +6541,12 @@ impl App {
                     }
                     _ => {
                         if !self.draw_unwrap(out) {
-                            self.shelf()
-                                .draw(self.canvas(), self.shelf_shake(), self.slot_now(), out);
+                            self.shelf().draw(
+                                self.canvas(),
+                                self.shelf_shake(),
+                                self.slot_now(),
+                                out,
+                            );
                         }
                         slot_ui::draw_slot_title(
                             self.canvas(),
@@ -7026,22 +7118,13 @@ impl App {
         self.core_chip_shadow_face = Some(shadow);
     }
 
-    pub fn set_core_gb_part_faces(
-        &mut self,
-        sockets: Vec<TexId>,
-        chips: Vec<TexId>,
-        blank: TexId,
-    ) {
+    pub fn set_core_gb_part_faces(&mut self, sockets: Vec<TexId>, chips: Vec<TexId>, blank: TexId) {
         self.core_gb_socket_faces = sockets;
         self.core_gb_chip_faces = chips;
         self.core_gb_blank_chip_face = Some(blank);
     }
 
-    pub fn set_core_legend_faces(
-        &mut self,
-        dark: Vec<(TexId, u32)>,
-        light: Vec<(TexId, u32)>,
-    ) {
+    pub fn set_core_legend_faces(&mut self, dark: Vec<(TexId, u32)>, light: Vec<(TexId, u32)>) {
         self.core_legend_faces = [dark, light];
     }
 
@@ -8074,7 +8157,10 @@ impl App {
             self.wifi_wanted_at = Some(now + WIFI_RETRY_MS);
         }
         if let Phase::QuickMenu { row } = self.phase {
-            if (row.page() == QuickRow::NETWORK || row.page() == QuickRow::ROMM) && self.update.is_none() && !self.wifi_up() {
+            if (row.page() == QuickRow::NETWORK || row.page() == QuickRow::ROMM)
+                && self.update.is_none()
+                && !self.wifi_up()
+            {
                 self.keyboard = None;
                 self.phase = Phase::QuickMenu {
                     row: QuickRow::Network,
@@ -10450,7 +10536,9 @@ impl App {
         }
         for (_, shelf) in &mut self.shelves {
             for i in 0..shelf.carts.len() {
-                if shelf.carts[i].stem == stem && platform.is_none_or(|p| shelf.carts[i].platform == p) {
+                if shelf.carts[i].stem == stem
+                    && platform.is_none_or(|p| shelf.carts[i].platform == p)
+                {
                     shelf.set_wrapped(i, None);
                 }
             }
@@ -11023,10 +11111,9 @@ impl App {
             | UpdateState::Closing(_) => return None,
             UpdateState::Failed(f) => {
                 let (title, detail) = match f {
-                    UpdateFail::NoWifi => (
-                        "Could not join Wi-Fi",
-                        "Check Wi-Fi in the General menu.",
-                    ),
+                    UpdateFail::NoWifi => {
+                        ("Could not join Wi-Fi", "Check Wi-Fi in the General menu.")
+                    }
                     UpdateFail::Offline => (
                         "Could not connect",
                         "Check the network has internet access.",

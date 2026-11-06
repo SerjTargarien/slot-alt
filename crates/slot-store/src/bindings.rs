@@ -433,7 +433,7 @@ impl Shortcut {
         }
     }
 
-    fn key(self) -> &'static str {
+    pub(crate) fn key(self) -> &'static str {
         match self {
             Shortcut::SaveState => "save_state",
             Shortcut::LoadState => "load_state",

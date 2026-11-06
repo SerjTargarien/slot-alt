@@ -112,8 +112,9 @@ The order is decided with the user at the start of a session; see the list below
    the right stick and R2, built 2026-11-06; to check on the device. More systems as the
    user plays them.
 2. **Shortcuts per system and per game** ([design/shortcuts.md](design/shortcuts.md)):
-   the game's input wins over a shortcut (built 2026-11-06); then General plus a page per
-   system; then per-game keys, with the per-game screen settings.
+   the game's input wins over a shortcut, and General plus a page per system (both built
+   2026-11-06; the pages to check on the device); then per-game keys, with the per-game
+   screen settings.
 3. **Game overrides and the shelf's system first**
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
 4. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is

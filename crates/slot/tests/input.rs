@@ -259,8 +259,8 @@ fn a_select_chord_on_a_game_row_reaches_the_gestures() {
     let table = slot::input::Table::new(
         &c,
         Platform::Gba,
-        false,
         &ShortcutKeys::default(),
+        &slot_store::shortcuts::SystemShortcuts::from(&ShortcutKeys::default()),
         &CarouselKeys::default(),
     );
     assert!(table.entries().iter().any(|e| e.chord

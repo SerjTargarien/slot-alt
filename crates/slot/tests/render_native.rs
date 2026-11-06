@@ -380,6 +380,7 @@ fn every_shortcut_row_keeps_its_label_clear_of_its_binding_on_a_4_by_3_panel() {
     tap(&mut f, Btn::A);
     tap(&mut f, Btn::Down);
     tap(&mut f, Btn::A);
+    tap(&mut f, Btn::A);
     for row in QuickRow::SHORTCUTS {
         assert_eq!(f.app().quick_menu(), Some(row));
         f.compose(&mut c);
@@ -827,8 +828,12 @@ fn long_menu_values_keep_clear_of_their_labels_on_a_4_by_3_panel() {
     tap(&mut f, &mut input, Btn::A);
     tap(&mut f, &mut input, Btn::Down);
     tap(&mut f, &mut input, Btn::A);
-    check(&mut f, &mut c, &mut input, QuickRow::ScColour);
+    tap(&mut f, &mut input, Btn::A);
     check(&mut f, &mut c, &mut input, QuickRow::ScFastForwardToggle);
+    tap(&mut f, &mut input, Btn::B);
+    down_to(&mut f, &mut input, QuickRow::ShortcutsGb);
+    tap(&mut f, &mut input, Btn::A);
+    check(&mut f, &mut c, &mut input, QuickRow::ScColour);
 }
 
 fn gb_with_bezel_files(

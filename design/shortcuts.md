@@ -1,6 +1,6 @@
 # Shortcuts: general, per system, per game
 
-Status: agreed with the user on 2026-11-06. Step 1 built; steps 2 and 3 not yet.
+Status: agreed with the user on 2026-11-06. Steps 1 and 2 built; step 3 not yet.
 
 ## What the user asked for
 
@@ -32,7 +32,7 @@ listened for at all: their keys are the game's, with no refusal.
 
 The rule adds no input lag: the list of shortcuts was already rebuilt every frame.
 
-## 2. Shortcuts per system (to build)
+## 2. Shortcuts per system (built)
 
 | Group | Shortcuts |
 |---|---|
@@ -42,11 +42,16 @@ The rule adds no input lag: the list of shortcuts was already rebuilt every fram
 | Game Boy Advance | Colour Correction, Sunlight Up/Down |
 | Game Gear, NeoGeo Pocket, TurboGrafx-16, WonderSwan, Lynx | Stretch On/Off |
 
-- Controls > Shortcuts lists General, then the systems with shortcuts of their own, each
-  opening its page.
-- Each system page has its own keys for its shortcuts (defaults as today), kept in that
-  system's file, rows that differ from the defaults only, as controls are.
-- A system shortcut is listened for only in that system's games.
+- Controls > Shortcuts lists General, then the systems with shortcuts of their own, in the
+  Controls page's order (GB, GBC, GBA, WS, Lynx, GG, NGP, TG16), each opening its page.
+- Each system page has its own keys for its shortcuts, kept in
+  `Config/shortcuts/<system>.txt` with only the rows that differ from where they start:
+  the keys `shortcuts.txt` has for them (upstream's file, so an upstream card carries over).
+  The GBA on a frame shares the GBA's. Code: `slot_store::shortcuts`.
+- A system shortcut is listened for only in that system's games (`input::Table`), and a
+  clash is flagged only between rows one system has.
+- Y's reset on the General page resets the general shortcuts only; on a system page, that
+  system's.
 - Sunlight ships unbound.
 
 ## 3. Per game (to build, with the per-game screen settings)

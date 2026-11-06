@@ -178,6 +178,8 @@ fn reset_all_on_the_shortcut_and_shelf_pages_resets_only_that_page() {
     tap(&mut s, &mut now, Btn::B);
     tap(&mut s, &mut now, Btn::Down);
     tap(&mut s, &mut now, Btn::A);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsGeneral));
+    tap(&mut s, &mut now, Btn::A);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ScSave));
     tap(&mut s, &mut now, Btn::X);
     tap(&mut s, &mut now, Btn::Y);
@@ -189,6 +191,8 @@ fn reset_all_on_the_shortcut_and_shelf_pages_resets_only_that_page() {
         read_carousel(d.path()).get(CarouselAction::PreviousShelf),
         None
     );
+    tap(&mut s, &mut now, Btn::B);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsGeneral));
     tap(&mut s, &mut now, Btn::B);
     tap(&mut s, &mut now, Btn::Up);
     tap(&mut s, &mut now, Btn::A);
@@ -361,6 +365,7 @@ fn shortcuts_are_set_from_the_main_menu_and_saved_for_every_game_at_once() {
     tap(&mut s, &mut now, Btn::Down);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::Shortcuts));
     tap(&mut s, &mut now, Btn::A);
+    tap(&mut s, &mut now, Btn::A);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ScSave));
     tap(&mut s, &mut now, Btn::A);
     assert!(s.app().capturing());
@@ -465,6 +470,132 @@ fn each_system_has_its_own_page_and_back_returns_to_it() {
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsWs));
 }
 
+/// From the shelf to a system's shortcuts page, at its first row.
+fn to_system_shortcuts(s: &mut Session, now: &mut Millis, page: QuickRow) {
+    to_shortcuts(s, now);
+    tap(s, now, Btn::B);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsGeneral));
+    for _ in 0..page.position(&[]) {
+        tap(s, now, Btn::Down);
+    }
+    assert_eq!(s.app().quick_menu(), Some(page));
+    tap(s, now, Btn::A);
+}
+
+#[test]
+fn shortcuts_list_general_then_each_system_with_its_own() {
+    assert_eq!(
+        QuickRow::ShortcutsGeneral.page(),
+        &[
+            QuickRow::ShortcutsGeneral,
+            QuickRow::ShortcutsGb,
+            QuickRow::ShortcutsGbc,
+            QuickRow::ShortcutsGba,
+            QuickRow::ShortcutsWs,
+            QuickRow::ShortcutsLynx,
+            QuickRow::ShortcutsGg,
+            QuickRow::ShortcutsNgp,
+            QuickRow::ShortcutsTg16,
+        ]
+    );
+    for row in QuickRow::SHORTCUTS {
+        let s = row.shortcut().unwrap();
+        assert!(slot_store::shortcuts::systems_of(s).is_none(), "{row:?}");
+    }
+}
+
+#[test]
+fn a_system_page_shows_only_its_own_shortcuts_and_back_returns_to_it() {
+    let d = shelf_card();
+    let (mut s, mut now) = on_shelf(d.path());
+    to_system_shortcuts(&mut s, &mut now, QuickRow::ShortcutsGba);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ScColour));
+    let shown = QuickRow::ScColour.shown(&s.app().hidden_rows());
+    assert_eq!(
+        shown,
+        vec![
+            QuickRow::ScColour,
+            QuickRow::ScSunlightDown,
+            QuickRow::ScSunlightUp
+        ]
+    );
+    tap(&mut s, &mut now, Btn::B);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsGba));
+    tap(&mut s, &mut now, Btn::Down);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsWs));
+    tap(&mut s, &mut now, Btn::A);
+    assert_eq!(
+        QuickRow::ScColour.shown(&s.app().hidden_rows()),
+        vec![QuickRow::ScStretchOn, QuickRow::ScStretchOff],
+        "the WonderSwan's"
+    );
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ScStretchOn));
+}
+
+#[test]
+fn a_system_shortcut_set_on_one_system_leaves_the_others_alone() {
+    let d = shelf_card();
+    let (mut s, mut now) = on_shelf(d.path());
+    to_system_shortcuts(&mut s, &mut now, QuickRow::ShortcutsGbc);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ScColour));
+    tap(&mut s, &mut now, Btn::A);
+    step(&mut s, &mut now, &[RawEvent::Down(Btn::Select)]);
+    step(&mut s, &mut now, &[RawEvent::Down(Btn::L1)]);
+    step(&mut s, &mut now, &[RawEvent::Up(Btn::L1)]);
+    step(&mut s, &mut now, &[RawEvent::Up(Btn::Select)]);
+    assert!(!s.app().capturing());
+    let general = read_shortcuts(d.path());
+    let gbc = slot_store::shortcuts::read_system_shortcuts(d.path(), Platform::Gbc, &general);
+    let gb = slot_store::shortcuts::read_system_shortcuts(d.path(), Platform::Gb, &general);
+    assert_eq!(
+        gbc.get(Shortcut::ColorCorrection),
+        Binding::with(Modifier::Select, Device::L1)
+    );
+    assert_eq!(
+        gb.get(Shortcut::ColorCorrection),
+        ShortcutKeys::default().get(Shortcut::ColorCorrection)
+    );
+    assert_eq!(
+        general,
+        ShortcutKeys::default(),
+        "shortcuts.txt is untouched"
+    );
+    // Y puts this system's page back to the keys it starts from.
+    tap(&mut s, &mut now, Btn::Y);
+    tap(&mut s, &mut now, Btn::A);
+    let gbc = slot_store::shortcuts::read_system_shortcuts(d.path(), Platform::Gbc, &general);
+    assert_eq!(gbc, slot_store::shortcuts::SystemShortcuts::from(&general));
+}
+
+#[test]
+fn a_system_shortcut_is_listened_for_only_in_its_systems_games() {
+    let keys = ShortcutKeys::default();
+    let actions = |platform: Platform| -> Vec<Action> {
+        slot::input::Table::new(
+            &SystemControls::default_for(platform),
+            platform,
+            &keys,
+            &slot_store::shortcuts::SystemShortcuts::from(&keys),
+            &CarouselKeys::default(),
+        )
+        .entries()
+        .into_iter()
+        .map(|e| e.action)
+        .collect()
+    };
+    let gba = actions(Platform::Gba);
+    assert!(gba.contains(&Action::ColourCorrectionToggle));
+    assert!(!gba.contains(&Action::PaletteNext));
+    assert!(!gba.contains(&Action::StretchOn));
+    let gb = actions(Platform::Gb);
+    assert!(gb.contains(&Action::PaletteNext));
+    assert!(gb.contains(&Action::StretchOn));
+    let nds = actions(Platform::Nds);
+    assert!(!nds.contains(&Action::ColourCorrectionToggle));
+    assert!(!nds.contains(&Action::StretchOn));
+    assert!(nds.contains(&Action::SaveState));
+}
+
 #[test]
 fn a_row_moves_to_another_button_from_the_shelf() {
     let d = shelf_card();
@@ -500,6 +631,8 @@ fn to_shortcuts(s: &mut Session, now: &mut Millis) {
     tap(s, now, Btn::A);
     tap(s, now, Btn::Down);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::Shortcuts));
+    tap(s, now, Btn::A);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ShortcutsGeneral));
     tap(s, now, Btn::A);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ScSave));
 }
@@ -587,8 +720,8 @@ fn a_shortcut_pair_reaches_the_gestures_as_a_pair() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &keys,
+        &slot_store::shortcuts::SystemShortcuts::from(&keys),
         &CarouselKeys::default(),
     );
     assert!(table.entries().iter().any(|e| e.chord
@@ -637,8 +770,8 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &keys,
+        &slot_store::shortcuts::SystemShortcuts::from(&keys),
         &CarouselKeys::default(),
     );
     for row in [
@@ -657,8 +790,8 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &keys,
+        &slot_store::shortcuts::SystemShortcuts::from(&keys),
         &CarouselKeys::default(),
     );
     assert!(
@@ -675,8 +808,8 @@ fn an_unordered_pair_still_clashes_with_a_single_on_either_button() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &keys,
+        &slot_store::shortcuts::SystemShortcuts::from(&keys),
         &CarouselKeys::default(),
     );
     assert_eq!(table.clash(QuickRow::ScSave), Some(QuickRow::ScRewind));
@@ -759,8 +892,8 @@ fn a_shelf_key_led_by_start_needs_start_first() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &ShortcutKeys::default(),
+        &slot_store::shortcuts::SystemShortcuts::from(&ShortcutKeys::default()),
         &keys,
     );
     let shelf = || {
@@ -883,8 +1016,8 @@ fn select_x_in_game_is_the_screenshot_action() {
     let table = slot::input::Table::new(
         &SystemControls::default_for(Platform::Gb),
         Platform::Gb,
-        true,
         &ShortcutKeys::default(),
+        &slot_store::shortcuts::SystemShortcuts::from(&ShortcutKeys::default()),
         &CarouselKeys::default(),
     );
     assert!(table.entries().iter().any(|e| e.chord
@@ -942,7 +1075,10 @@ fn in_a_game_its_controls_win_over_a_shortcut_on_the_same_button() {
     assert!(!in_game(&ws, None, Btn::R2), "R2 is the WonderSwan's Y3");
     assert!(!in_game(&ws, None, Btn::L2), "L2 is its Y1");
     let (_d, gba) = playing("Emerald");
-    assert!(in_game(&gba, None, Btn::R2), "a GBA game keeps fast forward on R2");
+    assert!(
+        in_game(&gba, None, Btn::R2),
+        "a GBA game keeps fast forward on R2"
+    );
     assert!(
         in_game(&gba, Some(slot_input::Mod::Select), Btn::R1),
         "and SELECT chords"

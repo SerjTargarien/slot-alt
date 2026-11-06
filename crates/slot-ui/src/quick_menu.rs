@@ -6,6 +6,7 @@ use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{opening, MOUTH_H};
 use crate::text;
 use slot_store::controls::{self, Input};
+use slot_store::shortcuts;
 use slot_store::{CarouselAction, Platform, Shortcut};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -148,6 +149,16 @@ pub enum QuickRow {
     ControlsNgp,
     ControlsTg16,
     ControlsNds,
+    /// Slot²: Controls > Shortcuts lists General and the systems with shortcuts of their own.
+    ShortcutsGeneral,
+    ShortcutsGb,
+    ShortcutsGbc,
+    ShortcutsGba,
+    ShortcutsGg,
+    ShortcutsNgp,
+    ShortcutsTg16,
+    ShortcutsWs,
+    ShortcutsLynx,
     ScreenGeneral,
     Brightness,
     BlueLight,
@@ -201,7 +212,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 184] = [
+    pub const ALL: [QuickRow; 193] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -337,6 +348,15 @@ impl QuickRow {
         QuickRow::ControlsNgp,
         QuickRow::ControlsTg16,
         QuickRow::ControlsNds,
+        QuickRow::ShortcutsGeneral,
+        QuickRow::ShortcutsGb,
+        QuickRow::ShortcutsGbc,
+        QuickRow::ShortcutsGba,
+        QuickRow::ShortcutsWs,
+        QuickRow::ShortcutsLynx,
+        QuickRow::ShortcutsGg,
+        QuickRow::ShortcutsNgp,
+        QuickRow::ShortcutsTg16,
         QuickRow::ScreenGeneral,
         QuickRow::Brightness,
         QuickRow::BlueLight,
@@ -508,7 +528,33 @@ impl QuickRow {
         QuickRow::GameStylusRight,
     ];
 
-    pub const SHORTCUTS: [QuickRow; 21] = [
+    /// Slot²: General, then the systems with shortcuts of their own, in `SHORTCUT_SYSTEMS`
+    /// order.
+    pub const SHORTCUT_PAGES: [QuickRow; 9] = [
+        QuickRow::ShortcutsGeneral,
+        QuickRow::ShortcutsGb,
+        QuickRow::ShortcutsGbc,
+        QuickRow::ShortcutsGba,
+        QuickRow::ShortcutsWs,
+        QuickRow::ShortcutsLynx,
+        QuickRow::ShortcutsGg,
+        QuickRow::ShortcutsNgp,
+        QuickRow::ShortcutsTg16,
+    ];
+
+    pub const SHORTCUT_SYSTEMS: [Platform; 8] = [
+        Platform::Gb,
+        Platform::Gbc,
+        Platform::Gba,
+        Platform::Ws,
+        Platform::Lynx,
+        Platform::Gg,
+        Platform::Ngp,
+        Platform::Tg16,
+    ];
+
+    /// The shortcuts every system has.
+    pub const SHORTCUTS: [QuickRow; 14] = [
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScReset,
@@ -517,17 +563,21 @@ impl QuickRow {
         QuickRow::ScFastForwardToggle,
         QuickRow::ScScreenshot,
         QuickRow::ScGuide,
-        QuickRow::ScStretchOn,
-        QuickRow::ScStretchOff,
         QuickRow::ScBrightDown,
         QuickRow::ScBrightUp,
         QuickRow::ScBlueDown,
         QuickRow::ScBlueUp,
+        QuickRow::ScShaderBack,
+        QuickRow::ScShaderNext,
+    ];
+
+    /// A system's own shortcuts: its page shows those it has (`slot_store::shortcuts`).
+    pub const SYSTEM_SHORTCUTS: [QuickRow; 7] = [
         QuickRow::ScColour,
         QuickRow::ScPaletteBack,
         QuickRow::ScPaletteNext,
-        QuickRow::ScShaderBack,
-        QuickRow::ScShaderNext,
+        QuickRow::ScStretchOn,
+        QuickRow::ScStretchOff,
         QuickRow::ScSunlightDown,
         QuickRow::ScSunlightUp,
     ];
@@ -782,6 +832,12 @@ impl QuickRow {
             }
             r if r.input().is_some() => &QuickRow::CONTROLS,
             r if r.control_system().is_some() => &QuickRow::CONTROL_SYSTEMS,
+            r if r == QuickRow::ShortcutsGeneral || r.shortcut_system().is_some() => {
+                &QuickRow::SHORTCUT_PAGES
+            }
+            r if r.shortcut().is_some_and(|s| shortcuts::systems_of(s).is_some()) => {
+                &QuickRow::SYSTEM_SHORTCUTS
+            }
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
             QuickRow::Shader
@@ -816,7 +872,10 @@ impl QuickRow {
             // The app returns to the system the page belongs to.
             QuickRow::GameUp => Some(QuickRow::ControlsGb),
             QuickRow::ControlsGb => Some(QuickRow::ControlsInGame),
-            QuickRow::ScSave => Some(QuickRow::Shortcuts),
+            QuickRow::ScSave => Some(QuickRow::ShortcutsGeneral),
+            QuickRow::ShortcutsGeneral => Some(QuickRow::Shortcuts),
+            // The app returns to the system the page belongs to.
+            QuickRow::ScColour => Some(QuickRow::ShortcutsGb),
             QuickRow::Theme => Some(QuickRow::General),
             QuickRow::Server => Some(QuickRow::Network),
             QuickRow::RommProtocol => Some(QuickRow::Romm),
@@ -846,6 +905,7 @@ impl QuickRow {
             &QuickRow::NETWORK,
             &QuickRow::CONTROL_PAGES,
             &QuickRow::CONTROL_SYSTEMS,
+            &QuickRow::SHORTCUT_PAGES,
         ]
         .contains(&self.page())
     }
@@ -858,7 +918,9 @@ impl QuickRow {
             QuickRow::PlayScreen => Some(QuickRow::PLAY_SCREEN[0]),
             QuickRow::PlayGameplay => Some(QuickRow::GAME[0]),
             QuickRow::PlayControls => Some(QuickRow::CONTROLS[0]),
-            QuickRow::Shortcuts => Some(QuickRow::SHORTCUTS[0]),
+            QuickRow::Shortcuts => Some(QuickRow::SHORTCUT_PAGES[0]),
+            QuickRow::ShortcutsGeneral => Some(QuickRow::SHORTCUTS[0]),
+            r if r.shortcut_system().is_some() => Some(QuickRow::SYSTEM_SHORTCUTS[0]),
             QuickRow::General => Some(QuickRow::GENERAL[0]),
             QuickRow::Network => Some(QuickRow::NETWORK[0]),
             QuickRow::Achievements => Some(QuickRow::ACHIEVEMENTS[0]),
@@ -997,6 +1059,15 @@ impl QuickRow {
             QuickRow::ControlsNgp => "NeoGeo Pocket",
             QuickRow::ControlsTg16 => "TurboGrafx-16",
             QuickRow::ControlsNds => "Nintendo DS",
+            QuickRow::ShortcutsGeneral => "General",
+            QuickRow::ShortcutsGb => "Game Boy",
+            QuickRow::ShortcutsGbc => "Game Boy Color",
+            QuickRow::ShortcutsGba => "Game Boy Advance",
+            QuickRow::ShortcutsGg => "Game Gear",
+            QuickRow::ShortcutsNgp => "NeoGeo Pocket",
+            QuickRow::ShortcutsTg16 => "TurboGrafx-16",
+            QuickRow::ShortcutsWs => "WonderSwan",
+            QuickRow::ShortcutsLynx => "Atari Lynx",
             QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -1112,6 +1183,15 @@ impl QuickRow {
                 | QuickRow::ControlsNgp
                 | QuickRow::ControlsTg16
                 | QuickRow::ControlsNds
+                | QuickRow::ShortcutsGeneral
+                | QuickRow::ShortcutsGb
+                | QuickRow::ShortcutsGbc
+                | QuickRow::ShortcutsGba
+                | QuickRow::ShortcutsGg
+                | QuickRow::ShortcutsNgp
+                | QuickRow::ShortcutsTg16
+                | QuickRow::ShortcutsWs
+                | QuickRow::ShortcutsLynx
                 | QuickRow::PlayControls
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
@@ -1183,6 +1263,24 @@ impl QuickRow {
     pub fn control_system(self) -> Option<Platform> {
         let at = QuickRow::CONTROL_SYSTEMS.iter().position(|r| *r == self)?;
         Some(controls::SYSTEMS[at])
+    }
+
+    /// The system a row of the Shortcuts list opens.
+    pub fn shortcut_system(self) -> Option<Platform> {
+        let at = QuickRow::SHORTCUT_PAGES[1..].iter().position(|r| *r == self)?;
+        Some(QuickRow::SHORTCUT_SYSTEMS[at])
+    }
+
+    /// The Shortcuts list's row for a system (General for one with none of its own).
+    pub fn shortcuts_of(platform: Platform) -> QuickRow {
+        let platform = match platform {
+            Platform::Gbav => Platform::Gba,
+            p => p,
+        };
+        match QuickRow::SHORTCUT_SYSTEMS.iter().position(|p| *p == platform) {
+            Some(at) => QuickRow::SHORTCUT_PAGES[at + 1],
+            None => QuickRow::ShortcutsGeneral,
+        }
     }
 
     /// The In-Game controls list's row for a system.
