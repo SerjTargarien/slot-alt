@@ -1,0 +1,31 @@
+From: Serj Targarien <xergy10@gmail.com>
+Subject: [PATCH] Input: adc-joystick - invert an axis by its code, not its index
+
+adc_joystick_invert() looks up the axis's range with input_abs_get_min/max(),
+which take an ABS code, but both callers pass the channel index. That only
+works where the two happen to match. On the RGB20SX, whose third channel is
+ABS_Y, an inverted Y axis read the range of ABS_Z (unset, 0 to 0) and came
+out as minus the reading, so the stick rested at about -520: held fully up.
+
+Pass the axis's code.
+---
+--- a/drivers/input/joystick/adc-joystick.c
++++ b/drivers/input/joystick/adc-joystick.c
+@@ -45,7 +45,7 @@
+ 		if (ret < 0)
+ 			return;
+ 		if (joy->axes[i].inverted)
+-			val = adc_joystick_invert(input, i, val);
++			val = adc_joystick_invert(input, joy->axes[i].code, val);
+ 		input_report_abs(input, joy->axes[i].code, val);
+ 	}
+ 	input_sync(input);
+@@ -95,7 +95,7 @@
+ 		else
+ 			val &= GENMASK(msb, 0);
+ 		if (joy->axes[i].inverted)
+-			val = adc_joystick_invert(joy->input, i, val);
++			val = adc_joystick_invert(joy->input, joy->axes[i].code, val);
+ 		input_report_abs(joy->input, joy->axes[i].code, val);
+ 	}
+ 

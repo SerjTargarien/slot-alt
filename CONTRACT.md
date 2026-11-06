@@ -68,9 +68,16 @@ key keeps what upstream slot does on BaseOS; a missing file means BaseOS.
   its preferred mode. `fbdev`: BaseOS's Mali fbdev build.
   The panel may be any shape: the frontend lays itself out for 3:2, 4:3 and taller panels.
 - **Input.** evdev devices under `/dev/input`, laid out as `BUTTONS` says, the power key
-  (`KEY_POWER`), volume keys, and FN as a key or through `FN_ADC`. With `gamepad`, the
-  D-pad is `ABS_HAT0X`/`ABS_HAT0Y` and any sticks are `ABS_X`/`ABS_Y` (left) and
-  `ABS_RX`/`ABS_RY` (right), each with its true range in the kernel's axis info.
+  (`KEY_POWER`), volume keys, and FN as a key or through `FN_ADC`. The OS reports the
+  hardware as it is, the standard way, and the frontend never adjusts the kernel's input
+  settings. With `gamepad`:
+  - buttons are the standard gamepad codes: `BTN_SOUTH`... for the face buttons,
+    `BTN_TL`/`BTN_TR`/`BTN_TL2`/`BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE` for FN,
+    and `BTN_THUMBL`/`BTN_THUMBR` where the sticks click;
+  - the D-pad is `BTN_DPAD_*` keys or `ABS_HAT0X`/`ABS_HAT0Y`;
+  - sticks are `ABS_X`/`ABS_Y` (left) and `ABS_RX`/`ABS_RY` (right), X increasing to the
+    right and Y downward, with their true range in the kernel's axis info;
+  - polled devices (ADC sticks and keys) are polled often enough for play, about 10 ms.
 - **Sound.** ALSA through `libasound`: the default device, or `SLOT_ALSA_DEVICE`.
 - **Power and clocks.** `/sys/class/power_supply` (a supply of `type` Battery with
   `capacity` and `status`), `/sys/class/backlight` (`brightness`, `max_brightness`; a

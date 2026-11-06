@@ -14,6 +14,14 @@ Status: plan, agreed in outline with the user on 2026-11-06; not built.
   15-23 and 1004-1023; X runs left to right; Y runs down to up on both sticks; events
   come about every 16 ms once Slot² has set the poll to 10 ms.
 
+**Found and fixed (2026-11-06):** the stuck Up was a kernel bug. `adc-joystick` flips an
+axis using the range of the ABS code equal to the axis's *position* (`i`), not its code.
+The RGB20SX's Y axis is third, so a flipped Y read ABS_Z's empty range and came out as
+minus the reading: about -520 at rest, which reads as fully up. Base² patches the
+driver (`0004-Input-adc-joystick-invert-an-axis-by-its-code-not-its-index.patch`); worth
+sending upstream. With it and the device tree patch (`0003`), every axis runs 15-1023,
+rests near 520, and up and left read low.
+
 ## The rule
 
 **Base² reports the hardware as it is, the standard way. Slot² decides what a press
@@ -57,7 +65,8 @@ Slot² doesn't patch over a device's quirks or tune the kernel.
 
 ## Order
 
-1. **Base²: items 1-3.** Device tree patch (Y axes, poll interval), the contract text.
+1. **Base²: items 1-3, done.** Device tree patch (Y axes, poll interval), the driver fix,
+   the contract text.
    Rebuild, keep the running device tree as `basesq.dtb.prev`, install, reboot.
    Check: the same raw probe shows up as low on both sticks and a 10 ms poll; Slot²'s log
    no longer says "poll 60 ms -> 10 ms"; the sticks steer the shelf the right way; a game

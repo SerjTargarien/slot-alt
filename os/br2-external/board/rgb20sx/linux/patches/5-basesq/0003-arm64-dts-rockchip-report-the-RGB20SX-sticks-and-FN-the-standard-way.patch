@@ -1,0 +1,39 @@
+From: Serj Targarien <xergy10@gmail.com>
+Subject: [PATCH] arm64: dts: rockchip: report the RGB20SX sticks and FN the standard way
+
+The RGB20SX shares the RK2023's device tree, whose stick Y axes run the other
+way on this board: pushing either stick up reports a larger value, where
+input devices report up as smaller (probed: both sticks rest near 520 and
+read 1004-1023 pushed up). Flip both Y ranges; the adc-joystick driver
+inverts an axis whose range runs high to low and still reports 15-1023.
+
+Both polled devices, the sticks and the FN key, are read every 60 ms, which
+lags a stick or a held FN by up to a frame and a half at 60 Hz. Poll them
+every 10 ms, so no reader has to change it at run time.
+---
+--- a/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20sx.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-powkiddy-rgb20sx.dts
+@@ -107,3 +107,23 @@
+ 	num-interpolated-steps = <255>;
+ 	default-brightness-level = <77>;
+ };
++
++/*
++ * basesq: the sticks the right way up (the RK2023's Y axes run upward on the RGB20SX;
++ * X is right), and the sticks and FN polled every 10 ms instead of 60.
++ */
++&{/adc-joystick} {
++	poll-interval = <10>;
++};
++
++&{/adc-joystick/axis@2} {
++	abs-range = <1023 15>;
++};
++
++&{/adc-joystick/axis@3} {
++	abs-range = <15 1023>;
++};
++
++&adc_keys {
++	poll-interval = <10>;
++};
