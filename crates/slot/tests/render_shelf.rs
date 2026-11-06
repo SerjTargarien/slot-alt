@@ -1,6 +1,6 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
-mod common;
+use crate::common;
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 

@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use slot_retro::{ButtonMask, LibretroCore, RetroCore};
 use slot_store::{Core, Platform};

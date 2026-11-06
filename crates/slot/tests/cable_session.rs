@@ -1,5 +1,3 @@
-mod common;
-
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

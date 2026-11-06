@@ -1,10 +1,10 @@
 //! A DS game's views of its two screens, and its stylus.
 
-mod common;
+use crate::common;
 
 use slot::app::App;
 use slot::video_mode::{DsLayout, DsScreen, DsView};
-use slot_input::{Action, Btn};
+use slot_input::Action;
 use slot_store::{Platform, Shader};
 
 fn playing_ds() -> (tempfile::TempDir, App) {
@@ -12,6 +12,13 @@ fn playing_ds() -> (tempfile::TempDir, App) {
 }
 
 fn playing_ds_with(shader: Shader) -> (tempfile::TempDir, App) {
+    playing_ds_in(slot_store::SlotState {
+        shader_nds: shader,
+        ..Default::default()
+    })
+}
+
+fn playing_ds_in(state: slot_store::SlotState) -> (tempfile::TempDir, App) {
     let d = common::tmp_root_with_carts(&["Emerald"]);
     let nds = d.path().join("Games/NDS");
     std::fs::create_dir_all(&nds).unwrap();
@@ -22,8 +29,7 @@ fn playing_ds_with(shader: Shader) -> (tempfile::TempDir, App) {
             cart: Some("Kart".into()),
             cart_platform: Some(Platform::Nds),
             clock_set: true,
-            shader_nds: shader,
-            ..Default::default()
+            ..state
         },
     )
     .unwrap();
@@ -61,14 +67,14 @@ fn a_ds_game_starts_on_both_screens_and_l2_swaps_which_is_on_top() {
     assert_eq!(main.dst[1], 0.0, "the bottom screen now on top");
     assert_eq!(other.unwrap().screen, DsScreen::Top);
     assert_eq!(
-        slot::video_mode::ds_view_for(d.path(), "Kart").main,
+        slot::video_mode::ds_view_for(d.path(), "Kart", DsLayout::Stacked).main,
         DsScreen::Bottom,
         "the game remembers its main screen"
     );
 }
 
 #[test]
-fn select_l2_steps_through_the_layouts_and_shaders_show_from_2x() {
+fn select_l2_steps_through_the_layouts_at_fit_and_shaders_show_from_2x() {
     let (d, mut a) = playing_ds_with(Shader::Lcd3x);
     assert!(a.game_sharp(), "a DS game is drawn sharp bilinear");
     let mut seen = Vec::new();
@@ -94,13 +100,12 @@ fn select_l2_steps_through_the_layouts_and_shaders_show_from_2x() {
                 Some([200.0, 240.0, 320.0, 240.0]),
                 plain
             ),
-            (DsLayout::Single, [104.0, 48.0, 512.0, 384.0], None, lcd),
-            (DsLayout::Fill, [40.0, 0.0, 640.0, 480.0], None, lcd),
+            (DsLayout::Single, [40.0, 0.0, 640.0, 480.0], None, lcd),
             (
-                DsLayout::Side,
-                [0.0, 48.0, 512.0, 384.0],
-                Some([512.0, 48.0, 208.0, 156.0]),
-                lcd
+                DsLayout::Below,
+                [120.0, 0.0, 480.0, 360.0],
+                Some([280.0, 360.0, 160.0, 120.0]),
+                plain
             ),
             (
                 DsLayout::Corner,
@@ -112,7 +117,7 @@ fn select_l2_steps_through_the_layouts_and_shaders_show_from_2x() {
     );
     a.next_ds_layout();
     assert_eq!(
-        slot::video_mode::ds_view_for(d.path(), "Kart").layout,
+        slot::video_mode::ds_view_for(d.path(), "Kart", DsLayout::Stacked).layout,
         DsLayout::Single,
         "the game remembers its layout"
     );
@@ -217,17 +222,18 @@ fn a_ds_bezel_set_follows_the_layout() {
     let (_d, mut a) = playing_ds();
     let mut seen = Vec::new();
     for _ in DsLayout::ALL {
-        seen.push(a.ds_bezel_file().unwrap());
+        seen.push(a.ds_bezel_file());
         a.next_ds_layout();
     }
+    // At Fit, as on the band before: One Screen at Fit is upstream's Full Screen, and
+    // Main and Small has no art of its own.
     assert_eq!(
         seen,
         [
-            "both-screens.png",
-            "one-screen.png",
-            "full-screen.png",
-            "side-by-side.png",
-            "picture-in-picture.png"
+            Some("both-screens.png"),
+            Some("full-screen.png"),
+            None,
+            Some("picture-in-picture.png")
         ]
     );
     a.swap_ds_screens();
@@ -235,5 +241,94 @@ fn a_ds_bezel_set_follows_the_layout() {
         a.ds_bezel_file(),
         Some("both-screens.png"),
         "swapping the screens keeps the layout's bezel"
+    );
+}
+
+/// A DS game on the RGB20SX's square panel, its screens on the whole 720x720 canvas.
+fn playing_ds_square() -> (tempfile::TempDir, App) {
+    let (d, mut a) = playing_ds();
+    a.set_panel((720, 720));
+    (d, a)
+}
+
+#[test]
+fn on_the_square_panel_the_layouts_use_all_of_it() {
+    let (_d, mut a) = playing_ds_square();
+    let (main, other) = a.ds_parts();
+    assert_eq!(
+        main.dst,
+        [120.0, 0.0, 480.0, 360.0],
+        "both screens at 1.875x"
+    );
+    assert_eq!(other.unwrap().dst, [120.0, 360.0, 480.0, 360.0]);
+    let layout = a.game_layout();
+    assert!(layout.panel, "placed over the whole panel");
+    assert_eq!(
+        layout.rect,
+        [120.0, 0.0, 480.0, 240.0],
+        "in 720x480 units of the panel"
+    );
+    a.next_ds_layout();
+    assert_eq!(
+        a.ds_parts().0.dst,
+        [0.0, 90.0, 720.0, 540.0],
+        "one screen at Fit"
+    );
+    a.next_ds_layout();
+    let (main, other) = a.ds_parts();
+    assert_eq!(main.dst, [0.0, 0.0, 720.0, 540.0], "main and small");
+    assert_eq!(other.unwrap().dst, [240.0, 540.0, 240.0, 180.0]);
+    a.next_ds_layout();
+    let (main, other) = a.ds_parts();
+    assert_eq!(main.dst, [0.0, 90.0, 720.0, 540.0]);
+    assert_eq!(
+        other.unwrap().dst,
+        [464.0, 438.0, 256.0, 192.0],
+        "1x in the corner"
+    );
+}
+
+#[test]
+fn integer_scale_draws_whole_multiples_and_stretch_fills_with_one_screen() {
+    use slot_store::{Scale, SlotState};
+    let (_d, mut a) = playing_ds_in(SlotState {
+        scale_nds: Scale::Integer,
+        ..Default::default()
+    });
+    a.set_panel((720, 720));
+    assert_eq!(
+        a.ds_parts().0.dst,
+        [232.0, 168.0, 256.0, 192.0],
+        "both at 1x"
+    );
+    a.next_ds_layout();
+    assert_eq!(
+        a.ds_parts().0.dst,
+        [104.0, 168.0, 512.0, 384.0],
+        "one at 2x"
+    );
+    let (_d, mut a) = playing_ds_in(SlotState {
+        stretched_nds: true,
+        nds_layout: "single".into(),
+        ..Default::default()
+    });
+    a.set_panel((720, 720));
+    assert_eq!(a.ds_starting_layout(), DsLayout::Single);
+    let d = tempfile::tempdir().unwrap();
+    assert_eq!(
+        slot::video_mode::ds_view_for(d.path(), "New", a.ds_starting_layout()).layout,
+        DsLayout::Single,
+        "a game never played starts in the shelf's layout"
+    );
+    a.set_ds_view(DsView {
+        layout: DsLayout::Single,
+        ..DsView::default()
+    });
+    assert_eq!(a.ds_parts().0.dst, [0.0, 0.0, 720.0, 720.0], "stretched");
+    a.next_ds_layout();
+    assert_eq!(
+        a.ds_parts().0.dst,
+        [0.0, 0.0, 720.0, 540.0],
+        "Stretch is One Screen's only"
     );
 }

@@ -1,6 +1,6 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
-mod common;
+use crate::common;
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -368,6 +368,10 @@ fn deleting_hundreds_at_once_does_not_freeze() {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "times frames: WSL's software renderer is no measure of the device"
+)]
 fn the_gallery_holds_up_under_a_thousand_shots() {
     a_thousand_shots_never_stall_the_gallery();
     opening_and_closing_fast_leaves_the_gallery_whole();

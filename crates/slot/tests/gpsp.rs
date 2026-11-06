@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use slot_store::{Blending, Core, Platform};
 

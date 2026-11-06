@@ -1,6 +1,6 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
-mod common;
+use crate::common;
 
 use std::collections::VecDeque;
 
@@ -131,7 +131,9 @@ fn the_quick_menu_renders_full_screen() {
         ("network", QuickRow::Network),
         ("about", QuickRow::About),
     ] {
-        for _ in bar_on.position(&[])..selected.position(&[]) {
+        // Slot²: the rows shown (RetroAchievements is hidden in this build).
+        let hidden = f.app().hidden_rows();
+        for _ in bar_on.position(&hidden)..selected.position(&hidden) {
             tap(&mut f, &mut input, Btn::Down);
         }
         bar_on = selected;
@@ -144,8 +146,8 @@ fn the_quick_menu_renders_full_screen() {
         );
 
         let mut spans = Vec::new();
-        for row in QuickRow::MAIN {
-            let top = quick_row_top(row, &[], BAND) as usize;
+        for row in QuickRow::General.shown(&hidden) {
+            let top = quick_row_top(row, &hidden, BAND) as usize;
             let from = match row == selected {
                 true => {
                     let p = beside(name, pointer(&px, top));
@@ -189,7 +191,7 @@ fn the_quick_menu_renders_full_screen() {
         "the pointer moves from row to row: {tips:?}"
     );
 
-    for _ in QuickRow::General.position(&[])..QuickRow::About.position(&[]) {
+    for _ in QuickRow::General.position(&[])..QuickRow::About.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Up);
     }
     tap(&mut f, &mut input, Btn::A);
@@ -337,7 +339,7 @@ fn the_about_label_is_on_the_tinted_wallpaper() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::About.position(&[]) {
+    for _ in 0..QuickRow::About.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
     let menu = composed(&mut f, &mut c, "about-row");
@@ -450,6 +452,10 @@ fn the_controls_pages_render() {
     tap(&mut f, &mut input, Btn::B);
     tap(&mut f, &mut input, Btn::Up);
     tap(&mut f, &mut input, Btn::A);
+    // Slot²: In-Game lists the systems, each with its own page.
+    assert_eq!(f.app().quick_menu(), Some(QuickRow::ControlsGb));
+    composed(&mut f, &mut c, "controls-in-game-systems");
+    tap(&mut f, &mut input, Btn::A);
     assert_eq!(f.app().quick_menu(), Some(QuickRow::GameUp));
     composed(&mut f, &mut c, "controls-in-game");
     tap(&mut f, &mut input, Btn::Y);
@@ -457,9 +463,10 @@ fn the_controls_pages_render() {
     tap(&mut f, &mut input, Btn::X);
     composed(&mut f, &mut c, "controls-in-game-changed");
     tap(&mut f, &mut input, Btn::Y);
-    assert!(f.app().reset_prompt());
-    composed(&mut f, &mut c, "controls-reset");
+    assert!(!f.app().reset_prompt(), "a controls row resets without asking");
+    composed(&mut f, &mut c, "controls-row-default");
     tap(&mut f, &mut input, Btn::B);
+    assert_eq!(f.app().quick_menu(), Some(QuickRow::ControlsGb));
     tap(&mut f, &mut input, Btn::B);
     tap(&mut f, &mut input, Btn::Up);
     tap(&mut f, &mut input, Btn::A);
@@ -747,7 +754,7 @@ fn about_shows_x_restart() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::About.position(&[]) {
+    for _ in 0..QuickRow::About.position(&f.app().hidden_rows()) {
         tap(&mut f, &mut input, Btn::Down);
     }
     tap(&mut f, &mut input, Btn::A);

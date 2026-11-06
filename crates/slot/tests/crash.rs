@@ -15,9 +15,15 @@ fn a_crash_says_where_it_happened_and_still_dies_by_its_signal() {
             .ok();
         return;
     }
+    // Its own name, as its program lists it: `crash::...` among the other tests.
+    let me = concat!(
+        module_path!(),
+        "::a_crash_says_where_it_happened_and_still_dies_by_its_signal"
+    );
+    let me = me.split_once("::").map_or(me, |(_, rest)| rest);
     let out = Command::new(std::env::current_exe().unwrap())
         .args([
-            "a_crash_says_where_it_happened_and_still_dies_by_its_signal",
+            me,
             "--exact",
             "--nocapture",
         ])

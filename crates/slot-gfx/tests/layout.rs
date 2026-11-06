@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 use slot_gfx::{
     bezel_column, game_rect, hole_on_top, Canvas, Compositor, Draw, HeadlessSurface, ScreenEffect,

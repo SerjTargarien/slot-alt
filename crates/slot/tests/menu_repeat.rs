@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{
     app_booting_at, app_booting_with_clock, app_playing_in, tmp_root_with_carts, CLOCK_IS_SET,

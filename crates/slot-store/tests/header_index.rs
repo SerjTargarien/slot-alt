@@ -2,6 +2,13 @@ use std::path::{Path, PathBuf};
 
 use slot_store::header_index::{dirty, gb_header, gba_code, load, peek_gb_header, save, verify};
 
+/// The header index is one table for the whole process, which each test loads its own
+/// card into: they take turns.
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn gb_rom(root: &Path, name: &str, cgb: u8, len: usize) -> PathBuf {
     let path = root.join("Games/GB").join(name);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -24,6 +31,7 @@ fn gba_rom(root: &Path, name: &str, code: &[u8; 4]) -> PathBuf {
 
 #[test]
 fn a_saved_index_answers_without_the_roms() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let gb = gb_rom(d.path(), "Tetris.gb", 0xc0, 0x150);
     let gba = gba_rom(d.path(), "Emerald.gba", b"BPEE");
@@ -39,6 +47,7 @@ fn a_saved_index_answers_without_the_roms() {
 
 #[test]
 fn a_replaced_rom_is_read_again() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let gb = gb_rom(d.path(), "Pak.gb", 0x00, 0x150);
     assert_eq!(gb_header(&gb).unwrap().cgb, 0x00);
@@ -51,6 +60,7 @@ fn a_replaced_rom_is_read_again() {
 
 #[test]
 fn an_unchanged_rom_keeps_its_entry() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let gb = gb_rom(d.path(), "Pak.gb", 0x80, 0x150);
     let header = gb_header(&gb);
@@ -60,6 +70,7 @@ fn an_unchanged_rom_keeps_its_entry() {
 
 #[test]
 fn a_corrupt_index_loads_as_empty() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(d.path().join("Cache")).unwrap();
     std::fs::write(
@@ -73,6 +84,7 @@ fn a_corrupt_index_loads_as_empty() {
 
 #[test]
 fn reading_a_new_rom_leaves_the_index_unsaved_until_it_is_saved() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     load(d.path());
     assert!(!dirty());
@@ -84,6 +96,7 @@ fn reading_a_new_rom_leaves_the_index_unsaved_until_it_is_saved() {
 
 #[test]
 fn entries_for_roms_no_longer_on_the_card_are_dropped() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let kept = gb_rom(d.path(), "Kept.gb", 0x00, 0x150);
     let gone = gb_rom(d.path(), "Gone.gb", 0x80, 0x150);
@@ -109,7 +122,10 @@ fn entries_for_roms_no_longer_on_the_card_are_dropped() {
 
 #[test]
 fn keeping_every_entry_leaves_the_index_saved() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
+    // Its own card's index, not what the tests before it left.
+    load(d.path());
     let rom = gb_rom(d.path(), "Kept.gb", 0x00, 0x150);
     gb_header(&rom);
     save(d.path()).unwrap();

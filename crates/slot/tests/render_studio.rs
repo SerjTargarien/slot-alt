@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{clocked, tmp_root_with_gb_carts};
 use slot::frontend::Frontend;

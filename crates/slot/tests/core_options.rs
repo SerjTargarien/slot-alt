@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use slot::link_kind::{serial_option, LinkKind};
 use slot_retro::LibretroCore;

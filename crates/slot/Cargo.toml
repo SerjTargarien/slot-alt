@@ -4,6 +4,8 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+# Slot²: the integration tests are one program, tests/all.rs, plus the few below.
+autotests = false
 
 [features]
 default = ["host"]
@@ -46,5 +48,37 @@ tempfile = { workspace = true }
 rqrr = "0.11"
 
 [[test]]
+name = "tests"
+path = "tests/all.rs"
+
+# These change state the whole process shares (environment variables, the Wi-Fi worker
+# that `wifi::wait_online` asks, the ROM header index each boot loads), which would reach
+# the other tests in one program.
+[[test]]
+name = "header_index_boot"
+path = "tests/header_index_boot.rs"
+
+[[test]]
+name = "wifi_worker"
+path = "tests/wifi_worker.rs"
+
+[[test]]
+name = "core"
+path = "tests/core.rs"
+
+[[test]]
+name = "e2e"
+path = "tests/e2e.rs"
+
+[[test]]
+name = "gb_palette_recolour"
+path = "tests/gb_palette_recolour.rs"
+
+[[test]]
+name = "studio_state"
+path = "tests/studio_state.rs"
+
+[[test]]
 name = "romm_ui"
+path = "tests/romm_ui.rs"
 required-features = ["romm"]

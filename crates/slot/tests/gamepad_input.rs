@@ -26,6 +26,8 @@ fn the_rgb20sx_buttons_map_by_their_standard_gamepad_codes() {
         (115, Btn::VolUp),
         (114, Btn::VolDown),
         (116, Btn::Power),
+        (0x13d, Btn::L3),
+        (0x13e, Btn::R3),
     ];
     for (code, btn) in probed {
         assert_eq!(
@@ -34,8 +36,6 @@ fn the_rgb20sx_buttons_map_by_their_standard_gamepad_codes() {
             "{code:#x}"
         );
     }
-    assert_eq!(code_to_btn_in(Layout::Gamepad, 0x13d), None);
-    assert_eq!(code_to_btn_in(Layout::Gamepad, 0x13e), None);
 }
 
 #[test]

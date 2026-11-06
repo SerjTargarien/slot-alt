@@ -1,8 +1,16 @@
 use slot::app::App;
 use slot_store::Platform;
 
+/// The header index is one table for the whole process, which each test loads its own
+/// card into: they take turns.
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[test]
 fn boot_takes_game_boy_shapes_from_the_saved_index() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let rom = d.path().join("Games/GBC/Pak.gbc");
     std::fs::create_dir_all(rom.parent().unwrap()).unwrap();
@@ -26,6 +34,7 @@ fn boot_takes_game_boy_shapes_from_the_saved_index() {
 
 #[test]
 fn boot_drops_index_entries_for_games_no_longer_on_the_card() {
+    let _turn = one_at_a_time();
     let d = tempfile::tempdir().unwrap();
     let rom = d.path().join("Games/GB/Here.gb");
     std::fs::create_dir_all(rom.parent().unwrap()).unwrap();

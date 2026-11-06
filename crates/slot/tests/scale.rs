@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{tmp_root_with_carts, tmp_root_with_gb_carts, tmp_root_with_gbc_carts, StubSnapshot};
 use slot::app::{App, Phase};

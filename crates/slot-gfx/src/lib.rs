@@ -14,6 +14,8 @@ mod grade;
 pub mod hdmi;
 #[cfg(target_os = "macos")]
 mod headless;
+#[cfg(target_os = "linux")]
+mod headless_linux;
 #[cfg(feature = "host")]
 mod host;
 #[cfg(target_os = "linux")]
@@ -37,6 +39,8 @@ pub use grade::{
 };
 #[cfg(target_os = "macos")]
 pub use headless::HeadlessSurface;
+#[cfg(target_os = "linux")]
+pub use headless_linux::HeadlessSurface;
 #[cfg(feature = "host")]
 pub use host::HostSurface;
 #[cfg(target_os = "linux")]

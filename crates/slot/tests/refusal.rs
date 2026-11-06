@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{app_playing_in, boot, tmp_root_with_carts};
 use slot::app::{App, Phase};

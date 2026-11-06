@@ -43,10 +43,25 @@ Last updated 2026-11-06. Read this first. Older detail is in
   ends a game in play.
 - Measurements: `SLOT_TRACE_POWER=1` in `/run/slot.env`, then
   `python3 -I tools/slotsq/medians.py NAME` on logs saved with `dev.sh logs NAME`.
-- Run commands as `. "$HOME/.cargo/env"` first. Tests: the `render_*`, `server_ui`,
-  `pipeline` and `quad` tests need macOS (`HeadlessSurface`); `romm_ui` needs
-  `--features romm`. Failing before our work: `slot-ui` `house_label` (one test), and the
-  `slot-store` `header_index` tests are flaky.
+- Run commands as `. "$HOME/.cargo/env"` first.
+
+## Testing
+
+- `sh tools/slotsq/test.sh` while working: the crates changed since the last commit, and
+  `slot` through them. `sh tools/slotsq/test.sh all` before a deploy. Both run every test
+  and fail only on failures not in `tools/slotsq/known-failures`, which says why each one
+  is there. The output goes to `logs/test.log`.
+- `slot` and `slot-ui` build their integration tests as one program each
+  (`tests/all.rs`, which a test checks lists every file). A test that changes state the
+  whole process shares (environment variables, the Wi-Fi worker, the ROM header index)
+  gets its own `[[test]]` in Cargo.toml instead.
+- Render tests run here: `slot-gfx`'s Linux `HeadlessSurface` is Mesa's EGL with no window
+  and GLES2, as on the device. A test checks it starts, since render tests skip quietly
+  without it. Frame-time tests are skipped on Linux (the software renderer is no measure).
+- `romm_ui` needs `--features romm`.
+- Build settings for this machine are in `~/.cargo/config.toml`, not the repo: mold as the
+  linker, and line numbers only in debug builds. A full test build takes about a minute
+  and `target/` stays at a few GB; `cargo clean` if it grows.
 - Format with `rustfmt --edition 2021` per file, never `cargo fmt --all`: upstream's files
   aren't formatted, so only lines we touch must be.
 - Commits: plain messages, author and committer Serj Targarien

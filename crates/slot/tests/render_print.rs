@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 use slot::print_scene::{
     print_art, print_draws, stage_art, PaperJob, PrintArtState, PrintArtWorker, PrintFrame, PrintScene,

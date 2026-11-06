@@ -326,7 +326,10 @@ fn at_most_two_render_at_once() {
     for t in threads {
         assert!(t.join().unwrap());
     }
-    assert_eq!(peak.load(Ordering::SeqCst), 2);
+    // Slot²: at most two. Exactly two depends on the threads overlapping, which a loaded
+    // machine (or the test beside it, holding renders) doesn't promise.
+    let peak = peak.load(Ordering::SeqCst);
+    assert!((1..=2).contains(&peak), "{peak} rendered at once");
 }
 
 #[test]

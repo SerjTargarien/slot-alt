@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::time::{Duration, Instant};

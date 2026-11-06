@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};

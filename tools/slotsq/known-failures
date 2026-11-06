@@ -1,0 +1,7 @@
+# Tests known to fail, one name per line as `cargo test` prints it. tools/slotsq/test.sh
+# fails only on others. Each entry says why it fails and what would take it off the list.
+
+# Upstream: the Game Boy cart's label well became 223x199 (Slot 1.13, 2026-11-02) while the
+# label slot draws stayed 1024x901, which another of its tests requires. Fixed upstream or
+# by choosing one size with the user: the label's size is the size of label files.
+house_label::tests::a_game_boy_label_is_the_shape_of_its_own_well

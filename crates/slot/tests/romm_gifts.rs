@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{app_booting_at, tmp_root_with_carts, CLOCK_IS_SET};
 use slot::app::{App, Phase};

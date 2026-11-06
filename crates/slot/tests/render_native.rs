@@ -1,6 +1,6 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
-mod common;
+use crate::common;
 
 use std::collections::VecDeque;
 
@@ -420,6 +420,10 @@ fn link_screen_on(panel: (u32, u32)) -> Option<Vec<u8>> {
     let mut c = Compositor::new(&surface).ok()?;
     let d = common::tmp_root_with_gb_carts(&["Tetris"]);
     clocked(d.path());
+    // Link play runs on mGBA; Game Boy games open on Gambatte unless told otherwise.
+    let mut state = slot_store::read_slot_state(d.path());
+    state.gb_core = slot_store::Core::Mgba;
+    slot_store::write_slot_state(d.path(), &state).expect("write slot.state");
     let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
     f.upload_faces(&mut c);
     f.upload_bezel(&mut c, panel);

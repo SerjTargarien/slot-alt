@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use common::{app_playing_in, tmp_root_with_carts};
 use slot::app::{App, Phase};
@@ -114,7 +114,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Palette,
                 QuickRow::Bezel,
                 QuickRow::Scale,
-                QuickRow::Stretch
+                QuickRow::Stretch,
+                QuickRow::Layout
             ][..],
             &empty
         ]
@@ -127,7 +128,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             &[
                 QuickRow::Bezel,
                 QuickRow::Scale,
-                QuickRow::Stretch
+                QuickRow::Stretch,
+                QuickRow::Layout
             ][..],
             &empty
         ]

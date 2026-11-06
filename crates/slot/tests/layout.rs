@@ -1,4 +1,4 @@
-mod common;
+use crate::common;
 
 use slot::app::{App, Phase};
 use slot::video_mode::VideoMode;
@@ -320,18 +320,27 @@ fn playing_on(platform: Platform, panel: (u32, u32)) -> App {
 
 #[test]
 fn a_stretched_game_fills_a_4_by_3_panel_but_the_game_boy_keeps_its_window() {
-    for platform in [
-        Platform::Gba,
-        Platform::Ws,
-        Platform::Lynx,
-        Platform::Gg,
-        Platform::Ngp,
-    ] {
+    let mut a = playing_on(Platform::Gba, PANEL_4_3);
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
+    assert!(!a.game_fills_panel(), "the GBA filled at actual size");
+    a.set_video_mode(VideoMode::Stretch);
+    assert!(a.game_fills_panel(), "the GBA did not fill the panel");
+    assert_eq!(a.canvas(), NATIVE);
+    // Slot²: these systems are placed by their own picture, which covers the whole panel
+    // when stretched, rather than by slotPlus's fill.
+    for platform in [Platform::Ws, Platform::Lynx, Platform::Gg, Platform::Ngp] {
         let mut a = playing_on(platform, PANEL_4_3);
         assert!(matches!(a.phase(), Phase::Playing { .. }), "{platform:?}");
-        assert!(!a.game_fills_panel(), "{platform:?} filled at actual size");
+        let full = [0.0, 0.0, 720.0, 480.0];
+        let unstretched = a.game_layout();
+        assert!(
+            !(unstretched.panel && unstretched.rect == full),
+            "{platform:?} filled at actual size"
+        );
         a.set_video_mode(VideoMode::Stretch);
-        assert!(a.game_fills_panel(), "{platform:?} did not fill the panel");
+        let layout = a.game_layout();
+        assert!(layout.panel, "{platform:?} did not fill the panel");
+        assert_eq!(layout.rect, full, "{platform:?}");
         assert_eq!(a.canvas(), NATIVE, "{platform:?}");
     }
     for platform in [Platform::Gb, Platform::Gbc] {
