@@ -4,10 +4,13 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::bindings::{Binding, Shortcut};
 use crate::controls::system_key;
 use crate::gb_palette::{GbColors, GbPalette};
 use crate::platform::Platform;
-use crate::slot_state::{BezelPick, Blending, Scale, Shader, SlotState, Stretch};
+use crate::slot_state::{
+    ff_speed_text, ff_speed_value, BezelPick, Blending, Scale, Shader, SlotState, Stretch,
+};
 
 const DIR: &str = "games";
 
@@ -323,12 +326,237 @@ impl ScreenOverrides {
     }
 }
 
+/// The Gameplay page's settings: one value for every game in `slot.state`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Play {
+    pub ff_speed: u8,
+    pub ff_sound: bool,
+    pub rewind: bool,
+    pub rumble: bool,
+    pub auto_load: bool,
+    pub eject_save: bool,
+}
+
+impl SlotState {
+    pub fn play(&self) -> Play {
+        Play {
+            ff_speed: self.ff_speed,
+            ff_sound: self.ff_sound,
+            rewind: self.rewind,
+            rumble: self.rumble,
+            auto_load: self.auto_load,
+            eject_save: self.eject_save,
+        }
+    }
+
+    pub fn set_play(&mut self, to: &Play) {
+        self.ff_speed = to.ff_speed;
+        self.ff_sound = to.ff_sound;
+        self.rewind = to.rewind;
+        self.rumble = to.rumble;
+        self.auto_load = to.auto_load;
+        self.eject_save = to.eject_save;
+    }
+}
+
+/// A Gameplay setting a game can have its own value for.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum PlaySetting {
+    FfSpeed,
+    FfSound,
+    Rewind,
+    Rumble,
+    AutoLoad,
+    EjectSave,
+}
+
+impl PlaySetting {
+    pub const ALL: [PlaySetting; 6] = [
+        PlaySetting::FfSpeed,
+        PlaySetting::FfSound,
+        PlaySetting::Rewind,
+        PlaySetting::Rumble,
+        PlaySetting::AutoLoad,
+        PlaySetting::EjectSave,
+    ];
+
+    fn key(self) -> &'static str {
+        match self {
+            PlaySetting::FfSpeed => "ff_speed",
+            PlaySetting::FfSound => "ff_sound",
+            PlaySetting::Rewind => "rewind",
+            PlaySetting::Rumble => "rumble",
+            PlaySetting::AutoLoad => "auto_load",
+            PlaySetting::EjectSave => "eject_save",
+        }
+    }
+}
+
+/// A game's own Gameplay values: each `None` follows the shelf's.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct PlayOverrides {
+    pub ff_speed: Option<u8>,
+    pub ff_sound: Option<bool>,
+    pub rewind: Option<bool>,
+    pub rumble: Option<bool>,
+    pub auto_load: Option<bool>,
+    pub eject_save: Option<bool>,
+}
+
+impl PlayOverrides {
+    pub fn apply(&self, shelf: &Play) -> Play {
+        Play {
+            ff_speed: self.ff_speed.unwrap_or(shelf.ff_speed),
+            ff_sound: self.ff_sound.unwrap_or(shelf.ff_sound),
+            rewind: self.rewind.unwrap_or(shelf.rewind),
+            rumble: self.rumble.unwrap_or(shelf.rumble),
+            auto_load: self.auto_load.unwrap_or(shelf.auto_load),
+            eject_save: self.eject_save.unwrap_or(shelf.eject_save),
+        }
+    }
+
+    /// As `ScreenOverrides::record`.
+    pub fn record(&mut self, shelf: &Play, now: &Play) {
+        fn own<T: PartialEq + Copy>(now: T, shelf: T) -> Option<T> {
+            (now != shelf).then_some(now)
+        }
+        *self = PlayOverrides {
+            ff_speed: own(now.ff_speed, shelf.ff_speed),
+            ff_sound: own(now.ff_sound, shelf.ff_sound),
+            rewind: own(now.rewind, shelf.rewind),
+            rumble: own(now.rumble, shelf.rumble),
+            auto_load: own(now.auto_load, shelf.auto_load),
+            eject_save: own(now.eject_save, shelf.eject_save),
+        };
+    }
+
+    pub fn has(&self, setting: PlaySetting) -> bool {
+        match setting {
+            PlaySetting::FfSpeed => self.ff_speed.is_some(),
+            PlaySetting::FfSound => self.ff_sound.is_some(),
+            PlaySetting::Rewind => self.rewind.is_some(),
+            PlaySetting::Rumble => self.rumble.is_some(),
+            PlaySetting::AutoLoad => self.auto_load.is_some(),
+            PlaySetting::EjectSave => self.eject_save.is_some(),
+        }
+    }
+
+    pub fn clear(&mut self, setting: PlaySetting) {
+        match setting {
+            PlaySetting::FfSpeed => self.ff_speed = None,
+            PlaySetting::FfSound => self.ff_sound = None,
+            PlaySetting::Rewind => self.rewind = None,
+            PlaySetting::Rumble => self.rumble = None,
+            PlaySetting::AutoLoad => self.auto_load = None,
+            PlaySetting::EjectSave => self.eject_save = None,
+        }
+    }
+
+    fn value(&self, setting: PlaySetting) -> Option<String> {
+        let on = |b: bool| if b { "true" } else { "false" }.to_string();
+        match setting {
+            PlaySetting::FfSpeed => self.ff_speed.map(|s| ff_speed_text(s).into()),
+            PlaySetting::FfSound => self.ff_sound.map(on),
+            PlaySetting::Rewind => self.rewind.map(on),
+            PlaySetting::Rumble => self.rumble.map(on),
+            PlaySetting::AutoLoad => self.auto_load.map(on),
+            PlaySetting::EjectSave => self.eject_save.map(on),
+        }
+    }
+
+    fn read(&mut self, key: &str, value: &str) -> bool {
+        let Some(setting) = PlaySetting::ALL.into_iter().find(|s| s.key() == key) else {
+            return false;
+        };
+        let on = match value {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        };
+        match setting {
+            PlaySetting::FfSpeed => self.ff_speed = ff_speed_value(value),
+            PlaySetting::FfSound => self.ff_sound = on,
+            PlaySetting::Rewind => self.rewind = on,
+            PlaySetting::Rumble => self.rumble = on,
+            PlaySetting::AutoLoad => self.auto_load = on,
+            PlaySetting::EjectSave => self.eject_save = on,
+        }
+        true
+    }
+}
+
+/// A game's own shortcut keys, over the system's and the general ones. `Some(None)`
+/// leaves a shortcut unbound in this game.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct GameShortcuts {
+    keys: [Option<Option<Binding>>; Shortcut::ALL.len()],
+}
+
+const SHORTCUT_PREFIX: &str = "shortcut.";
+
+impl GameShortcuts {
+    fn at(shortcut: Shortcut) -> usize {
+        Shortcut::ALL
+            .iter()
+            .position(|s| *s == shortcut)
+            .unwrap_or(0)
+    }
+
+    /// The game's own key for `shortcut`, if it has one (which may be none at all).
+    pub fn get(&self, shortcut: Shortcut) -> Option<Option<Binding>> {
+        self.keys[Self::at(shortcut)]
+    }
+
+    pub fn set(&mut self, shortcut: Shortcut, binding: Option<Binding>) {
+        self.keys[Self::at(shortcut)] = Some(binding);
+    }
+
+    /// The shortcut follows the system's or the general key again.
+    pub fn clear(&mut self, shortcut: Shortcut) {
+        self.keys[Self::at(shortcut)] = None;
+    }
+
+    pub fn has(&self, shortcut: Shortcut) -> bool {
+        self.get(shortcut).is_some()
+    }
+
+    fn text(&self) -> String {
+        Shortcut::ALL
+            .into_iter()
+            .filter_map(|s| {
+                let key = self.get(s)?;
+                Some(format!(
+                    "{SHORTCUT_PREFIX}{}={}\n",
+                    s.key(),
+                    Binding::key(key)
+                ))
+            })
+            .collect()
+    }
+
+    /// Takes a `shortcut.` line; whether it was one. A line naming no shortcut, or a key
+    /// that isn't one, is dropped (the game follows the shelf's key), so it leaves the
+    /// file the next time it is written.
+    fn read(&mut self, key: &str, value: &str) -> bool {
+        let Some(name) = key.strip_prefix(SHORTCUT_PREFIX) else {
+            return false;
+        };
+        let shortcut = Shortcut::ALL.into_iter().find(|s| s.key() == name);
+        if let (Some(shortcut), Some(binding)) = (shortcut, Binding::parse(value)) {
+            self.set(shortcut, binding);
+        }
+        true
+    }
+}
+
 /// Everything one game changed from its system.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GameSettings {
     pub platform: Platform,
     pub stem: String,
     pub screen: ScreenOverrides,
+    pub play: PlayOverrides,
+    pub shortcuts: GameShortcuts,
     /// Lines this build doesn't know, kept as they were.
     other: Vec<(String, String)>,
 }
@@ -340,6 +568,8 @@ impl GameSettings {
             platform,
             stem: stem.to_string(),
             screen: ScreenOverrides::default(),
+            play: PlayOverrides::default(),
+            shortcuts: GameShortcuts::default(),
             other: Vec::new(),
         }
     }
@@ -356,6 +586,12 @@ impl GameSettings {
                 text.push_str(&format!("{}={v}\n", s.key()));
             }
         }
+        for s in PlaySetting::ALL {
+            if let Some(v) = self.play.value(s) {
+                text.push_str(&format!("{}={v}\n", s.key()));
+            }
+        }
+        text.push_str(&self.shortcuts.text());
         for (k, v) in &self.other {
             text.push_str(&format!("{k}={v}\n"));
         }
@@ -377,7 +613,10 @@ pub fn read_game(root: &Path, platform: Platform, stem: &str) -> GameSettings {
     };
     for (key, value) in text.lines().filter_map(|l| l.split_once('=')) {
         let (key, value) = (key.trim(), value.trim());
-        if !game.screen.read(key, value) {
+        let known = game.screen.read(key, value)
+            || game.play.read(key, value)
+            || game.shortcuts.read(key, value);
+        if !known {
             game.other.push((key.to_string(), value.to_string()));
         }
     }

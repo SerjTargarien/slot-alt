@@ -6,9 +6,11 @@ use std::path::Path;
 
 use common::{app_playing_in, tmp_root_with_carts, StubSnapshot};
 use slot::app::App;
-use slot_input::{Action, Btn};
+use slot_input::{Action, Btn, RawEvent};
 use slot_store::games::{game_file, read_game};
-use slot_store::{read_slot_state, write_slot_state, Platform, Shader, SlotState};
+use slot_store::{
+    read_slot_state, write_slot_state, Core, Platform, Shader, Shortcut, SlotState, StateRing,
+};
 use slot_ui::QuickRow;
 
 fn press(a: &mut App, btn: Btn) {
@@ -141,4 +143,194 @@ fn a_games_file_keeps_lines_it_does_not_know() {
     press(&mut a, Btn::Right);
     press(&mut a, Btn::Y);
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "later=kept\n");
+}
+
+fn own_file(root: &Path, stem: &str, text: &str) {
+    let file = game_file(root, Platform::Gba, stem);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(file, text).unwrap();
+}
+
+fn to_gameplay_row(a: &mut App, row: QuickRow) {
+    a.apply(Action::QuickMenu);
+    for step in [QuickRow::Settings, QuickRow::PlayGameplay, row] {
+        for _ in 0..16 {
+            if a.in_game_menu() == Some(step) {
+                break;
+            }
+            press(a, Btn::Down);
+        }
+        assert_eq!(a.in_game_menu(), Some(step), "never reached {step:?}");
+        if step != row {
+            press(a, Btn::A);
+        }
+    }
+}
+
+#[test]
+fn an_in_game_gameplay_change_is_the_games_own() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let shelf = read_slot_state(d.path()).ff_speed;
+    let mut a = app_playing_in(d.path(), "Emerald");
+    to_gameplay_row(&mut a, QuickRow::FastForward);
+    press(&mut a, Btn::Right);
+    let mine = a.ff_speed();
+    assert_ne!(mine, shelf);
+    assert!(a.game_owns_row(QuickRow::FastForward));
+    assert_eq!(
+        read_game(d.path(), Platform::Gba, "Emerald").play.ff_speed,
+        Some(mine)
+    );
+    assert_eq!(
+        read_slot_state(d.path()).ff_speed,
+        shelf,
+        "the shelf keeps its own"
+    );
+    assert_eq!(app_playing_in(d.path(), "Fusion").ff_speed(), shelf);
+    press(&mut a, Btn::Y);
+    assert_eq!(a.ff_speed(), shelf);
+    assert!(!game_file(d.path(), Platform::Gba, "Emerald").exists());
+}
+
+#[test]
+fn a_games_own_load_state_on_insert_decides_before_it_is_in_the_slot() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    common::clocked(d.path());
+    assert!(read_slot_state(d.path()).auto_load);
+    own_file(d.path(), "Emerald", "auto_load=false\n");
+    let mut a = App::boot(d.path());
+    a.apply_at(Action::GbaDown(Btn::A), 0);
+    a.apply_at(Action::GbaUp(Btn::A), 120);
+    assert!(
+        a.starting_clean(),
+        "Emerald starts clean, as its own setting says"
+    );
+}
+
+#[test]
+fn a_games_own_save_state_on_eject_holds_after_the_slot_is_cleared() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    own_file(d.path(), "Emerald", "eject_save=false\n");
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::Eject);
+    let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
+    assert_eq!(r.read_resume().unwrap(), None, "a state was kept on eject");
+}
+
+fn to_shortcut_row(a: &mut App, row: QuickRow) {
+    a.apply(Action::QuickMenu);
+    for step in [QuickRow::Settings, QuickRow::PlayShortcuts, row] {
+        for _ in 0..24 {
+            if a.in_game_menu() == Some(step) {
+                break;
+            }
+            press(a, Btn::Down);
+        }
+        assert_eq!(a.in_game_menu(), Some(step), "never reached {step:?}");
+        if step != row {
+            press(a, Btn::A);
+        }
+    }
+}
+
+#[test]
+fn the_in_game_shortcuts_page_lists_the_systems_own_first_then_the_general() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    to_shortcut_row(&mut a, QuickRow::ScColour);
+    let shown = QuickRow::ScColour.shown(&a.in_game_hidden());
+    assert_eq!(
+        shown[..3],
+        [
+            QuickRow::ScColour,
+            QuickRow::ScSunlightDown,
+            QuickRow::ScSunlightUp
+        ],
+        "the GBA's own"
+    );
+    assert_eq!(shown[3..], QuickRow::SHORTCUTS);
+    press(&mut a, Btn::B);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlayShortcuts));
+}
+
+#[test]
+fn a_shortcut_set_in_a_game_is_the_games_own_key() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let general = slot_store::read_shortcuts(d.path());
+    let mut a = app_playing_in(d.path(), "Emerald");
+    to_shortcut_row(&mut a, QuickRow::ScSave);
+    press(&mut a, Btn::X);
+    assert!(a.game_owns_row(QuickRow::ScSave));
+    assert_eq!(
+        read_game(d.path(), Platform::Gba, "Emerald")
+            .shortcuts
+            .get(Shortcut::SaveState),
+        Some(None),
+        "unbound in this game"
+    );
+    assert_eq!(
+        slot_store::read_shortcuts(d.path()),
+        general,
+        "shortcuts.txt is untouched"
+    );
+    let saves = |a: &App| {
+        a.binding_table()
+            .entries()
+            .iter()
+            .any(|e| e.action == Action::SaveState)
+    };
+    assert!(!saves(&a), "Save State isn't listened for in Emerald");
+    assert!(saves(&app_playing_in(d.path(), "Fusion")));
+    press(&mut a, Btn::Y);
+    assert!(!a.game_owns_row(QuickRow::ScSave));
+    assert!(saves(&a));
+}
+
+#[test]
+fn a_key_set_back_to_the_shelfs_follows_the_shelf_again() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    assert_eq!(
+        slot_store::read_shortcuts(d.path()).get(Shortcut::SaveState),
+        slot_store::Binding::pair(slot_store::Device::Select, slot_store::Device::R1),
+        "the shelf's Save State is SELECT+R1"
+    );
+    let mut a = app_playing_in(d.path(), "Emerald");
+    to_shortcut_row(&mut a, QuickRow::ScSave);
+    press(&mut a, Btn::X);
+    assert!(a.game_owns_row(QuickRow::ScSave));
+    press(&mut a, Btn::A);
+    assert!(a.capturing());
+    for ev in [
+        RawEvent::Down(Btn::Select),
+        RawEvent::Down(Btn::R1),
+        RawEvent::Up(Btn::R1),
+        RawEvent::Up(Btn::Select),
+    ] {
+        a.capture_input(ev);
+    }
+    assert!(!a.capturing());
+    assert!(
+        !a.game_owns_row(QuickRow::ScSave),
+        "SELECT+R1 is the shelf's key, so the game follows the shelf"
+    );
+    assert!(!game_file(d.path(), Platform::Gba, "Emerald").exists());
+}
+
+#[test]
+fn a_shortcut_line_that_means_nothing_leaves_the_file() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    own_file(
+        d.path(),
+        "Emerald",
+        "shortcut.save_state=sideways\nshortcut.no_such=r3\nlater=kept\n",
+    );
+    let mut a = app_playing_in(d.path(), "Emerald");
+    assert!(!a.game_owns_row(QuickRow::ScSave), "the shelf's key holds");
+    to_screen_row(&mut a, QuickRow::Shader);
+    press(&mut a, Btn::Right);
+    press(&mut a, Btn::Y);
+    assert_eq!(
+        std::fs::read_to_string(game_file(d.path(), Platform::Gba, "Emerald")).unwrap(),
+        "later=kept\n"
+    );
 }

@@ -100,11 +100,12 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
         QuickRow::UndoLoad,
         QuickRow::UndoReset,
     ];
-    // A system's missing controls rows are hidden too; see the controls tests.
+    // A system's missing controls rows and other systems' shortcuts are hidden too;
+    // see the controls and shortcuts tests.
     let hidden = |a: &App| -> Vec<QuickRow> {
         a.in_game_hidden()
             .into_iter()
-            .filter(|r| r.input().is_none())
+            .filter(|r| r.input().is_none() && r.shortcut().is_none())
             .collect()
     };
     assert_eq!(

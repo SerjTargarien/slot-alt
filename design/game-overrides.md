@@ -1,7 +1,7 @@
 # Game overrides: system defaults, a game's own values
 
 Status: agreed with the user on 2026-11-06; decisions of the same day below ("Decided").
-Step 1 built (screen overrides); steps 2 to 4 not yet.
+Steps 1 (screen) and 2 (shortcuts, and Gameplay with them) built; steps 3 and 4 not yet.
 
 ## Decided (2026-11-06, after the shortcut pages)
 
@@ -47,6 +47,26 @@ Step 1 built (screen overrides); steps 2 to 4 not yet.
   kept it; the shelf's system first takes the same ink.
 - A row whose footer spreads three legends (Back, Default, Change) shows the full slot
   bar behind them, as binding rows do (`spreads_legends`).
+## Step 2 as built: shortcuts and Gameplay
+
+- **Gameplay** (asked for with step 2): Fast Forward, its sound, Rewind, Rumble, Load
+  State on Insert and Save State on Eject take a game's own value over the shelf's one
+  value (`PlayOverrides`), with the same view, Y and amber as Screen. The shelf's Game
+  page sets the shelf's value. Nothing in Base² reads these (the OS only provides the
+  vibration motor, which Slot² drives). Two are read outside the view: Load State on
+  Insert from the inserted cart's file before it is in the slot (`loads_on_insert`), and
+  Save State on Eject before eject clears the slot (power-off goes the same way).
+- **Shortcuts:** a fourth in-game Settings row, Shortcuts, opens one page: the playing
+  system's own shortcuts first, then the general ones (`QuickRow::PLAY_SHORTCUTS`, the
+  page every shortcut row is on; the shelf shows General or one system's by hiding the
+  rest). In a game, A sets the game's own key, X leaves it unbound in this game, Y puts
+  it back to the shelf's; a key of its own is amber. The game listens for its own keys
+  over the system's and the general ones (`App::shortcut_keys`), in `shortcut.<name>=`
+  lines of its file (`none` for unbound in this game). A key set back to the shelf's
+  follows the shelf again and leaves the file, as a Screen value does. A `shortcut.` line
+  naming no shortcut or no key is dropped (the game follows the shelf's key) and leaves
+  the file when it is next written.
+
 - Left as they were: `video_mode.txt`, upstream's per-game stretch on 4:3 panels, where
   the stretch has no system value to follow; and `nds_view.txt`, the DS's screens, layout
   and stylus screen, already per game.
@@ -125,7 +145,7 @@ shelf, the game in the slot): the amber of a game's own values.
 
 1. The per-game file, and overrides for the Screen settings, with Y to clear and the tint
    on values.
-2. The in-game Shortcuts page, with the game's own keys.
+2. The in-game Shortcuts page, with the game's own keys; and Gameplay per game.
 3. Controls per game: the in-game Controls page edits the game.
 4. The shelf's system first and tinted, on Screen and Controls > In-Game.
 

@@ -1,7 +1,9 @@
 use slot_store::games::{
     game_file, read_game, write_game, GameSettings, ScreenOverrides, ScreenSetting,
 };
-use slot_store::{BezelPick, GbColors, Platform, Scale, Shader, SlotState};
+use slot_store::{
+    BezelPick, Binding, Device, GbColors, Platform, Scale, Shader, Shortcut, SlotState,
+};
 
 #[test]
 fn a_game_without_its_own_values_is_its_systems_screen() {
@@ -62,4 +64,26 @@ fn a_games_file_reads_back_and_goes_once_it_holds_nothing() {
     write_game(d.path(), &game).unwrap();
     assert!(!file.exists());
     write_game(d.path(), &game).unwrap();
+}
+
+#[test]
+fn a_games_gameplay_and_keys_read_back() {
+    let d = tempfile::tempdir().unwrap();
+    let mut game = GameSettings::new(Platform::Gb, "Tetris");
+    game.play.ff_speed = Some(12);
+    game.play.eject_save = Some(false);
+    game.shortcuts.set(Shortcut::SaveState, None);
+    game.shortcuts
+        .set(Shortcut::PaletteNext, Binding::plain(Device::R3));
+    write_game(d.path(), &game).unwrap();
+    let text = std::fs::read_to_string(game_file(d.path(), Platform::Gb, "Tetris")).unwrap();
+    assert!(text.contains("shortcut.save_state=none\n"), "{text}");
+    let back = read_game(d.path(), Platform::Gb, "Tetris");
+    assert_eq!(back.play, game.play);
+    assert_eq!(back.shortcuts, game.shortcuts);
+    assert_eq!(
+        back.shortcuts.get(Shortcut::LoadState),
+        None,
+        "follows the shelf"
+    );
 }

@@ -229,7 +229,8 @@ fn the_in_game_settings_have_no_save_changes_page() {
         [
             QuickRow::PlayScreen,
             QuickRow::PlayGameplay,
-            QuickRow::PlayControls
+            QuickRow::PlayControls,
+            QuickRow::PlayShortcuts
         ]
     );
 }
@@ -395,8 +396,9 @@ fn shortcuts_are_set_from_the_main_menu_and_saved_for_every_game_at_once() {
 }
 
 #[test]
-fn the_in_game_settings_have_no_shortcuts_page() {
+fn the_in_game_settings_have_the_games_shortcuts_not_the_shelfs() {
     assert!(!QuickRow::SETTINGS.contains(&QuickRow::Shortcuts));
+    assert!(QuickRow::SETTINGS.contains(&QuickRow::PlayShortcuts));
     assert!(QuickRow::CONTROL_PAGES.contains(&QuickRow::Shortcuts));
 }
 
@@ -1033,7 +1035,7 @@ fn binding_fast_forward_toggle_to_r2_takes_it_from_fast_forward_without_a_toast(
     let d = shelf_card();
     let (mut s, mut now) = on_shelf(d.path());
     to_shortcuts(&mut s, &mut now);
-    for _ in 0..QuickRow::ScFastForwardToggle.position(&[]) {
+    for _ in 0..QuickRow::ScFastForwardToggle.position(&s.app().hidden_rows()) {
         tap(&mut s, &mut now, Btn::Down);
     }
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ScFastForwardToggle));

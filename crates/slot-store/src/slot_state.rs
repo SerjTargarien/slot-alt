@@ -1134,14 +1134,14 @@ fn offset(value: &str) -> Option<i16> {
         .filter(|n| (UTC_OFFSET_MIN..=UTC_OFFSET_MAX).contains(n))
 }
 
-fn ff_speed_value(value: &str) -> Option<u8> {
+pub(crate) fn ff_speed_value(value: &str) -> Option<u8> {
     FF_SPEED_TEXT
         .iter()
         .position(|t| *t == value)
         .map(|i| FF_SPEEDS[i])
 }
 
-fn ff_speed_text(speed: u8) -> &'static str {
+pub(crate) fn ff_speed_text(speed: u8) -> &'static str {
     let at = |speed| FF_SPEEDS.iter().position(|s| *s == speed);
     FF_SPEED_TEXT[at(speed).or(at(FF_SPEED_DEFAULT)).unwrap_or(0)]
 }

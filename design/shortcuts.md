@@ -1,6 +1,6 @@
 # Shortcuts: general, per system, per game
 
-Status: agreed with the user on 2026-11-06. Steps 1 and 2 built; step 3 not yet.
+Status: agreed with the user on 2026-11-06. Steps 1, 2 and 3 built.
 
 ## What the user asked for
 
@@ -54,10 +54,10 @@ The rule adds no input lag: the list of shortcuts was already rebuilt every fram
   system's.
 - Sunlight ships unbound.
 
-## 3. Per game (to build, with the per-game screen settings)
+## 3. Per game (built)
 
-- There is no in-game Shortcuts page yet: step 3 adds one, a fourth row of the in-game
-  Settings (Screen, Gameplay, Controls, Shortcuts).
+- A fourth row of the in-game Settings (Screen, Gameplay, Controls, Shortcuts) opens one
+  page: the playing system's own shortcuts first, then the general ones.
 - It edits this game's own keys over the system's and the general ones; Y puts a row back
   to them. It shows the general shortcuts and the playing system's.
 - The game's keys live in its own file with its screen settings and controls,

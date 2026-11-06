@@ -241,6 +241,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenNds,
             QuickRow::General,
             QuickRow::PlayControls,
+            QuickRow::PlayShortcuts,
             QuickRow::Shortcuts,
             QuickRow::FetchArt,
             QuickRow::Controls,
@@ -478,14 +479,34 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     );
     assert_eq!(
         QuickRow::SETTINGS.map(QuickRow::label),
-        ["Screen", "Gameplay", "Controls"]
+        ["Screen", "Gameplay", "Controls", "Shortcuts"]
     );
     assert_eq!(
         QuickRow::CONTROLS.map(QuickRow::label),
         [
-            "Up", "Down", "Left", "Right", "Y1", "Y2", "Y3", "Y4", "A Button", "B Button",
-            "X Button", "Y Button", "Select", "Start", "L Button", "R Button", "Swap Screens",
-            "Next Layout", "Stylus Hold", "Touch", "Stylus Up", "Stylus Down", "Stylus Left",
+            "Up",
+            "Down",
+            "Left",
+            "Right",
+            "Y1",
+            "Y2",
+            "Y3",
+            "Y4",
+            "A Button",
+            "B Button",
+            "X Button",
+            "Y Button",
+            "Select",
+            "Start",
+            "L Button",
+            "R Button",
+            "Swap Screens",
+            "Next Layout",
+            "Stylus Hold",
+            "Touch",
+            "Stylus Up",
+            "Stylus Down",
+            "Stylus Left",
             "Stylus Right"
         ]
     );
@@ -829,7 +850,7 @@ fn a_square_canvas_shows_ten_rows_and_the_band_six() {
     assert_eq!(slot_ui::quick_visible(slot_ui::Canvas::of((640, 480))), 6);
     assert_eq!(slot_ui::quick_visible(square), 10);
     assert_eq!(
-        slot_ui::quick_window(QuickRow::ScSave, &[], square),
+        slot_ui::quick_window(QuickRow::ScColour, &[], square),
         (0, 10)
     );
     assert_eq!(
@@ -837,7 +858,7 @@ fn a_square_canvas_shows_ten_rows_and_the_band_six() {
         (0, 3),
         "the in-game screen panel keeps its three rows over the game"
     );
-    let top = slot_ui::quick_row_top(QuickRow::ScSave, &[], square) + square.extra() / 2.0;
+    let top = slot_ui::quick_row_top(QuickRow::ScColour, &[], square) + square.extra() / 2.0;
     let bottom = top + slot_ui::QUICK_PITCH * 10.0;
     assert!(top >= 57.0, "the rows start {top} from the top");
     assert!(

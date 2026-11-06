@@ -385,7 +385,7 @@ fn every_shortcut_row_keeps_its_label_clear_of_its_binding_on_a_4_by_3_panel() {
         assert_eq!(f.app().quick_menu(), Some(row));
         f.compose(&mut c);
         let px = c.read_frame();
-        let top = quick_row_top(row, &[], BAND) as usize;
+        let top = quick_row_top(row, &f.app().hidden_rows(), BAND) as usize;
         let ink: Vec<usize> = (40..640)
             .filter(|&x| {
                 (top + 8..top + 44).any(|y| {

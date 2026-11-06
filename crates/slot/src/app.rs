@@ -7,7 +7,7 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::controls::{inputs, AllControls, SystemControls};
-use slot_store::games::{read_game, write_game, GameSettings, ScreenSetting};
+use slot_store::games::{read_game, write_game, GameSettings, PlaySetting, ScreenSetting};
 use slot_store::shortcuts::{
     has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
 };
@@ -599,6 +599,8 @@ pub struct App {
     /// While a change is made to the game's values: `state` holds the game's view then,
     /// and isn't written to the card.
     editing_game: bool,
+    /// The shelf's shortcut page open: General (`None`) or a system's.
+    shortcut_page: Option<Platform>,
     vol_before: Vec<(u8, bool, Millis)>,
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
@@ -1070,6 +1072,7 @@ impl App {
             game: None,
             game_view: None,
             editing_game: false,
+            shortcut_page: None,
             vol_before: Vec::new(),
             snapshot: None,
             core: Core::default(),
@@ -1228,7 +1231,7 @@ impl App {
             Some((at, i)) => {
                 self.shelf_at = at;
                 self.shelf_mut().select(i);
-                self.insert(!self.state.auto_load);
+                self.insert(!self.loads_on_insert());
                 if let Phase::Inserting { resumed, t, .. } = &mut self.phase {
                     *resumed = true;
                     *t = INSERT_S;
@@ -1594,6 +1597,12 @@ impl App {
             hidden.push(QuickRow::ExitGame);
         }
         hidden.extend(self.controls_hidden(platform));
+        // The Shortcuts page shows the playing system's own and the general ones.
+        hidden.extend(
+            QuickRow::SYSTEM_SHORTCUTS
+                .into_iter()
+                .filter(|r| r.shortcut().is_some_and(|s| !has(platform, s))),
+        );
         // A DS game records no rewind (its states are ~6 MB each), so it
         // offers none.
         if platform == Platform::Nds {
@@ -1805,8 +1814,8 @@ impl App {
                 n => QuickValue::level(n),
             }),
             QuickRow::ScreenGeneral => None,
-            QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
-            QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
+            QuickRow::FastForward => QuickValue::speed(self.view().ff_speed),
+            QuickRow::FastForwardSound => Some(QuickValue::flag(self.view().ff_sound)),
             QuickRow::GbaColourCorrection => {
                 Some(QuickValue::flag(self.view().colour_correction_gba))
             }
@@ -1825,10 +1834,10 @@ impl App {
             QuickRow::NgpShader => Some(shader_value(self.view().shader_ngp)),
             QuickRow::Tg16Shader => Some(shader_value(self.view().shader_tg16)),
             QuickRow::NdsShader => Some(shader_value(self.view().shader_nds)),
-            QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
-            QuickRow::AutoLoad => Some(QuickValue::flag(self.state.auto_load)),
-            QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
-            QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
+            QuickRow::Rumble => Some(QuickValue::flag(self.view().rumble)),
+            QuickRow::AutoLoad => Some(QuickValue::flag(self.view().auto_load)),
+            QuickRow::EjectSave => Some(QuickValue::flag(self.view().eject_save)),
+            QuickRow::Rewind => Some(QuickValue::flag(self.view().rewind)),
             QuickRow::Recents => Some(if self.state.show_recents {
                 QuickValue::Show
             } else {
@@ -1925,6 +1934,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfForget
             | QuickRow::PlayControls
+            | QuickRow::PlayShortcuts
             | QuickRow::Shortcuts
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -2354,10 +2364,13 @@ impl App {
         } else {
             hidden.push(QuickRow::NdsStretch);
         }
-        // A system's shortcuts page shows only the shortcuts it has.
-        hidden.extend(QuickRow::SYSTEM_SHORTCUTS.into_iter().filter(|r| {
-            r.shortcut()
-                .is_some_and(|s| !has(self.controls_platform, s))
+        // Every shortcut is on one page: from the shelf it shows the general ones, or
+        // the shortcuts one system has of its own.
+        hidden.extend(QuickRow::PLAY_SHORTCUTS.into_iter().filter(|r| {
+            r.shortcut().is_some_and(|s| match self.shortcut_page {
+                None => systems_of(s).is_some(),
+                Some(platform) => systems_of(s).is_none() || !has(platform, s),
+            })
         }));
         hidden.extend([
             QuickRow::GgBezel,
@@ -2869,8 +2882,20 @@ impl App {
         self.game_view = self.game.as_ref().map(|g| {
             let mut view = self.state.clone();
             view.set_screen(g.platform, &g.screen.apply(&self.state.screen(g.platform)));
+            view.set_play(&g.play.apply(&self.state.play()));
             Box::new(view)
         });
+    }
+
+    /// Slot²: whether the cart about to go in loads its last state: its own Load State on
+    /// Insert, read from its file before it is in the slot, or the shelf's.
+    fn loads_on_insert(&self) -> bool {
+        let cart = self.shelf().carts.get(self.shelf().index);
+        let own = match (&self.root, cart) {
+            (Some(root), Some(c)) => read_game(root, c.platform, &c.stem).play.auto_load,
+            _ => None,
+        };
+        own.unwrap_or(self.state.auto_load)
     }
 
     /// The stem of the game in the slot.
@@ -2927,6 +2952,7 @@ impl App {
             return edit(self);
         }
         let system = self.state.screen(platform);
+        let shelf = self.state.play();
         let view = match self.game_view.take() {
             Some(view) => *view,
             None => self.state.clone(),
@@ -2935,56 +2961,70 @@ impl App {
         self.editing_game = true;
         edit(self);
         self.editing_game = false;
-        let now = self.state.screen(platform);
+        let (now, play) = (self.state.screen(platform), self.state.play());
         self.state = systems;
         if let Some(game) = &mut self.game {
             game.screen.record(&system, &now);
+            game.play.record(&shelf, &play);
         }
         self.keep_game();
     }
 
-    /// The game in the slot follows its system again in `setting`.
-    fn clear_game_setting(&mut self, setting: ScreenSetting) {
+    /// The game in the slot follows its system (or the shelf) again in `setting`.
+    fn clear_game_setting(&mut self, setting: GameSetting) {
         if self.game_in_slot().is_none() {
             return;
         }
         if let Some(game) = &mut self.game {
-            game.screen.clear(setting);
+            match setting {
+                GameSetting::Screen(s) => game.screen.clear(s),
+                GameSetting::Play(s) => game.play.clear(s),
+                GameSetting::Key(s) => game.shortcuts.clear(s),
+            }
         }
         self.keep_game();
         match setting {
-            ScreenSetting::ColourCorrection => {
+            GameSetting::Screen(ScreenSetting::ColourCorrection) => {
                 self.colour_pending = Some(self.colour_correction());
             }
-            ScreenSetting::Palette => self.palette_pending = Some(self.gb_colors()),
-            ScreenSetting::Blending => self.blending_pending = Some(self.blending_in_play()),
+            GameSetting::Screen(ScreenSetting::Palette) => {
+                self.palette_pending = Some(self.gb_colors())
+            }
+            GameSetting::Screen(ScreenSetting::Blending) => {
+                self.blending_pending = Some(self.blending_in_play())
+            }
             _ => {}
         }
     }
 
     /// Whether the game in the slot has its own `setting`.
-    fn game_owns(&self, setting: ScreenSetting) -> bool {
-        self.game_in_slot().is_some_and(|g| g.screen.has(setting))
+    fn game_owns(&self, setting: GameSetting) -> bool {
+        self.game_in_slot().is_some_and(|g| match setting {
+            GameSetting::Screen(s) => g.screen.has(s),
+            GameSetting::Play(s) => g.play.has(s),
+            GameSetting::Key(s) => g.shortcuts.has(s),
+        })
     }
 
-    /// Whether an in-game Screen row shows the game's own value. Stretch is Classic or
-    /// Full Screen on a 4:3 panel, On or Off on a taller one.
+    /// Whether an in-game row shows the game's own value. Stretch is Classic or Full
+    /// Screen on a 4:3 panel, On or Off on a taller one.
     pub fn game_owns_row(&self, row: QuickRow) -> bool {
-        match game_screen_setting(row) {
-            Some(ScreenSetting::Stretch) => {
-                self.game_owns(ScreenSetting::Stretch) || self.game_owns(ScreenSetting::Stretched)
+        match game_setting(row) {
+            Some(GameSetting::Screen(ScreenSetting::Stretch)) => {
+                self.game_owns(GameSetting::Screen(ScreenSetting::Stretch))
+                    || self.game_owns(GameSetting::Screen(ScreenSetting::Stretched))
             }
             Some(setting) => self.game_owns(setting),
             None => false,
         }
     }
 
-    /// Y on an in-game Screen row: the game follows its system there again.
+    /// Y on an in-game row with the game's own value: it follows its system again.
     fn clear_game_row(&mut self, row: QuickRow) {
-        match game_screen_setting(row) {
-            Some(ScreenSetting::Stretch) => {
-                self.clear_game_setting(ScreenSetting::Stretch);
-                self.clear_game_setting(ScreenSetting::Stretched);
+        match game_setting(row) {
+            Some(GameSetting::Screen(ScreenSetting::Stretch)) => {
+                self.clear_game_setting(GameSetting::Screen(ScreenSetting::Stretch));
+                self.clear_game_setting(GameSetting::Screen(ScreenSetting::Stretched));
             }
             Some(setting) => self.clear_game_setting(setting),
             None => {}
@@ -3556,7 +3596,7 @@ impl App {
     /// for at all, so their keys are the game's.
     pub fn input_entries(&self) -> Vec<slot_input::Entry> {
         let off = |a: Action| match a {
-            Action::FfStart | Action::FfToggle => self.state.ff_speed == 0,
+            Action::FfStart | Action::FfToggle => self.view().ff_speed == 0,
             Action::RewindStart => !self.may_rewind() || !self.records_rewind(),
             _ => false,
         };
@@ -3675,13 +3715,30 @@ impl App {
 
     pub fn binding_table(&self) -> crate::input::Table {
         let platform = self.controls_page();
+        let (general, system) = self.shortcut_keys(platform);
         crate::input::Table::new(
             self.controls_of(platform),
             platform,
-            &self.shortcuts,
-            self.system_shortcuts.get(platform),
+            &general,
+            &system,
             &self.carousel,
         )
+    }
+
+    /// Slot²: the general shortcuts' keys and `platform`'s own, with the game in the
+    /// slot's own keys over both.
+    fn shortcut_keys(&self, platform: Platform) -> (ShortcutKeys, SystemShortcuts) {
+        let (mut general, mut system) = (self.shortcuts, *self.system_shortcuts.get(platform));
+        if let Some(game) = self.game_in_slot() {
+            for s in Shortcut::ALL {
+                match (game.shortcuts.get(s), systems_of(s)) {
+                    (Some(key), None) => general.set(s, key),
+                    (Some(key), Some(_)) => system.set(s, key),
+                    (None, _) => {}
+                }
+            }
+        }
+        (general, system)
     }
 
     pub fn input_context(&self) -> slot_input::Context {
@@ -3703,6 +3760,12 @@ impl App {
     }
 
     fn binding_of(&self, row: QuickRow) -> Option<Binding> {
+        if let Some(own) = row
+            .shortcut()
+            .and_then(|s| self.game_in_slot()?.shortcuts.get(s))
+        {
+            return own;
+        }
         if let Some(s) = row.shortcut() {
             return match systems_of(s) {
                 Some(_) => self.system_shortcuts.get(self.controls_page()).get(s),
@@ -3710,6 +3773,42 @@ impl App {
             };
         }
         row.carousel_action().and_then(|a| self.carousel.get(a))
+    }
+
+    /// A key of the game in the slot's own. A key set back to the shelf's follows the
+    /// shelf again, as a Screen value does. As on the shelf, Fast Forward and its toggle
+    /// never share one: the other is left unbound in this game.
+    fn set_game_key(&mut self, shortcut: Shortcut, binding: Option<Binding>) {
+        let rival = match shortcut {
+            Shortcut::FastForward => Some(Shortcut::FastForwardToggle),
+            Shortcut::FastForwardToggle => Some(Shortcut::FastForward),
+            _ => None,
+        };
+        let platform = self.playing_platform();
+        let (general, _) = self.shortcut_keys(platform);
+        let shelf = |s: Shortcut| match systems_of(s) {
+            Some(_) => self.system_shortcuts.get(platform).get(s),
+            None => self.shortcuts.get(s),
+        };
+        let keys = [shortcut]
+            .into_iter()
+            .map(|s| (s, binding, shelf(s)))
+            .chain(
+                rival
+                    .filter(|r| binding.is_some() && general.get(*r) == binding)
+                    .map(|r| (r, None, shelf(r))),
+            )
+            .collect::<Vec<_>>();
+        let Some(game) = &mut self.game else {
+            return;
+        };
+        for (s, key, shelf) in keys {
+            match key == shelf {
+                true => game.shortcuts.clear(s),
+                false => game.shortcuts.set(s, key),
+            }
+        }
+        self.keep_game();
     }
 
     fn reset_page(&mut self, row: QuickRow) {
@@ -3804,6 +3903,10 @@ impl App {
 
     /// A on a controls row adds the binding pressed; on another row, sets it.
     fn set_binding(&mut self, row: QuickRow, binding: Option<Binding>) {
+        // Slot²: in a game, a shortcut's key is the game's own.
+        if let (Some(s), true) = (row.shortcut(), self.game_in_slot().is_some()) {
+            return self.set_game_key(s, binding);
+        }
         if let Some(input) = row.input() {
             if let Some(b) = binding {
                 self.edit_controls(|c, _| c.add(input, b));
@@ -3960,14 +4063,14 @@ impl App {
     }
 
     pub fn may_rewind(&self) -> bool {
-        self.state.rewind && !self.link_active()
+        self.view().rewind && !self.link_active()
     }
 
     /// Whether rewind is recorded. Not for a DS game: its states are about
     /// 6 MB, and taking one as often as rewind does costs the 3D games the
     /// time they have to spare on the H700.
     pub fn records_rewind(&self) -> bool {
-        self.state.rewind && self.playing_platform() != Platform::Nds
+        self.view().rewind && self.playing_platform() != Platform::Nds
     }
 
     pub fn picture_rect(&self) -> [f32; 4] {
@@ -3987,7 +4090,7 @@ impl App {
     }
 
     pub fn may_fast_forward(&self) -> bool {
-        self.state.ff_speed != 0 && !self.link_active()
+        self.view().ff_speed != 0 && !self.link_active()
     }
 
     pub fn end_link(&mut self) {
@@ -4126,7 +4229,7 @@ impl App {
     }
 
     pub fn rumble_enabled(&self) -> bool {
-        self.state.rumble
+        self.view().rumble
     }
 
     /// Whether the left stick moves like the D-pad: everywhere but in a game (and while a
@@ -4136,11 +4239,11 @@ impl App {
     }
 
     pub fn ff_speed(&self) -> u8 {
-        self.state.ff_speed
+        self.view().ff_speed
     }
 
     pub fn ff_sound(&self) -> bool {
-        self.state.ff_sound
+        self.view().ff_sound
     }
 
     fn gba_shaders(&self) -> &'static [Shader] {
@@ -4601,11 +4704,11 @@ impl App {
                 Action::GbaDown(Btn::A) => self.play_held = Some(now),
                 Action::GbaUp(Btn::A) => {
                     if self.play_held.take().is_some() && !self.unwrap_seated() {
-                        self.insert(!self.state.auto_load);
+                        self.insert(!self.loads_on_insert());
                     }
                 }
                 Action::Insert if !self.unwrap_seated() => {
-                    self.insert(!self.state.auto_load);
+                    self.insert(!self.loads_on_insert());
                 }
                 _ => {}
             },
@@ -4726,6 +4829,10 @@ impl App {
                 _ => {}
             }
         }
+        // Slot²: a shortcut's key in a game is the game's own; Y puts that row back.
+        if let (Some(_), Action::GbaDown(Btn::Y)) = (row.shortcut(), action) {
+            return self.clear_game_row(row);
+        }
         if row.binds() {
             match action {
                 Action::GbaDown(Btn::A) => return self.start_capture(row),
@@ -4738,7 +4845,7 @@ impl App {
                 _ => {}
             }
         }
-        if action == Action::GbaDown(Btn::Y) && game_screen_setting(row).is_some() {
+        if action == Action::GbaDown(Btn::Y) && game_value_row(row) {
             return self.clear_game_row(row);
         }
         self.in_game_menu = match action {
@@ -4767,7 +4874,7 @@ impl App {
             QuickRow::ExitGame => self.eject(),
             _ => {
                 if let Some(child) = row.child() {
-                    self.in_game_menu = Some(child);
+                    self.in_game_menu = Some(child.shown(&self.in_game_hidden())[0]);
                 }
             }
         }
@@ -4907,6 +5014,7 @@ impl App {
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
             | QuickRow::ShortcutsGeneral => {
+                self.shortcut_page = None;
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
@@ -4936,6 +5044,7 @@ impl App {
             | QuickRow::ShortcutsWs
             | QuickRow::ShortcutsLynx => {
                 self.controls_platform = row.shortcut_system().unwrap_or(Platform::Gb);
+                self.shortcut_page = Some(self.controls_platform);
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
                     self.phase = Phase::QuickMenu { row };
@@ -5030,6 +5139,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfForget
             | QuickRow::PlayControls
+            | QuickRow::PlayShortcuts
             | QuickRow::GameUp
             | QuickRow::GameDown
             | QuickRow::GameLeft
@@ -5101,7 +5211,8 @@ impl App {
             return self.set_encore(!self.achievement_settings.encore);
         }
         // Slot²: in a game, its Screen page sets the game's own values.
-        if game_screen_setting(row).is_some() && !self.editing_game {
+        // (The Gameplay rows are the shelf's too, where they set the shelf's values.)
+        if game_value_row(row) && !self.editing_game && self.game_in_slot().is_some() {
             return self.edit_game(|a| a.change_setting(row, right));
         }
         if row == QuickRow::Blending {
@@ -5465,6 +5576,7 @@ impl App {
             | QuickRow::ShelfFavorite
             | QuickRow::ShelfForget
             | QuickRow::PlayControls
+            | QuickRow::PlayShortcuts
             | QuickRow::Shortcuts
             | QuickRow::GameUp
             | QuickRow::GameDown
@@ -6880,7 +6992,7 @@ impl App {
         {
             let hidden = self.in_game_hidden();
             let bound = self.bound_faces();
-            let own: Vec<QuickRow> = QuickRow::PLAY_SCREEN
+            let own: Vec<QuickRow> = QuickRow::ALL
                 .into_iter()
                 .filter(|r| self.game_owns_row(*r))
                 .collect();
@@ -7131,6 +7243,13 @@ impl App {
             legends.push(add);
             self.draw_spread_legends(&legends, y, 1.0, out);
             return;
+        }
+        if row.shortcut().is_some() && self.in_game_menu.is_some() {
+            let legends = match self.game_owns_row(row) {
+                true => vec![back, default, clear, set],
+                false => vec![back, clear, set],
+            };
+            return self.draw_spread_legends(&legends, y, 1.0, out);
         }
         if row.binds() {
             let legends = match self.page_is_default(row) {
@@ -7896,6 +8015,8 @@ impl App {
             false => 0.0,
         };
         self.in_game_menu = None;
+        // The game's own Save State on Eject, read while it is still in the slot.
+        let keep_state = self.view().eject_save;
         let cart = match &mut self.phase {
             Phase::Playing { cart } | Phase::Inserting { cart, .. } => std::mem::take(cart),
             _ => return,
@@ -7907,7 +8028,7 @@ impl App {
             false => self.radio.ask(RadioJob::Cool),
         }
         self.close_game_menu();
-        self.flush_eject(&cart);
+        self.flush_eject(&cart, keep_state);
         self.pending = None;
         self.refusal = None;
         self.refused_from = None;
@@ -7917,7 +8038,7 @@ impl App {
         };
     }
 
-    fn flush_eject(&mut self, stem: &str) {
+    fn flush_eject(&mut self, stem: &str, keep_state: bool) {
         self.settle_saves();
         let (Some(root), Some(snapshot)) = (&self.root, &self.snapshot) else {
             return;
@@ -7929,7 +8050,7 @@ impl App {
                 (None, None)
             }
         };
-        let state = state.filter(|_| self.state.eject_save);
+        let state = state.filter(|_| keep_state);
         self.state_writer.flush();
         match persist::eject(
             root,
@@ -12962,18 +13083,42 @@ fn stretch_row_platform(row: QuickRow) -> Platform {
 
 /// Whether a game of this platform can be stretched (the Stretch shortcuts): not the GBA,
 /// whose Scale has its own full screen, nor the DS, which has screen layouts.
-/// Slot²: the setting an in-game Screen row sets, which a game can have its own value for.
-fn game_screen_setting(row: QuickRow) -> Option<ScreenSetting> {
+/// Slot²: a setting a game can have its own value for (design/game-overrides.md).
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum GameSetting {
+    Screen(ScreenSetting),
+    Play(PlaySetting),
+    Key(Shortcut),
+}
+
+/// The setting an in-game row sets as the game's own.
+fn game_setting(row: QuickRow) -> Option<GameSetting> {
+    use GameSetting::{Play, Screen};
     Some(match row {
-        QuickRow::Shader => ScreenSetting::Shader,
-        QuickRow::ColourCorrection => ScreenSetting::ColourCorrection,
-        QuickRow::Palette => ScreenSetting::Palette,
-        QuickRow::Bezel => ScreenSetting::Bezel,
-        QuickRow::Scale => ScreenSetting::Scale,
-        QuickRow::Stretch => ScreenSetting::Stretch,
-        QuickRow::Blending => ScreenSetting::Blending,
-        _ => return None,
+        QuickRow::Shader => Screen(ScreenSetting::Shader),
+        QuickRow::ColourCorrection => Screen(ScreenSetting::ColourCorrection),
+        QuickRow::Palette => Screen(ScreenSetting::Palette),
+        QuickRow::Bezel => Screen(ScreenSetting::Bezel),
+        QuickRow::Scale => Screen(ScreenSetting::Scale),
+        QuickRow::Stretch => Screen(ScreenSetting::Stretch),
+        QuickRow::Blending => Screen(ScreenSetting::Blending),
+        QuickRow::FastForward => Play(PlaySetting::FfSpeed),
+        QuickRow::FastForwardSound => Play(PlaySetting::FfSound),
+        QuickRow::Rewind => Play(PlaySetting::Rewind),
+        QuickRow::Rumble => Play(PlaySetting::Rumble),
+        QuickRow::AutoLoad => Play(PlaySetting::AutoLoad),
+        QuickRow::EjectSave => Play(PlaySetting::EjectSave),
+        r => GameSetting::Key(r.shortcut()?),
     })
+}
+
+/// An in-game row whose value (not key) can be the game's own: changed with Left and
+/// Right, put back with Y.
+fn game_value_row(row: QuickRow) -> bool {
+    matches!(
+        game_setting(row),
+        Some(GameSetting::Screen(_) | GameSetting::Play(_))
+    )
 }
 
 fn stretches(platform: Platform) -> bool {

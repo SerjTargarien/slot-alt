@@ -6,7 +6,6 @@ use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{opening, MOUTH_H};
 use crate::text;
 use slot_store::controls::{self, Input};
-use slot_store::shortcuts;
 use slot_store::{CarouselAction, Platform, Shortcut};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -92,6 +91,8 @@ pub enum QuickRow {
     ShelfFavorite,
     ShelfForget,
     PlayControls,
+    /// Slot²: the game's own shortcut keys.
+    PlayShortcuts,
     Shortcuts,
     GameUp,
     GameDown,
@@ -212,7 +213,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 193] = [
+    pub const ALL: [QuickRow; 194] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -291,6 +292,7 @@ impl QuickRow {
         QuickRow::ShelfFavorite,
         QuickRow::ShelfForget,
         QuickRow::PlayControls,
+        QuickRow::PlayShortcuts,
         QuickRow::Shortcuts,
         QuickRow::GameUp,
         QuickRow::GameDown,
@@ -571,6 +573,31 @@ impl QuickRow {
         QuickRow::ScShaderNext,
     ];
 
+    /// Every shortcut, the systems' own first: the page each shortcut row is on.
+    pub const PLAY_SHORTCUTS: [QuickRow; 21] = [
+        QuickRow::ScColour,
+        QuickRow::ScPaletteBack,
+        QuickRow::ScPaletteNext,
+        QuickRow::ScStretchOn,
+        QuickRow::ScStretchOff,
+        QuickRow::ScSunlightDown,
+        QuickRow::ScSunlightUp,
+        QuickRow::ScSave,
+        QuickRow::ScLoad,
+        QuickRow::ScReset,
+        QuickRow::ScRewind,
+        QuickRow::ScFastForward,
+        QuickRow::ScFastForwardToggle,
+        QuickRow::ScScreenshot,
+        QuickRow::ScGuide,
+        QuickRow::ScBrightDown,
+        QuickRow::ScBrightUp,
+        QuickRow::ScBlueDown,
+        QuickRow::ScBlueUp,
+        QuickRow::ScShaderBack,
+        QuickRow::ScShaderNext,
+    ];
+
     /// A system's own shortcuts: its page shows those it has (`slot_store::shortcuts`).
     pub const SYSTEM_SHORTCUTS: [QuickRow; 7] = [
         QuickRow::ScColour,
@@ -696,10 +723,11 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 3] = [
+    pub const SETTINGS: [QuickRow; 4] = [
         QuickRow::PlayScreen,
         QuickRow::PlayGameplay,
         QuickRow::PlayControls,
+        QuickRow::PlayShortcuts,
     ];
 
     pub const PLAY_SCREEN: [QuickRow; 13] = [
@@ -826,21 +854,19 @@ impl QuickRow {
             | QuickRow::Guide
             | QuickRow::Settings
             | QuickRow::ExitGame => &QuickRow::PLAY,
-            QuickRow::PlayScreen | QuickRow::PlayGameplay | QuickRow::PlayControls => {
-                &QuickRow::SETTINGS
-            }
+            QuickRow::PlayScreen
+            | QuickRow::PlayGameplay
+            | QuickRow::PlayControls
+            | QuickRow::PlayShortcuts => &QuickRow::SETTINGS,
             r if r.input().is_some() => &QuickRow::CONTROLS,
             r if r.control_system().is_some() => &QuickRow::CONTROL_SYSTEMS,
             r if r == QuickRow::ShortcutsGeneral || r.shortcut_system().is_some() => {
                 &QuickRow::SHORTCUT_PAGES
             }
-            r if r
-                .shortcut()
-                .is_some_and(|s| shortcuts::systems_of(s).is_some()) =>
-            {
-                &QuickRow::SYSTEM_SHORTCUTS
-            }
-            r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
+            // One page holds every shortcut: in a game it shows the playing system's own
+            // and the general ones; on the shelf, General or one system's (the app hides
+            // the rest).
+            r if r.shortcut().is_some() => &QuickRow::PLAY_SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
             QuickRow::Shader
             | QuickRow::ColourCorrection
@@ -874,10 +900,9 @@ impl QuickRow {
             // The app returns to the system the page belongs to.
             QuickRow::GameUp => Some(QuickRow::ControlsGb),
             QuickRow::ControlsGb => Some(QuickRow::ControlsInGame),
-            QuickRow::ScSave => Some(QuickRow::ShortcutsGeneral),
+            // On the shelf the app returns to the page the row was opened from.
+            QuickRow::ScColour => Some(QuickRow::ShortcutsGeneral),
             QuickRow::ShortcutsGeneral => Some(QuickRow::Shortcuts),
-            // The app returns to the system the page belongs to.
-            QuickRow::ScColour => Some(QuickRow::ShortcutsGb),
             QuickRow::Theme => Some(QuickRow::General),
             QuickRow::Server => Some(QuickRow::Network),
             QuickRow::RommProtocol => Some(QuickRow::Romm),
@@ -893,6 +918,7 @@ impl QuickRow {
         match self.parent() {
             Some(QuickRow::Game) => Some(QuickRow::PlayGameplay),
             Some(QuickRow::ControlsInGame) => Some(QuickRow::PlayControls),
+            Some(QuickRow::ShortcutsGeneral) => Some(QuickRow::PlayShortcuts),
             Some(r) if r.control_system().is_some() => Some(QuickRow::PlayControls),
             parent => parent,
         }
@@ -920,6 +946,7 @@ impl QuickRow {
             QuickRow::PlayScreen => Some(QuickRow::PLAY_SCREEN[0]),
             QuickRow::PlayGameplay => Some(QuickRow::GAME[0]),
             QuickRow::PlayControls => Some(QuickRow::CONTROLS[0]),
+            QuickRow::PlayShortcuts => Some(QuickRow::PLAY_SHORTCUTS[0]),
             QuickRow::Shortcuts => Some(QuickRow::SHORTCUT_PAGES[0]),
             QuickRow::ShortcutsGeneral => Some(QuickRow::SHORTCUTS[0]),
             r if r.shortcut_system().is_some() => Some(QuickRow::SYSTEM_SHORTCUTS[0]),
@@ -1025,6 +1052,7 @@ impl QuickRow {
             QuickRow::ControlsShelf => "Shelf",
             QuickRow::ControlsInGame => "In-Game",
             QuickRow::PlayControls => "Controls",
+            QuickRow::PlayShortcuts => "Shortcuts",
             QuickRow::Shortcuts => "Shortcuts",
             QuickRow::GameUp
             | QuickRow::GameDown
@@ -1195,6 +1223,7 @@ impl QuickRow {
                 | QuickRow::ShortcutsWs
                 | QuickRow::ShortcutsLynx
                 | QuickRow::PlayControls
+                | QuickRow::PlayShortcuts
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
                 | QuickRow::ScreenGbc
@@ -2448,7 +2477,7 @@ pub struct QuickScroll {
 fn scrolls(page: &[QuickRow]) -> bool {
     [
         &QuickRow::CONTROLS[..],
-        &QuickRow::SHORTCUTS,
+        &QuickRow::PLAY_SHORTCUTS,
         &QuickRow::GENERAL,
         &QuickRow::PLAY_SCREEN,
         // General and eight consoles are more rows than fit above the legend.
