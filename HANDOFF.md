@@ -113,9 +113,13 @@ Done and checked on the device:
 
 ## Next, in order
 
-The order is decided with the user at the start of a session; see the list below.
+The order is decided with the user at the start of a session; see the list below (last
+set on 2026-11-06).
 
-1. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+1. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
+   by itself. A game that changes orientation mid-game needs a way to follow it (by hand,
+   or from the core), and upright games want checking too.
+2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
    2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
@@ -123,18 +127,15 @@ The order is decided with the user at the start of a session; see the list below
    the game or the context change). In menus it's worse (every system's bezel folder, a
    table per controls row drawn). Separately: the shelf waits for cart faces while
    scrolling. Upstream's code: worth offering upstream.
-2. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
-   by itself. A game that changes orientation mid-game needs a way to follow it (by hand,
-   or from the core), and upright games want checking too.
 3. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
-4. Bezels at Integer and Fit for the new systems.
-5. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
-   recompiler fixes) and Gearsystem (3.9.24).
-6. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+4. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
-7. **DSperate v3.3.0** (moved last by the user on 2026-11-06): try dsperate-lr's prebuilt
-   PGO core (Base²'s glibc runs it) against today's, timed, before anything else on DS
-   speed ([cores/README.md](cores/README.md)).
+5. Bezels at Integer and Fit for the new systems.
+6. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
+   against today's, timed, before anything else on DS speed
+   ([cores/README.md](cores/README.md)).
+7. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
+   recompiler fixes) and Gearsystem (3.9.24).
 
 Waiting on a decision or an outside party:
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
