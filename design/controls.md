@@ -153,3 +153,16 @@ Each step is tested on the device before the next.
   chord.
 - **Rows keep their names everywhere** except the clash toast, which still uses the
   standard name ("Same as Console A Button").
+
+## Built (steps 1b and 3, 2026-11-06)
+
+- **The DS's controls are inputs on its page:** Swap Screens (L2), Next Layout
+  (SELECT+L2), Stylus (R2, held) and Touch (A). While the stylus is out, the D-pad's
+  inputs move it and Touch's buttons touch, reaching the game for nothing else. In a DS
+  game they win over a shortcut on the same keys, as L2 and R2 always did.
+- **Both sticks are read as directions**, from each axis's range as the kernel reports it,
+  pressing past half travel and letting go under a third. In a game they're LS and RS
+  directions for bindings; everywhere else the left stick moves like the D-pad. The
+  "Left Stick as D-Pad" switch and the `LEFT_STICK` description key are gone.
+- **SELECT chords on game rows** reach the game: the gesture layer sends them as
+  themselves, as it does MENU chords, instead of holding SELECT back.

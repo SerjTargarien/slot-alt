@@ -57,7 +57,6 @@ key keeps what upstream slot does on BaseOS; a missing file means BaseOS.
 | `FN_ADC` | sysfs path of an ADC that reads FN, or empty | empty | empty (the kernel reports FN) |
 | `CPU_CAP` | `1`: cap the CPU clock to the frame budget | `0` | `1` |
 | `WIFI` | `1`: the frontend runs Wi-Fi | `1` | `1` |
-| `LEFT_STICK` | `1`: the left stick can steer like the D-pad | from the BaseOS target | unset |
 | `BOOT_LOGO` | `1`: the frontend refreshes BaseOS's boot logo | `1` | `0` |
 | `SELF_UPDATE` | `1`: offer the upstream frontend's updates | `1` | `0` |
 
@@ -69,7 +68,9 @@ key keeps what upstream slot does on BaseOS; a missing file means BaseOS.
   its preferred mode. `fbdev`: BaseOS's Mali fbdev build.
   The panel may be any shape: the frontend lays itself out for 3:2, 4:3 and taller panels.
 - **Input.** evdev devices under `/dev/input`, laid out as `BUTTONS` says, the power key
-  (`KEY_POWER`), volume keys, and FN as a key or through `FN_ADC`.
+  (`KEY_POWER`), volume keys, and FN as a key or through `FN_ADC`. With `gamepad`, the
+  D-pad is `ABS_HAT0X`/`ABS_HAT0Y` and any sticks are `ABS_X`/`ABS_Y` (left) and
+  `ABS_RX`/`ABS_RY` (right), each with its true range in the kernel's axis info.
 - **Sound.** ALSA through `libasound`: the default device, or `SLOT_ALSA_DEVICE`.
 - **Power and clocks.** `/sys/class/power_supply` (a supply of `type` Battery with
   `capacity` and `status`), `/sys/class/backlight` (`brightness`, `max_brightness`; a

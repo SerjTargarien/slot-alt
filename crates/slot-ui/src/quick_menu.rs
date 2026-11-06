@@ -104,6 +104,10 @@ pub enum QuickRow {
     GameY2,
     GameY3,
     GameY4,
+    GameSwapScreens,
+    GameNextLayout,
+    GameStylus,
+    GameTouch,
     ScSave,
     ScLoad,
     ScScreenshot,
@@ -136,7 +140,6 @@ pub enum QuickRow {
     ControlsNgp,
     ControlsTg16,
     ControlsNds,
-    LeftStick,
     ScreenGeneral,
     Brightness,
     BlueLight,
@@ -187,7 +190,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 174] = [
+    pub const ALL: [QuickRow; 177] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -282,6 +285,10 @@ impl QuickRow {
         QuickRow::GameY2,
         QuickRow::GameY3,
         QuickRow::GameY4,
+        QuickRow::GameSwapScreens,
+        QuickRow::GameNextLayout,
+        QuickRow::GameStylus,
+        QuickRow::GameTouch,
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScScreenshot,
@@ -314,7 +321,6 @@ impl QuickRow {
         QuickRow::ControlsNgp,
         QuickRow::ControlsTg16,
         QuickRow::ControlsNds,
-        QuickRow::LeftStick,
         QuickRow::ScreenGeneral,
         QuickRow::Brightness,
         QuickRow::BlueLight,
@@ -457,7 +463,7 @@ impl QuickRow {
 
     /// A system's controls page: every input any system has, each system showing its own
     /// (see `slot_store::controls::inputs`).
-    pub const CONTROLS: [QuickRow; 18] = [
+    pub const CONTROLS: [QuickRow; 22] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
@@ -476,6 +482,10 @@ impl QuickRow {
         QuickRow::GameR,
         QuickRow::GameTurboA,
         QuickRow::GameTurboB,
+        QuickRow::GameSwapScreens,
+        QuickRow::GameNextLayout,
+        QuickRow::GameStylus,
+        QuickRow::GameTouch,
     ];
 
     pub const SHORTCUTS: [QuickRow; 21] = [
@@ -588,13 +598,12 @@ impl QuickRow {
         QuickRow::GbStretch,
     ];
 
-    pub const GAME: [QuickRow; 8] = [
+    pub const GAME: [QuickRow; 7] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
         QuickRow::Turbo,
         QuickRow::Rumble,
-        QuickRow::LeftStick,
         QuickRow::AutoLoad,
         QuickRow::EjectSave,
     ];
@@ -697,7 +706,6 @@ impl QuickRow {
             | QuickRow::Rewind
             | QuickRow::Turbo
             | QuickRow::Rumble
-            | QuickRow::LeftStick
             | QuickRow::AutoLoad
             | QuickRow::EjectSave => &QuickRow::GAME,
             QuickRow::Wallpaper
@@ -861,7 +869,6 @@ impl QuickRow {
             QuickRow::FastForwardSound => "Fast Forward Sound",
             QuickRow::Screen => "Screen",
             QuickRow::Rumble => "Rumble",
-            QuickRow::LeftStick => "Left Stick as D-Pad",
             QuickRow::ScreenGeneral => "General",
             QuickRow::Brightness | QuickRow::PlayBrightness => "Brightness",
             QuickRow::BlueLight | QuickRow::PlayBlueLight => "Blue Light",
@@ -939,7 +946,11 @@ impl QuickRow {
             | QuickRow::GameY1
             | QuickRow::GameY2
             | QuickRow::GameY3
-            | QuickRow::GameY4 => self
+            | QuickRow::GameY4
+            | QuickRow::GameSwapScreens
+            | QuickRow::GameNextLayout
+            | QuickRow::GameStylus
+            | QuickRow::GameTouch => self
                 .input()
                 .map_or("", |i| controls::label(Platform::Gba, i)),
             QuickRow::ControlsGb => "Game Boy",
@@ -1111,6 +1122,10 @@ impl QuickRow {
             QuickRow::GameY2 => Input::Y2,
             QuickRow::GameY3 => Input::Y3,
             QuickRow::GameY4 => Input::Y4,
+            QuickRow::GameSwapScreens => Input::SwapScreens,
+            QuickRow::GameNextLayout => Input::NextLayout,
+            QuickRow::GameStylus => Input::Stylus,
+            QuickRow::GameTouch => Input::Touch,
             _ => return None,
         })
     }

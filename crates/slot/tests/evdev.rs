@@ -111,6 +111,22 @@ fn devices_are_picked_by_capability_and_never_by_position() {
 }
 
 #[test]
+fn a_gamepads_buttonless_sticks_are_picked_too() {
+    use slot::input::evdev::{pick_devices_in, Layout};
+    let d = tempfile::tempdir().unwrap();
+    let (dev, sys) = (d.path().join("dev/input"), d.path().join("sys/class/input"));
+    for node in ["event0", "event2"] {
+        write(&dev.join(node), "");
+    }
+    // The RGB20SX: a power key, and adc-joystick with X, Y, RX and RY only.
+    write(&sys.join("event0/device/capabilities/key"), "0\n");
+    write(&sys.join("event2/device/capabilities/key"), "0\n");
+    write(&sys.join("event2/device/capabilities/abs"), "1b\n");
+    let picked = pick_devices_in(&dev, &sys, Layout::Gamepad);
+    assert_eq!(picked, [dev.join("event2")]);
+}
+
+#[test]
 fn an_input_node_with_no_sysfs_entry_is_skipped_rather_than_opened() {
     let d = tempfile::tempdir().unwrap();
     write(&d.path().join("dev/input/event0"), "");
@@ -340,7 +356,7 @@ fn abs(code: u16, value: i32) -> slot::input::evdev::Ev {
 }
 
 #[test]
-fn the_left_stick_presses_the_d_pad_past_half_tilt() {
+fn the_left_stick_steers_like_the_d_pad_past_half_tilt() {
     let mut hat = slot::input::evdev::Hat::default();
     hat.steer_with_stick(true);
     assert!(hat.feed(abs(0x03, -1500)).is_empty());
@@ -355,19 +371,25 @@ fn the_left_stick_presses_the_d_pad_past_half_tilt() {
 }
 
 #[test]
-fn with_the_stick_off_it_presses_nothing() {
+fn in_a_game_the_left_stick_presses_its_own_directions() {
     let mut hat = slot::input::evdev::Hat::default();
-    assert!(hat.feed(abs(0x03, -4096)).is_empty());
-    assert!(hat.feed(abs(0x02, 4096)).is_empty());
+    assert_eq!(hat.feed(abs(0x03, -4096)), vec![RawEvent::Down(Btn::LsUp)]);
+    assert_eq!(
+        hat.feed(abs(0x02, 4096)),
+        vec![RawEvent::Down(Btn::LsRight)]
+    );
 }
 
 #[test]
-fn turning_the_stick_off_mid_tilt_lets_go_on_its_next_move() {
+fn leaving_the_menu_mid_tilt_hands_the_stick_over_on_its_next_move() {
     let mut hat = slot::input::evdev::Hat::default();
     hat.steer_with_stick(true);
     assert_eq!(hat.feed(abs(0x02, 4096)), vec![RawEvent::Down(Btn::Right)]);
     hat.steer_with_stick(false);
-    assert_eq!(hat.feed(abs(0x02, 4000)), vec![RawEvent::Up(Btn::Right)]);
+    assert_eq!(
+        hat.feed(abs(0x02, 4000)),
+        vec![RawEvent::Up(Btn::Right), RawEvent::Down(Btn::LsRight)]
+    );
 }
 
 #[test]
@@ -381,19 +403,39 @@ fn the_d_pad_held_through_a_stick_flick_stays_held() {
 }
 
 #[test]
-fn only_the_skus_nextui_lists_with_a_left_stick_have_one() {
-    use slot::input::evdev::has_left_stick;
-    for t in [
-        "rg34xxsp",
-        "rg35xxh",
-        "rg35xxpro",
-        "rg40xxh",
-        "rg40xxv",
-        "rgcubexx",
-    ] {
-        assert!(has_left_stick(t), "{t}");
+fn a_gamepad_reads_both_sticks_over_the_range_the_kernel_gives() {
+    use slot::input::evdev::{Hat, Layout};
+    // The RGB20SX's ADC sticks run 15 to 1023, resting near 519.
+    let mut hat = Hat::new(Layout::Gamepad);
+    for code in [0x00, 0x01, 0x03, 0x04] {
+        hat.set_travel(code, 15, 1023);
     }
-    for t in ["rgsp", "rg35xxsp", "rg35xxplus", "rg34xx", "rg28xx", ""] {
-        assert!(!has_left_stick(t), "{t}");
-    }
+    assert!(
+        hat.feed(abs(0x00, 519)).is_empty(),
+        "the left stick at rest"
+    );
+    assert!(
+        hat.feed(abs(0x00, 700)).is_empty(),
+        "a third of the way over"
+    );
+    assert_eq!(hat.feed(abs(0x00, 900)), vec![RawEvent::Down(Btn::LsRight)]);
+    assert_eq!(hat.feed(abs(0x04, 30)), vec![RawEvent::Down(Btn::RsUp)]);
+    assert_eq!(
+        hat.feed(abs(0x03, 1000)),
+        vec![RawEvent::Down(Btn::RsRight)]
+    );
+    assert_eq!(hat.feed(abs(0x01, 1023)), vec![RawEvent::Down(Btn::LsDown)]);
+}
+
+#[test]
+fn a_stick_resting_near_the_line_does_not_chatter() {
+    use slot::input::evdev::{Hat, Layout};
+    let mut hat = Hat::new(Layout::Gamepad);
+    hat.set_travel(0x00, 15, 1023);
+    assert_eq!(hat.feed(abs(0x00, 800)), vec![RawEvent::Down(Btn::LsRight)]);
+    // Back to 40% of the way over: still held.
+    assert!(hat.feed(abs(0x00, 720)).is_empty());
+    assert!(hat.feed(abs(0x00, 790)).is_empty());
+    // Under a third: let go.
+    assert_eq!(hat.feed(abs(0x00, 600)), vec![RawEvent::Up(Btn::LsRight)]);
 }

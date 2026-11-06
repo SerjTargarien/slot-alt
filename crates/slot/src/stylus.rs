@@ -1,7 +1,7 @@
-//! The DS's stylus, for a handheld with no touch screen: while R2 is held the
-//! D-pad moves a cursor over the DS's bottom screen, and A touches it.
+//! The DS's stylus, for a handheld with no touch screen: while its Stylus input is held
+//! (R2 by default) the D-pad's inputs move a cursor over the DS's bottom screen, and its
+//! Touch input (A) touches it.
 
-use slot_input::Btn;
 use slot_retro::Pointer;
 
 /// The DS's bottom screen, which the stylus touches.
@@ -36,22 +36,11 @@ impl Stylus {
         }
     }
 
-    /// Whether the stylus takes the button while it is out: the D-pad moves
-    /// it and A touches.
-    pub fn takes(btn: Btn) -> bool {
-        matches!(btn, Btn::Up | Btn::Down | Btn::Left | Btn::Right | Btn::A)
-    }
-
-    pub fn press(&mut self, btn: Btn, down: bool) {
-        match btn {
-            Btn::A => self.touching = down,
-            Btn::Up => self.held[0] = down,
-            Btn::Down => self.held[1] = down,
-            Btn::Left => self.held[2] = down,
-            Btn::Right => self.held[3] = down,
-            _ => {}
-        }
-        if !self.held.iter().any(|&h| h) {
+    /// Which ways it is being moved (up, down, left, right) and whether it touches.
+    pub fn steer(&mut self, held: [bool; 4], touching: bool) {
+        self.held = held;
+        self.touching = touching;
+        if !held.iter().any(|&h| h) {
             self.held_for = 0.0;
         }
     }
@@ -103,7 +92,7 @@ mod tests {
     #[test]
     fn a_held_direction_moves_slowly_then_faster_and_stops_at_the_edge() {
         let mut s = Stylus::at((128.0, 96.0));
-        s.press(Btn::Right, true);
+        s.steer([false, false, false, true], false);
         s.tick(0.1);
         let first = s.x - 128.0;
         assert!((6.0..10.0).contains(&first), "a slow first step, {first}");
@@ -111,23 +100,17 @@ mod tests {
             s.tick(0.1);
         }
         assert_eq!(s.x, SCREEN_W - 1.0, "held against the edge");
-        s.press(Btn::Right, false);
+        s.steer([false; 4], false);
         let at = s.x;
         s.tick(0.1);
         assert_eq!(s.x, at, "let go, it stays");
     }
 
     #[test]
-    fn a_touches_and_the_d_pad_and_a_are_the_stylus_s() {
+    fn touch_presses_the_pointer() {
         let mut s = Stylus::at((10.0, 10.0));
         assert!(!s.pointer().pressed);
-        s.press(Btn::A, true);
+        s.steer([false; 4], true);
         assert!(s.pointer().pressed);
-        for b in [Btn::Up, Btn::Down, Btn::Left, Btn::Right, Btn::A] {
-            assert!(Stylus::takes(b), "{b:?}");
-        }
-        for b in [Btn::B, Btn::X, Btn::L1, Btn::Start] {
-            assert!(!Stylus::takes(b), "{b:?}");
-        }
     }
 }

@@ -114,8 +114,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Palette,
                 QuickRow::Bezel,
                 QuickRow::Scale,
-                QuickRow::Stretch,
-                QuickRow::LeftStick
+                QuickRow::Stretch
             ][..],
             &empty
         ]
@@ -128,8 +127,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
             &[
                 QuickRow::Bezel,
                 QuickRow::Scale,
-                QuickRow::Stretch,
-                QuickRow::LeftStick
+                QuickRow::Stretch
             ][..],
             &empty
         ]

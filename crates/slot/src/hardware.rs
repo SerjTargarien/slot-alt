@@ -35,9 +35,6 @@ pub struct Hardware {
     pub cpu_cap: bool,
     /// slot may run Wi-Fi (the network menu, link play, art, updates).
     pub wifi: bool,
-    /// Whether the left stick can steer like the d-pad. `None` leaves it to the BaseOS
-    /// target list.
-    pub left_stick: Option<bool>,
     /// slot refreshes BaseOS's boot logo from the card.
     pub boot_logo: bool,
     /// slot may offer upstream's updates. Off where an upstream build couldn't drive the
@@ -55,7 +52,6 @@ impl Hardware {
             fn_adc: None,
             cpu_cap: false,
             wifi: true,
-            left_stick: None,
             boot_logo: true,
             self_update: true,
         }
@@ -83,7 +79,6 @@ impl Hardware {
             fn_adc: get("FN_ADC").filter(|p| !p.is_empty()).map(PathBuf::from),
             cpu_cap: flag("CPU_CAP", base.cpu_cap),
             wifi: flag("WIFI", base.wifi),
-            left_stick: get("LEFT_STICK").map(|_| flag("LEFT_STICK", false)),
             boot_logo: flag("BOOT_LOGO", base.boot_logo),
             self_update: flag("SELF_UPDATE", base.self_update),
         }

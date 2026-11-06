@@ -171,11 +171,6 @@ pub fn run() {
     let mut frontend = Frontend::boot_with(Box::new(platform), sink);
     frontend.set_external_display(on_tv);
     slot::boot_time::mark("frontend");
-    let target = slot::baseos::var("BASEOS_TARGET").unwrap_or_default();
-    frontend.set_left_stick(
-        hw.left_stick
-            .unwrap_or_else(|| slot::input::evdev::has_left_stick(&target)),
-    );
     frontend.upload_boot_faces(&mut compositor);
     slot::boot_time::mark("faces");
     frontend.upload_bezel(&mut compositor, window);
@@ -224,7 +219,7 @@ pub fn run() {
             frontend.relaunch();
             return;
         }
-        input.steer_with_stick(frontend.app().left_stick_dpad());
+        input.steer_with_stick(frontend.app().stick_steers());
         frontend.advance(&mut input);
         if frontend.restarting() {
             frontend.restart();

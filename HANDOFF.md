@@ -73,16 +73,20 @@ Done and checked on the device:
 ## Next, in order
 
 1. **Button mapping** ([design/controls.md](design/controls.md)): per-system pages with up
-   to three bindings per input are built and checked on the device (`4bc35f3`). Left:
-   the DS's Swap Screens, Next Layout and Stylus as inputs; reading both sticks as
-   directions (and dropping "Left Stick as D-Pad"); better defaults per system.
+   to three bindings per input, both sticks as directions and the DS's controls as inputs
+   are built and checked on the device. Left: better defaults per system.
 2. **Game overrides and the shelf's system first**
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
-3. The DS on the square screen: layouts that use it (stacked screens at about 1.9x).
-4. Check a vertical WonderSwan game and Klonoa's mid-game turn.
-5. Bezels at Integer and Fit for the new systems.
-6. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
-7. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
+3. **Input across the layers** ([design/input-layers.md](design/input-layers.md)): the
+   sticks the right way up and polled at 10 ms in Base²'s device tree, the input contract,
+   then L3/R3, one place that merges the D-pad and the stick, and no kernel tuning from
+   Slot² on Base².
+4. The DS on the square screen, polished like the other systems: layouts that use it
+   (stacked screens at about 1.9x), and its Screen settings.
+5. Check a vertical WonderSwan game and Klonoa's mid-game turn.
+6. Bezels at Integer and Fit for the new systems.
+7. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
+8. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
    arrives; our own U-Boot.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,

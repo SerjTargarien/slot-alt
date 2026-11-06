@@ -12,7 +12,7 @@ mod pad;
 mod table;
 pub mod trace;
 
-pub use bind::{btn_device, device_btn};
+pub use bind::{btn_device, chord, device_btn};
 pub use device::DeviceInput;
 #[cfg(feature = "host")]
 pub use host::HostInput;

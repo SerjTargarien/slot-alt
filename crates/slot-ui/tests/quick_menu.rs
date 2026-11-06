@@ -204,7 +204,6 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Rewind",
             "Turbo Buttons",
             "Rumble",
-            "Left Stick as D-Pad",
             "Load State on Insert",
             "Save State on Eject"
         ]
@@ -467,7 +466,7 @@ fn the_in_game_pages_hold_their_rows_in_order() {
         [
             "Up", "Down", "Left", "Right", "Y1", "Y2", "Y3", "Y4", "A Button", "B Button",
             "X Button", "Y Button", "Select", "Start", "L Button", "R Button", "Turbo A",
-            "Turbo B"
+            "Turbo B", "Swap Screens", "Next Layout", "Stylus", "Touch"
         ]
     );
     assert_eq!(

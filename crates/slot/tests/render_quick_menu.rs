@@ -512,41 +512,6 @@ fn the_shortcuts_page_renders() {
 }
 
 #[test]
-fn the_left_stick_row_keeps_its_label_clear_of_its_value() {
-    let Ok(surface) = HeadlessSurface::new() else {
-        return;
-    };
-    let Ok(mut c) = Compositor::new(&surface) else {
-        return;
-    };
-    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
-    clocked(d.path());
-    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
-    f.set_left_stick(true);
-    f.upload_faces(&mut c);
-    let mut input = Script(VecDeque::new());
-    tap(&mut f, &mut input, Btn::Menu);
-    for _ in 0..QuickRow::Game.position(&[]) {
-        tap(&mut f, &mut input, Btn::Down);
-    }
-    tap(&mut f, &mut input, Btn::A);
-    let hidden = f.app().hidden_rows();
-    for _ in 0..QuickRow::LeftStick.position(&hidden) {
-        tap(&mut f, &mut input, Btn::Down);
-    }
-    assert_eq!(f.app().quick_menu(), Some(QuickRow::LeftStick));
-    let top = quick_row_top(QuickRow::LeftStick, &hidden, BAND) as usize;
-    let px = composed(&mut f, &mut c, "left-stick");
-    let ink = inked(&px, 40..OUT_W as usize, top);
-    assert!(!ink.is_empty(), "the Left Stick row drew nothing");
-    let gap = ink.windows(2).map(|w| w[1] - w[0]).max().unwrap_or(0);
-    assert!(
-        gap >= 24,
-        "the label runs into the value, widest gap {gap} px"
-    );
-}
-
-#[test]
 fn a_duplicate_binding_shows_a_warning_naming_the_other_row() {
     let Ok(surface) = HeadlessSurface::new() else {
         return;

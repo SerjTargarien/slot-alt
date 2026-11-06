@@ -3,7 +3,7 @@ use slot_store::controls::{inputs, Input, SystemControls};
 use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
-use super::bind::{chord, shortcut_action};
+use super::bind::{chord, device_btn, shortcut_action};
 
 #[derive(Copy, Clone, Debug)]
 struct Row {
@@ -36,7 +36,14 @@ impl Table {
                 controls.bindings(input).map(move |binding| Row {
                     row: QuickRow::of_input(input),
                     binding,
-                    action: None,
+                    // A SELECT chord is told apart from SELECT by the gesture layer, which
+                    // holds SELECT back while it might be a chord.
+                    action: match binding.modifier {
+                        Some(Modifier::Select) => {
+                            Some(Action::SelectChordDown(device_btn(binding.button)))
+                        }
+                        _ => None,
+                    },
                     contexts: Contexts::GAME,
                 })
             });
@@ -104,12 +111,17 @@ impl Table {
 }
 
 impl Table {
-    /// Rows that never apply in the same game: the Stretch shortcuts and the inputs of a
-    /// system that doesn't stretch.
+    /// Rows that never apply at the same moment: the Stretch shortcuts and the inputs of
+    /// a system that doesn't stretch; the DS's Touch, which only acts while the stylus is
+    /// out, and the game's other inputs.
     fn apart(&self, a: QuickRow, b: QuickRow) -> bool {
         let stretch = |r: QuickRow| matches!(r, QuickRow::ScStretchOn | QuickRow::ScStretchOff);
         let input = |r: QuickRow| r.input().is_some();
-        !self.stretches && ((stretch(a) && input(b)) || (input(a) && stretch(b)))
+        let touch = |r: QuickRow| r == QuickRow::GameTouch;
+        let either = |f: &dyn Fn(QuickRow) -> bool, g: &dyn Fn(QuickRow) -> bool| {
+            (f(a) && g(b)) || (g(a) && f(b))
+        };
+        (!self.stretches && either(&stretch, &input)) || either(&touch, &input)
     }
 }
 

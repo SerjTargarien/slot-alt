@@ -140,7 +140,7 @@ fn the_views_saved_before_layouts_still_read() {
 }
 
 #[test]
-fn the_stylus_moves_with_the_d_pad_touches_with_a_and_shows_the_bottom_screen() {
+fn the_stylus_moves_touches_and_shows_the_bottom_screen() {
     let (_d, mut a) = playing_ds();
     a.next_ds_layout();
     assert_eq!(a.ds_view().layout, DsLayout::Single);
@@ -154,18 +154,15 @@ fn the_stylus_moves_with_the_d_pad_touches_with_a_and_shows_the_bottom_screen() 
     );
     let at = a.pointer().unwrap();
     assert!(!at.pressed);
-    assert!(a.stylus_takes(Btn::Right) && a.stylus_takes(Btn::A));
-    assert!(!a.stylus_takes(Btn::B));
-    a.stylus_press(Btn::Right, true);
+    a.stylus_steer([false, false, false, true], false);
     for _ in 0..30 {
         a.update(1.0 / 60.0);
     }
-    a.stylus_press(Btn::Right, false);
-    a.stylus_press(Btn::A, true);
+    a.stylus_steer([false; 4], true);
     let moved = a.pointer().unwrap();
     assert!(moved.x > at.x, "moved right: {} to {}", at.x, moved.x);
     assert_eq!(moved.y, at.y);
-    assert!(moved.pressed, "A touches");
+    assert!(moved.pressed, "it touches");
     a.stylus_out(false);
     assert_eq!(a.pointer(), None);
     assert_eq!(

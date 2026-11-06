@@ -59,6 +59,10 @@ pub enum Action {
     LidOpen,
     MenuChordDown(Btn),
     MenuChordUp(Btn),
+    /// Slot²: a button held with SELECT that a game's controls bind as a chord, and its
+    /// release. Neither the button nor SELECT reaches the game alone.
+    SelectChordDown(Btn),
+    SelectChordUp(Btn),
     RepairCard,
     Restart,
     PreviousShelf,
@@ -269,6 +273,7 @@ impl Gestures {
         let release = match action {
             Action::FfStart => Release::Send(Action::FfStop),
             Action::RewindStart => Release::Send(Action::RewindStop),
+            Action::SelectChordDown(b) => Release::Send(Action::SelectChordUp(b)),
             _ => Release::Nothing,
         };
         self.held.push((b, release));

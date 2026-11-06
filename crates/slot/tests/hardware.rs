@@ -8,7 +8,6 @@ BUTTONS=gamepad
 FN_ADC=
 CPU_CAP=1
 WIFI=0
-LEFT_STICK=1
 BOOT_LOGO=0
 SELF_UPDATE=0
 ";
@@ -22,7 +21,6 @@ fn a_description_file_sets_every_field() {
     assert_eq!(hw.fn_adc, None);
     assert!(hw.cpu_cap);
     assert!(!hw.wifi);
-    assert_eq!(hw.left_stick, Some(true));
     assert!(!hw.boot_logo);
     assert!(!hw.self_update);
 }
@@ -35,7 +33,6 @@ fn missing_keys_keep_what_baseos_does() {
     assert_eq!(hw.buttons, Buttons::Anbernic);
     assert_eq!(hw.fn_adc, Some(PathBuf::from("/sys/fn")));
     assert!(hw.wifi);
-    assert_eq!(hw.left_stick, None);
 }
 
 #[test]

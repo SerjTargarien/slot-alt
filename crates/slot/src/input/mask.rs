@@ -9,6 +9,7 @@ use super::bind::device_btn;
 pub struct Pad {
     held: Vec<Btn>,
     chorded: Vec<Btn>,
+    select_chorded: Vec<Btn>,
 }
 
 impl Pad {
@@ -18,6 +19,8 @@ impl Pad {
             Action::GbaUp(b) => (&mut self.held, b, false),
             Action::MenuChordDown(b) => (&mut self.chorded, b, true),
             Action::MenuChordUp(b) => (&mut self.chorded, b, false),
+            Action::SelectChordDown(b) => (&mut self.select_chorded, b, true),
+            Action::SelectChordUp(b) => (&mut self.select_chorded, b, false),
             _ => return,
         };
         list.retain(|x| *x != b);
@@ -26,10 +29,16 @@ impl Pad {
         }
     }
 
-    /// The core buttons held, from a system's controls. An input is pressed when any of
+    /// The inputs pressed now, from a system's controls. An input is pressed when any of
     /// its bindings is held. A held chord (L1+Up) wins over its buttons' own bindings, so
-    /// holding L1 and Up presses what L1+Up is bound to and not Up's input too.
-    pub fn mask(&self, controls: &SystemControls, platform: Platform) -> ButtonMask {
+    /// holding L1 and Up presses what L1+Up is bound to and not Up's input too. While the
+    /// DS's stylus is out, Touch's buttons press only Touch.
+    pub fn pressed(
+        &self,
+        controls: &SystemControls,
+        platform: Platform,
+        stylus_out: bool,
+    ) -> Vec<Input> {
         let held = |d: Device| self.held.contains(&device_btn(d));
         let chord_held = |b: &Binding| match b.modifier {
             Some(Modifier::Button(m)) => held(m) && held(b.button),
@@ -43,16 +52,44 @@ impl Pad {
                 }
             }
         }
-        let active = |b: Binding| match b.modifier {
-            None => held(b.button) && !taken.contains(&b.button),
+        let touching: Vec<Device> = match stylus_out {
+            true => controls.bindings(Input::Touch).map(|b| b.button).collect(),
+            false => Vec::new(),
+        };
+        let active = |input: Input, b: Binding| match b.modifier {
+            None => {
+                held(b.button)
+                    && !taken.contains(&b.button)
+                    && (input == Input::Touch || !touching.contains(&b.button))
+            }
             Some(Modifier::Menu) => self.chorded.contains(&device_btn(b.button)),
             Some(Modifier::Button(_)) => chord_held(&b),
-            Some(Modifier::Select) => false,
+            // The gesture layer sends a SELECT chord as itself (see the binding table).
+            Some(Modifier::Select) => self.select_chorded.contains(&device_btn(b.button)),
         };
-        let bits = inputs(platform)
+        inputs(platform)
             .iter()
-            .filter(|&&input| controls.bindings(input).any(|b| active(b)))
-            .fold(0, |bits, &input| bits | bit(drives(platform, input)));
+            .copied()
+            .filter(|&input| controls.bindings(input).any(|b| active(input, b)))
+            .collect()
+    }
+
+    /// The core buttons held: the pressed inputs that drive the core. While the DS's
+    /// stylus is out, the D-pad's inputs move it instead.
+    pub fn mask(
+        &self,
+        controls: &SystemControls,
+        platform: Platform,
+        stylus_out: bool,
+    ) -> ButtonMask {
+        let moving = |i: Input| {
+            stylus_out && matches!(i, Input::Up | Input::Down | Input::Left | Input::Right)
+        };
+        let bits = self
+            .pressed(controls, platform, stylus_out)
+            .into_iter()
+            .filter(|&i| !i.is_slots() && !moving(i))
+            .fold(0, |bits, i| bits | bit(drives(platform, i)));
         ButtonMask(bits)
     }
 
@@ -85,6 +122,7 @@ impl Pad {
     pub fn clear(&mut self) {
         self.held.clear();
         self.chorded.clear();
+        self.select_chorded.clear();
     }
 }
 
@@ -108,5 +146,6 @@ fn bit(input: Input) -> u16 {
         Input::Y2 => ButtonMask::R,
         Input::Y3 => ButtonMask::L2,
         Input::Y4 => ButtonMask::L,
+        Input::SwapScreens | Input::NextLayout | Input::Stylus | Input::Touch => 0,
     }
 }

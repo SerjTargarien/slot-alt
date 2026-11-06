@@ -30,77 +30,167 @@ pub const EV_SW: u16 = 0x05;
 pub const SW_LID: u16 = 0x00;
 
 pub const EV_ABS: u16 = 0x03;
+pub const ABS_X: u16 = 0x00;
+pub const ABS_Y: u16 = 0x01;
+pub const ABS_RX: u16 = 0x03;
+pub const ABS_RY: u16 = 0x04;
 pub const ABS_HAT0X: u16 = 0x10;
 pub const ABS_HAT0Y: u16 = 0x11;
+/// The left stick on the Anbernic H700 handhelds.
 pub const ABS_LSX: u16 = 0x02;
 pub const ABS_LSY: u16 = 0x03;
 
-pub const STICK_DEADZONE: i32 = 2048;
+/// How far a stick goes before it presses a direction, and how far back before it lets
+/// go, as fractions of its travel from the centre. The gap stops a direction chattering
+/// when the stick rests near the line.
+const STICK_PRESS: f32 = 0.5;
+const STICK_RELEASE: f32 = 0.35;
 
-const LEFT_STICK_TARGETS: [&str; 6] = [
-    "rg34xxsp",
-    "rg35xxh",
-    "rg35xxpro",
-    "rg40xxh",
-    "rg40xxv",
-    "rgcubexx",
-];
+/// A stick's travel when the kernel can't say (the Anbernic H700's).
+const STICK_TRAVEL: (i32, i32) = (-4096, 4096);
 
-pub fn has_left_stick(target: &str) -> bool {
-    LEFT_STICK_TARGETS.contains(&target)
+/// The stick (0 left, 1 right) and the axis (0 across, 1 down) an axis code reports.
+fn stick_axis(layout: Layout, code: u16) -> Option<(usize, usize)> {
+    match (layout, code) {
+        (Layout::Gamepad, ABS_X) => Some((0, 0)),
+        (Layout::Gamepad, ABS_Y) => Some((0, 1)),
+        (Layout::Gamepad, ABS_RX) => Some((1, 0)),
+        (Layout::Gamepad, ABS_RY) => Some((1, 1)),
+        (Layout::Anbernic, ABS_LSX) => Some((0, 0)),
+        (Layout::Anbernic, ABS_LSY) => Some((0, 1)),
+        _ => None,
+    }
 }
 
-#[derive(Default)]
+/// The axis codes that are sticks in a layout.
+pub fn stick_codes(layout: Layout) -> &'static [u16] {
+    match layout {
+        Layout::Gamepad => &[ABS_X, ABS_Y, ABS_RX, ABS_RY],
+        Layout::Anbernic => &[ABS_LSX, ABS_LSY],
+    }
+}
+
+/// The D-pad hat and both sticks, as buttons. The D-pad presses Up, Down, Left and
+/// Right; each stick presses its own directions (LS Up..., RS Up...) past half travel.
+/// While `steers` (outside a game) the left stick moves like the D-pad instead, so the
+/// menus and the shelf follow it.
 pub struct Hat {
+    layout: Layout,
     hat: [i32; 2],
-    stick: [i32; 2],
+    stick: [[i32; 2]; 2],
+    travel: [[(i32, i32); 2]; 2],
     steers: bool,
+    down: Vec<Btn>,
+}
+
+impl Default for Hat {
+    fn default() -> Self {
+        Hat::new(layout())
+    }
 }
 
 impl Hat {
+    pub fn new(layout: Layout) -> Self {
+        Hat {
+            layout,
+            hat: [0; 2],
+            stick: [[0; 2]; 2],
+            travel: [[STICK_TRAVEL; 2]; 2],
+            steers: false,
+            down: Vec::new(),
+        }
+    }
+
+    /// An axis's travel as the kernel reports it, from its lowest to its highest value.
+    pub fn set_travel(&mut self, code: u16, min: i32, max: i32) {
+        if let Some((s, a)) = stick_axis(self.layout, code).filter(|_| max > min) {
+            self.travel[s][a] = (min, max);
+        }
+    }
+
     pub fn steer_with_stick(&mut self, on: bool) {
         self.steers = on;
     }
 
     pub fn feed(&mut self, ev: Ev) -> Vec<RawEvent> {
-        let tilt = |v: i32| match v {
-            v if v > STICK_DEADZONE => 1,
-            v if v < -STICK_DEADZONE => -1,
-            _ => 0,
-        };
-        let steer = |v: i32| if self.steers { tilt(v) } else { 0 };
-        let (axis, from_stick, value) = match ev.code {
-            ABS_HAT0X => (0, false, ev.value.signum()),
-            ABS_HAT0Y => (1, false, ev.value.signum()),
-            ABS_LSX => (0, true, steer(ev.value)),
-            ABS_LSY => (1, true, steer(ev.value)),
-            _ => return Vec::new(),
-        };
-        let was = self.held(axis);
-        match from_stick {
-            true => self.stick[axis] = value,
-            false => self.hat[axis] = value,
+        match ev.code {
+            ABS_HAT0X => self.hat[0] = ev.value.signum(),
+            ABS_HAT0Y => self.hat[1] = ev.value.signum(),
+            code => {
+                let Some((s, a)) = stick_axis(self.layout, code) else {
+                    return Vec::new();
+                };
+                self.stick[s][a] = tilt(ev.value, self.travel[s][a], self.stick[s][a]);
+            }
         }
-        let now = self.held(axis);
-        if now == was {
-            return Vec::new();
-        }
-        let ends = [[Btn::Left, Btn::Right], [Btn::Up, Btn::Down]][axis];
-        let btn = |v: i32| ends[usize::from(v > 0)];
-        let mut out = Vec::new();
-        if was != 0 {
-            out.push(RawEvent::Up(btn(was)));
-        }
-        if now != 0 {
-            out.push(RawEvent::Down(btn(now)));
-        }
+        let want = self.wanted();
+        let mut out: Vec<RawEvent> = self
+            .down
+            .iter()
+            .filter(|b| !want.contains(b))
+            .map(|b| RawEvent::Up(*b))
+            .collect();
+        out.extend(
+            want.iter()
+                .filter(|b| !self.down.contains(b))
+                .map(|b| RawEvent::Down(*b)),
+        );
+        self.down = want;
         out
     }
 
-    fn held(&self, axis: usize) -> i32 {
-        match self.hat[axis] {
-            0 => self.stick[axis],
-            hat => hat,
+    /// The directions held now. The D-pad wins over a steering stick on the same axis.
+    fn wanted(&self) -> Vec<Btn> {
+        let ends = |at: usize, v: i32, pad: [[Btn; 2]; 2]| pad[at][usize::from(v > 0)];
+        const DPAD: [[Btn; 2]; 2] = [[Btn::Left, Btn::Right], [Btn::Up, Btn::Down]];
+        const LS: [[Btn; 2]; 2] = [[Btn::LsLeft, Btn::LsRight], [Btn::LsUp, Btn::LsDown]];
+        const RS: [[Btn; 2]; 2] = [[Btn::RsLeft, Btn::RsRight], [Btn::RsUp, Btn::RsDown]];
+        let mut want = Vec::new();
+        for axis in 0..2 {
+            let (hat, left, right) = (self.hat[axis], self.stick[0][axis], self.stick[1][axis]);
+            if hat != 0 {
+                want.push(ends(axis, hat, DPAD));
+            }
+            match (left, self.steers) {
+                (0, _) => {}
+                (v, true) if hat == 0 => want.push(ends(axis, v, DPAD)),
+                (_, true) => {}
+                (v, false) => want.push(ends(axis, v, LS)),
+            }
+            if right != 0 {
+                want.push(ends(axis, right, RS));
+            }
+        }
+        want
+    }
+}
+
+/// Where a stick axis points (-1, 0 or 1), from its value, its travel and where it
+/// pointed before.
+fn tilt(value: i32, (min, max): (i32, i32), was: i32) -> i32 {
+    let half = (max - min) as f32 / 2.0;
+    let at = (value as f32 - (min as f32 + half)) / half;
+    let past = |v: f32| at * v.signum() > 0.0;
+    match was {
+        w if w != 0 && past(w as f32) && at.abs() >= STICK_RELEASE => w,
+        _ if at >= STICK_PRESS => 1,
+        _ if at <= -STICK_PRESS => -1,
+        _ => 0,
+    }
+}
+
+/// Reads each stick axis's travel from the kernel (`EVIOCGABS`), so a stick reads the same
+/// whatever range its device reports.
+pub fn read_travel(file: &std::fs::File, hat: &mut Hat) {
+    use std::os::fd::AsRawFd;
+    for &code in stick_codes(hat.layout) {
+        // struct input_absinfo: value, minimum, maximum, fuzz, flat, resolution.
+        let mut info = [0i32; 6];
+        let request = (2u32 << 30) | (24 << 16) | (u32::from(b'E') << 8) | (0x40 + u32::from(code));
+        // SAFETY: EVIOCGABS writes one input_absinfo (six i32s) into `info`.
+        let read = unsafe { libc::ioctl(file.as_raw_fd(), request as _, info.as_mut_ptr()) };
+        if read == 0 {
+            hat.set_travel(code, info[1], info[2]);
         }
     }
 }
@@ -242,7 +332,10 @@ fn wanted_node(device: &Path, layout: Layout) -> bool {
     let cap = |file: &str| std::fs::read_to_string(device.join("capabilities").join(file));
     let keys = cap("key").unwrap_or_default();
     let lid = cap("sw").is_ok_and(|sw| has_bit(&sw, SW_LID));
-    lid || wanted(layout).iter().any(|bit| has_bit(&keys, *bit))
+    // A joystick with no buttons of its own (the RGB20SX's ADC sticks).
+    let abs = cap("abs").unwrap_or_default();
+    let sticks = stick_codes(layout).iter().any(|code| has_bit(&abs, *code));
+    lid || sticks || wanted(layout).iter().any(|bit| has_bit(&keys, *bit))
 }
 
 pub fn device_name(sys: &Path, node: &Path) -> String {

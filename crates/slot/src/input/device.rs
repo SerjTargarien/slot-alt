@@ -109,6 +109,7 @@ fn read_node(
             return;
         }
     };
+    super::evdev::read_travel(&file, &mut hat);
     let mut buf = [0u8; EVENT_BYTES * 16];
     loop {
         let read = match file.read(&mut buf) {

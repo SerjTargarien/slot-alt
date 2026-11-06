@@ -37,7 +37,7 @@ pub fn btn_device(b: Btn) -> Option<Device> {
     PAIRS.iter().find(|(_, x)| *x == b).map(|(d, _)| *d)
 }
 
-pub(super) fn chord(binding: Binding) -> Chord {
+pub fn chord(binding: Binding) -> Chord {
     Chord {
         modifier: binding.modifier.map(|m| match m {
             Modifier::Select => Mod::Select,

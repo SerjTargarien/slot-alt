@@ -398,7 +398,6 @@ pub struct SlotState {
     pub bespoke_slot: bool,
     pub wifi_off: bool,
     pub gb_core: Core,
-    pub left_stick_dpad: bool,
     pub lid_off_min: Option<u8>,
     pub bezel_gba: BezelPick,
     pub bezel_gb: BezelPick,
@@ -631,7 +630,6 @@ impl Default for SlotState {
             bespoke_slot: false,
             wifi_off: false,
             gb_core: Core::Gambatte,
-            left_stick_dpad: true,
             lid_off_min: None,
             bezel_gba: BezelPick::Ags102,
             bezel_gb: BezelPick::Ags102,
@@ -769,7 +767,6 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         text.push_str("wifi_off=1\n");
     }
     text.push_str(&format!("gb_core={}\n", s.gb_core.as_str()));
-    text.push_str(&format!("left_stick_dpad={}\n", s.left_stick_dpad as u8));
     text.push_str(&format!("auto_load={}\n", s.auto_load as u8));
     if let Some(min) = s.lid_off_min {
         text.push_str(&format!("lid_off_min={min}\n"));
@@ -864,7 +861,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut bespoke_slot = None;
     let mut wifi_off = None;
     let mut gb_core = None;
-    let mut left_stick_dpad = None;
     let mut lid_off_min = None;
     let mut bezel_gba = None;
     let mut bezel_gb = None;
@@ -940,7 +936,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "bespoke_slot" => bespoke_slot = flag(value),
             "wifi_off" => wifi_off = flag(value),
             "gb_core" => gb_core = Core::parse(value).filter(|c| c.runs(Platform::Gb)),
-            "left_stick_dpad" => left_stick_dpad = flag(value),
             "lid_off_min" => lid_off_min = value.parse().ok().filter(|m| LID_OFF_MIN.contains(m)),
             "bezel_gba" => bezel_gba = Some(BezelPick::parse(value)),
             "bezel_gb" => bezel_gb = Some(BezelPick::parse(value)),
@@ -1053,7 +1048,6 @@ fn parse(text: &str) -> Option<SlotState> {
         bespoke_slot: bespoke_slot.unwrap_or(fallback.bespoke_slot),
         wifi_off: wifi_off.unwrap_or(fallback.wifi_off),
         gb_core: gb_core.unwrap_or(Core::Mgba),
-        left_stick_dpad: left_stick_dpad.unwrap_or(fallback.left_stick_dpad),
         lid_off_min,
         bezel_gba: bezel_gba.unwrap_or(fallback.bezel_gba),
         bezel_gb: bezel_gb.unwrap_or(fallback.bezel_gb),

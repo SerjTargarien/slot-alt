@@ -38,10 +38,17 @@ pub enum Input {
     Y2,
     Y3,
     Y4,
+    /// The DS's slot controls, which drive slot rather than the core: swap the main
+    /// screen, step through the layouts, hold the stylus out, and touch with it. While the
+    /// stylus is out, the D-pad's inputs move it and Touch's buttons touch.
+    SwapScreens,
+    NextLayout,
+    Stylus,
+    Touch,
 }
 
 impl Input {
-    pub const COUNT: usize = 18;
+    pub const COUNT: usize = 22;
 
     pub const ALL: [Input; Input::COUNT] = [
         Input::Up,
@@ -62,6 +69,10 @@ impl Input {
         Input::Y2,
         Input::Y3,
         Input::Y4,
+        Input::SwapScreens,
+        Input::NextLayout,
+        Input::Stylus,
+        Input::Touch,
     ];
 
     fn index(self) -> usize {
@@ -88,7 +99,19 @@ impl Input {
             Input::Y2 => "y2",
             Input::Y3 => "y3",
             Input::Y4 => "y4",
+            Input::SwapScreens => "swap_screens",
+            Input::NextLayout => "next_layout",
+            Input::Stylus => "stylus",
+            Input::Touch => "touch",
         }
+    }
+
+    /// Whether the input drives slot rather than the core (the DS's screens and stylus).
+    pub fn is_slots(self) -> bool {
+        matches!(
+            self,
+            Input::SwapScreens | Input::NextLayout | Input::Stylus | Input::Touch
+        )
     }
 
     fn parse(key: &str) -> Option<Input> {
@@ -113,7 +136,14 @@ impl Input {
             // The DS's X and Y were the Turbo A and B rows' buttons.
             Input::TurboA | Input::X => GameButton::TurboA,
             Input::TurboB | Input::Y => GameButton::TurboB,
-            Input::Y1 | Input::Y2 | Input::Y3 | Input::Y4 => return None,
+            Input::Y1
+            | Input::Y2
+            | Input::Y3
+            | Input::Y4
+            | Input::SwapScreens
+            | Input::NextLayout
+            | Input::Stylus
+            | Input::Touch => return None,
         })
     }
 }
@@ -133,7 +163,24 @@ pub fn inputs(platform: Platform) -> &'static [Input] {
         Platform::Ws => &[
             Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start, TurboA, TurboB,
         ],
-        Platform::Nds => &[Up, Down, Left, Right, A, B, X, Y, L, R, Select, Start],
+        Platform::Nds => &[
+            Up,
+            Down,
+            Left,
+            Right,
+            A,
+            B,
+            X,
+            Y,
+            L,
+            R,
+            Select,
+            Start,
+            SwapScreens,
+            NextLayout,
+            Stylus,
+            Touch,
+        ],
     }
 }
 
@@ -308,6 +355,11 @@ fn default_row(platform: Platform, input: Input) -> Row {
             chord(Device::L1, Device::Left),
             chord(Device::R1, Device::Y),
         ),
+        // The DS's controls, where slot has always had them.
+        Input::SwapScreens => one(plain(Device::L2)),
+        Input::NextLayout => one(chord(Device::Select, Device::L2)),
+        Input::Stylus => one(plain(Device::R2)),
+        Input::Touch => one(plain(Device::A)),
     }
     .map(|b: Option<Binding>| b.filter(|_| inputs(platform).contains(&input)))
 }
@@ -400,6 +452,10 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (_, Input::Y2) => "Y2",
         (_, Input::Y3) => "Y3",
         (_, Input::Y4) => "Y4",
+        (_, Input::SwapScreens) => "Swap Screens",
+        (_, Input::NextLayout) => "Next Layout",
+        (_, Input::Stylus) => "Stylus",
+        (_, Input::Touch) => "Touch",
     }
 }
 

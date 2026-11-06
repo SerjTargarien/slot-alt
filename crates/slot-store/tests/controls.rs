@@ -200,3 +200,23 @@ fn rows_read_in_each_systems_own_order_and_keep_todays_buttons() {
         "X2 is right"
     );
 }
+
+#[test]
+fn the_ds_page_has_its_screens_and_stylus_where_slot_had_them() {
+    let ds = SystemControls::default_for(Platform::Nds);
+    assert_eq!(
+        ds.row(Input::SwapScreens),
+        [Some(plain(Device::L2)), None, None]
+    );
+    assert_eq!(
+        ds.row(Input::NextLayout),
+        [Binding::with(Modifier::Select, Device::L2), None, None]
+    );
+    assert_eq!(ds.row(Input::Stylus), [Some(plain(Device::R2)), None, None]);
+    assert_eq!(ds.row(Input::Touch), [Some(plain(Device::A)), None, None]);
+    assert!(Input::Stylus.is_slots() && !Input::A.is_slots());
+    assert!(
+        !inputs(Platform::Gba).contains(&Input::Stylus),
+        "only the DS has them"
+    );
+}

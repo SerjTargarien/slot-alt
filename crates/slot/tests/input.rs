@@ -122,28 +122,32 @@ fn the_pad_presses_the_console_buttons_bound_to_what_is_held() {
     let mut pad = Pad::default();
     pad.apply(Action::GbaDown(Btn::X));
     assert_eq!(
-        pad.mask(&c, gb).0,
+        pad.mask(&c, gb, false).0,
         0,
         "X reached the game with nothing bound to it"
     );
     c.set_row(Input::A, [Binding::plain(Device::X), None, None]);
-    assert_eq!(pad.mask(&c, gb).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, gb, false).0, ButtonMask::A);
     pad.apply(Action::GbaDown(Btn::A));
     assert_eq!(
-        pad.mask(&c, gb).0,
+        pad.mask(&c, gb, false).0,
         ButtonMask::A,
         "A still pressed A after A moved to X"
     );
     pad.apply(Action::GbaUp(Btn::X));
-    assert_eq!(pad.mask(&c, gb).0, 0);
+    assert_eq!(pad.mask(&c, gb, false).0, 0);
     c.set_row(
         Input::B,
         [Binding::with(Modifier::Menu, Device::Y), None, None],
     );
     pad.apply(Action::GbaDown(Btn::Y));
-    assert_eq!(pad.mask(&c, gb).0, 0, "plain Y pressed a MENU+Y binding");
+    assert_eq!(
+        pad.mask(&c, gb, false).0,
+        0,
+        "plain Y pressed a MENU+Y binding"
+    );
     pad.apply(Action::MenuChordDown(Btn::Y));
-    assert_eq!(pad.mask(&c, gb).0, ButtonMask::B);
+    assert_eq!(pad.mask(&c, gb, false).0, ButtonMask::B);
 }
 
 #[test]
@@ -157,22 +161,22 @@ fn turbo_a_and_b_fire_from_whatever_they_are_bound_to() {
     let mut c = SystemControls::default_for(gb);
     let mut pad = Pad::default();
     pad.apply(Action::GbaDown(Btn::X));
-    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::A);
-    assert_eq!(pad.mask(&c, gb).turbo(3).0, 0);
-    assert_eq!(pad.mask(&c, gb).without_turbo().0, 0);
+    assert_eq!(pad.mask(&c, gb, false).turbo(0).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, gb, false).turbo(3).0, 0);
+    assert_eq!(pad.mask(&c, gb, false).without_turbo().0, 0);
     pad.apply(Action::GbaUp(Btn::X));
     pad.apply(Action::GbaDown(Btn::Y));
-    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::B);
+    assert_eq!(pad.mask(&c, gb, false).turbo(0).0, ButtonMask::B);
     pad.apply(Action::GbaUp(Btn::Y));
     c.set_row(Input::TurboA, [Binding::plain(Device::L2), None, None]);
     pad.apply(Action::GbaDown(Btn::X));
     assert_eq!(
-        pad.mask(&c, gb).turbo(0).0,
+        pad.mask(&c, gb, false).turbo(0).0,
         0,
         "X kept turbo A after it moved"
     );
     pad.apply(Action::GbaDown(Btn::L2));
-    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, gb, false).turbo(0).0, ButtonMask::A);
 }
 
 #[test]
@@ -188,7 +192,7 @@ fn any_of_an_inputs_bindings_presses_it() {
     for b in [Btn::A, Btn::R2] {
         let mut pad = Pad::default();
         pad.apply(Action::GbaDown(b));
-        assert_eq!(pad.mask(&c, gb).0, ButtonMask::A, "{b:?}");
+        assert_eq!(pad.mask(&c, gb, false).0, ButtonMask::A, "{b:?}");
     }
 }
 
@@ -204,16 +208,20 @@ fn a_held_chord_wins_over_its_buttons_own_inputs() {
     let c = SystemControls::default_for(ws);
     let mut pad = Pad::default();
     pad.apply(Action::GbaDown(Btn::Up));
-    assert_eq!(pad.mask(&c, ws).0, ButtonMask::UP);
+    assert_eq!(pad.mask(&c, ws, false).0, ButtonMask::UP);
     pad.apply(Action::GbaDown(Btn::L1));
-    assert_eq!(pad.mask(&c, ws).0, ButtonMask::R2, "Y1, and not X1 too");
+    assert_eq!(
+        pad.mask(&c, ws, false).0,
+        ButtonMask::R2,
+        "Y1, and not X1 too"
+    );
     pad.apply(Action::GbaUp(Btn::L1));
     pad.apply(Action::GbaUp(Btn::Up));
     pad.apply(Action::GbaDown(Btn::R1));
     pad.apply(Action::GbaDown(Btn::A));
-    assert_eq!(pad.mask(&c, ws).0, ButtonMask::R, "R1+A is Y2");
+    assert_eq!(pad.mask(&c, ws, false).0, ButtonMask::R, "R1+A is Y2");
     pad.apply(Action::GbaUp(Btn::R1));
-    assert_eq!(pad.mask(&c, ws).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, ws, false).0, ButtonMask::A);
 }
 
 #[test]
@@ -226,7 +234,8 @@ fn every_system_presses_todays_core_buttons_for_todays_presses() {
     let press = |platform: Platform, b: Btn| {
         let mut pad = Pad::default();
         pad.apply(Action::GbaDown(b));
-        pad.mask(&SystemControls::default_for(platform), platform).0
+        pad.mask(&SystemControls::default_for(platform), platform, false)
+            .0
     };
     for platform in Platform::ALL {
         for (b, bit) in [
@@ -246,4 +255,76 @@ fn every_system_presses_todays_core_buttons_for_todays_presses() {
     assert_eq!(press(Platform::Gg, Btn::Select), 0, "it would reset");
     assert_eq!(press(Platform::Gg, Btn::X), ButtonMask::X, "turbo 2");
     assert_eq!(press(Platform::Nds, Btn::Y), ButtonMask::Y);
+}
+
+#[test]
+fn a_select_chord_presses_its_input_and_not_select() {
+    use slot::input::Pad;
+    use slot_input::Action;
+    use slot_retro::ButtonMask;
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::{Binding, Device, Platform};
+    let gba = Platform::Gba;
+    let mut c = SystemControls::default_for(gba);
+    c.add(
+        Input::Start,
+        Binding::pair(Device::L1, Device::Select).unwrap(),
+    );
+    // The gesture layer sends the chord as itself, holding SELECT back.
+    let mut pad = Pad::default();
+    pad.apply(Action::SelectChordDown(Btn::L1));
+    assert_eq!(pad.mask(&c, gba, false).0, ButtonMask::START);
+    pad.apply(Action::SelectChordUp(Btn::L1));
+    assert_eq!(pad.mask(&c, gba, false).0, 0);
+}
+
+#[test]
+fn a_select_chord_on_a_game_row_reaches_the_gestures() {
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::{Binding, CarouselKeys, Device, Platform, ShortcutKeys};
+    let mut c = SystemControls::default_for(Platform::Gba);
+    c.add(
+        Input::Start,
+        Binding::pair(Device::L1, Device::Select).unwrap(),
+    );
+    let table = slot::input::Table::new(
+        &c,
+        Platform::Gba,
+        false,
+        &ShortcutKeys::default(),
+        &CarouselKeys::default(),
+        true,
+    );
+    assert!(table.entries().iter().any(|e| e.chord
+        == slot_input::Chord {
+            modifier: Some(slot_input::Mod::Select),
+            button: Btn::L1,
+        }
+        && e.action == slot_input::Action::SelectChordDown(Btn::L1)));
+}
+
+#[test]
+fn with_the_ds_stylus_out_touch_takes_its_buttons_and_the_d_pad_moves_it() {
+    use slot::input::Pad;
+    use slot_input::Action;
+    use slot_retro::ButtonMask;
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::Platform;
+    let ds = Platform::Nds;
+    let c = SystemControls::default_for(ds);
+    let mut pad = Pad::default();
+    pad.apply(Action::GbaDown(Btn::A));
+    pad.apply(Action::GbaDown(Btn::Up));
+    assert_eq!(pad.mask(&c, ds, false).0, ButtonMask::A | ButtonMask::UP);
+    assert_eq!(pad.mask(&c, ds, true).0, 0, "the stylus has them");
+    let pressed = pad.pressed(&c, ds, true);
+    assert!(pressed.contains(&Input::Touch) && pressed.contains(&Input::Up));
+    assert!(!pressed.contains(&Input::A));
+    pad.apply(Action::GbaDown(Btn::R2));
+    assert!(pad.pressed(&c, ds, true).contains(&Input::Stylus));
+    assert_eq!(
+        pad.mask(&c, ds, true).0,
+        0,
+        "R2 is the stylus, not the core's"
+    );
 }

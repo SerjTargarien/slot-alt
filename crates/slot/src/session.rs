@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use slot_input::{Action, Btn, Chord, Contexts, Entry, Gestures, Millis, Mod, RawEvent};
 use slot_retro::{Rumble, WsLayout, HANDHELD_TURN_OPTION};
+use slot_store::controls::{Input, SystemControls};
 use slot_store::{Core, Platform};
 use slot_ui::FfState;
 
@@ -33,6 +34,8 @@ pub struct Session {
     entries: Vec<Entry>,
     captured: Vec<Btn>,
     pad: Pad,
+    /// The DS's slot controls held at the last look, so a press acts once.
+    ds_held: Vec<Input>,
     sent: u16,
     rewinding: bool,
     fast: bool,
@@ -70,6 +73,7 @@ impl Session {
             entries: Vec::new(),
             captured: Vec::new(),
             pad: Pad::default(),
+            ds_held: Vec::new(),
             sent: 0,
             rewinding: false,
             fast: false,
@@ -312,10 +316,6 @@ impl Session {
                     continue;
                 }
             }
-            if self.ds_takes(ev, now) {
-                self.gestures.observe(ev);
-                continue;
-            }
             actions.extend(self.gestures.feed(ev, now));
         }
         actions.extend(self.gestures.tick(now));
@@ -328,52 +328,43 @@ impl Session {
         self.sync_pad();
     }
 
-    /// A DS game's own controls, ahead of slot's: L2 swaps its main screen,
-    /// SELECT + L2 steps through its layouts,
-    /// and R2 holds the stylus out, which the D-pad moves and A touches. They
-    /// are taken from slot's L2 and R2 shortcuts (rewind and fast forward) in
-    /// a DS game. Letting go of a stylus button still reaches the game, so
-    /// nothing it held when the stylus came out stays down.
-    fn ds_takes(&mut self, ev: RawEvent, now: Millis) -> bool {
-        if !self.app.ds_controls() {
-            return false;
+    /// A DS game's own controls, from its bindings: Swap Screens and Next Layout act on
+    /// the press, and the stylus is out while Stylus is held, moved by the D-pad's inputs
+    /// and touching while Touch is held.
+    fn sync_ds(&mut self, controls: &SystemControls, platform: Platform) {
+        if platform != Platform::Nds || !self.app.ds_controls() {
+            self.ds_held.clear();
+            return;
         }
-        match ev {
-            RawEvent::Down(Btn::L2) if self.gestures.take_select_chord(now) => {
-                self.app.next_ds_layout();
-                true
-            }
-            RawEvent::Down(Btn::L2) => {
-                self.app.swap_ds_screens();
-                true
-            }
-            RawEvent::Up(Btn::L2) => true,
-            RawEvent::Down(Btn::R2) => {
-                self.app.stylus_out(true);
-                true
-            }
-            RawEvent::Up(Btn::R2) => {
-                self.app.stylus_out(false);
-                true
-            }
-            RawEvent::Down(b) if self.app.stylus_takes(b) => {
-                self.app.stylus_press(b, true);
-                true
-            }
-            RawEvent::Up(b) if self.app.stylus_takes(b) => {
-                self.app.stylus_press(b, false);
-                false
-            }
-            _ => false,
+        let pressed = self
+            .pad
+            .pressed(controls, platform, self.app.stylus_is_out());
+        let now = |i: Input| pressed.contains(&i);
+        let fresh = |i: Input| now(i) && !self.ds_held.contains(&i);
+        let (swap, next) = (fresh(Input::SwapScreens), fresh(Input::NextLayout));
+        self.ds_held = pressed.iter().copied().filter(|i| i.is_slots()).collect();
+        if swap {
+            self.app.swap_ds_screens();
         }
+        if next {
+            self.app.next_ds_layout();
+        }
+        self.app.stylus_out(now(Input::Stylus));
+        let moving = [Input::Up, Input::Down, Input::Left, Input::Right].map(now);
+        self.app.stylus_steer(moving, now(Input::Touch));
     }
 
     fn sync_pad(&mut self) {
+        if self.emu.is_none() {
+            return;
+        }
+        // The playing system's own controls (design/controls.md). A system without
+        // shoulders has no L or R input, so they never reach its core.
+        let platform = self.app.playing_platform();
+        let controls = *self.app.controls_of(platform);
+        self.sync_ds(&controls, platform);
         if let Some(emu) = &self.emu {
-            // The playing system's own controls (design/controls.md). A system without
-            // shoulders has no L or R input, so they never reach its core.
-            let platform = self.app.playing_platform();
-            let mask = self.pad.mask(self.app.controls_of(platform), platform);
+            let mask = self.pad.mask(&controls, platform, self.app.stylus_is_out());
             let mask = match self.app.core() {
                 // A horizontal game's second pad is in its bindings; a game played upright
                 // still turns the buttons in code (orientation isn't bindable yet).

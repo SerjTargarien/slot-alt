@@ -573,7 +573,6 @@ pub struct App {
     act_at: Millis,
     root: Option<PathBuf>,
     state: SlotState,
-    left_stick: bool,
     /// Slot²: every system's controls, and the system whose page the shelf menu shows.
     controls: AllControls,
     controls_platform: Platform,
@@ -1041,7 +1040,6 @@ impl App {
             act_at: 0,
             root: None,
             state: SlotState::default(),
-            left_stick: false,
             controls: AllControls::default(),
             controls_platform: Platform::Gb,
             capture: None,
@@ -1568,9 +1566,6 @@ impl App {
         if platform == Platform::Nds {
             hidden.extend([QuickRow::Rewind, QuickRow::ScRewind]);
         }
-        if !self.left_stick {
-            hidden.push(QuickRow::LeftStick);
-        }
         if !self.has_states || self.link_active() {
             hidden.push(QuickRow::States);
         }
@@ -1788,7 +1783,6 @@ impl App {
             QuickRow::Tg16Shader => Some(shader_value(self.state.shader_tg16)),
             QuickRow::NdsShader => Some(shader_value(self.state.shader_nds)),
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
-            QuickRow::LeftStick => Some(QuickValue::flag(self.state.left_stick_dpad)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.state.auto_load)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
             QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
@@ -1908,6 +1902,10 @@ impl App {
             | QuickRow::GameY2
             | QuickRow::GameY3
             | QuickRow::GameY4
+            | QuickRow::GameSwapScreens
+            | QuickRow::GameNextLayout
+            | QuickRow::GameStylus
+            | QuickRow::GameTouch
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -2327,9 +2325,6 @@ impl App {
             if self.stretch_choices(platform).len() < 2 && !self.tall() {
                 hidden.push(row);
             }
-        }
-        if !self.left_stick {
-            hidden.push(QuickRow::LeftStick);
         }
         hidden.extend(self.controls_hidden(self.controls_platform));
         if !self.server_allowed() {
@@ -2866,7 +2861,7 @@ impl App {
         self.card_writes.wrote("nds_view.txt", &written);
     }
 
-    /// Take out the DS stylus (R2 down) or put it away (R2 up).
+    /// Take out the DS stylus (its Stylus input held) or put it away.
     pub fn stylus_out(&mut self, out: bool) {
         match (out, self.stylus) {
             (true, None) => self.stylus = Some(Stylus::at(self.stylus_at)),
@@ -2878,14 +2873,14 @@ impl App {
         }
     }
 
-    /// Whether the stylus, being out, takes the button from the game.
-    pub fn stylus_takes(&self, btn: Btn) -> bool {
-        self.stylus.is_some() && Stylus::takes(btn)
+    pub fn stylus_is_out(&self) -> bool {
+        self.stylus.is_some()
     }
 
-    pub fn stylus_press(&mut self, btn: Btn, down: bool) {
+    /// Which ways the stylus is being moved (up, down, left, right), and whether it touches.
+    pub fn stylus_steer(&mut self, held: [bool; 4], touching: bool) {
         if let Some(s) = &mut self.stylus {
-            s.press(btn, down);
+            s.steer(held, touching);
         }
     }
 
@@ -3292,12 +3287,25 @@ impl App {
 
     /// The shortcuts the input layer listens for now. Stretch On and Off only apply where a
     /// game can stretch, so in a GBA or DS game their keys stay free.
+    /// In a DS game its own controls (Swap Screens, Next Layout, Stylus) win over a shortcut
+    /// on the same keys, as they always have.
     pub fn input_entries(&self) -> Vec<slot_input::Entry> {
-        let stretches = stretches(self.playing_platform());
+        let platform = self.playing_platform();
+        let stretches = stretches(platform);
+        let ds_keys: Vec<slot_input::Chord> = match platform {
+            Platform::Nds => [Input::SwapScreens, Input::NextLayout, Input::Stylus]
+                .into_iter()
+                .flat_map(|i| self.controls_of(platform).bindings(i))
+                .map(crate::input::chord)
+                .collect(),
+            _ => Vec::new(),
+        };
+        let shortcut = |a: Action| !matches!(a, Action::SelectChordDown(_));
         self.binding_table()
             .entries()
             .into_iter()
             .filter(|e| stretches || !matches!(e.action, Action::StretchOn | Action::StretchOff))
+            .filter(|e| !(shortcut(e.action) && ds_keys.contains(&e.chord)))
             .collect()
     }
 
@@ -3821,12 +3829,10 @@ impl App {
         self.state.rumble
     }
 
-    pub fn set_left_stick(&mut self, present: bool) {
-        self.left_stick = present;
-    }
-
-    pub fn left_stick_dpad(&self) -> bool {
-        self.left_stick && self.state.left_stick_dpad
+    /// Whether the left stick moves like the D-pad: everywhere but in a game (and while a
+    /// row waits for a press, so a stick direction can be bound).
+    pub fn stick_steers(&self) -> bool {
+        self.input_context() != slot_input::Context::Game && !self.capturing()
     }
 
     pub fn ff_speed(&self) -> u8 {
@@ -4642,7 +4648,6 @@ impl App {
             | QuickRow::NdsShader
             | QuickRow::GbPalette
             | QuickRow::Rumble
-            | QuickRow::LeftStick
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
@@ -4717,6 +4722,10 @@ impl App {
             | QuickRow::GameY2
             | QuickRow::GameY3
             | QuickRow::GameY4
+            | QuickRow::GameSwapScreens
+            | QuickRow::GameNextLayout
+            | QuickRow::GameStylus
+            | QuickRow::GameTouch
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -5003,7 +5012,6 @@ impl App {
                 s.shader_nds = to;
             }
             QuickRow::Rumble => s.rumble = !s.rumble,
-            QuickRow::LeftStick => s.left_stick_dpad = !s.left_stick_dpad,
             QuickRow::AutoLoad => s.auto_load = !s.auto_load,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
             QuickRow::Turbo => s.turbo = !s.turbo,
@@ -5116,6 +5124,10 @@ impl App {
             | QuickRow::GameY2
             | QuickRow::GameY3
             | QuickRow::GameY4
+            | QuickRow::GameSwapScreens
+            | QuickRow::GameNextLayout
+            | QuickRow::GameStylus
+            | QuickRow::GameTouch
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
