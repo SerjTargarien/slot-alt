@@ -1,8 +1,8 @@
 # Game overrides: system defaults, a game's own values
 
 Status: agreed with the user on 2026-11-06; decisions of the same day below ("Decided").
-Steps 1 (screen), 2 (shortcuts, and Gameplay with them) and 3 (controls) built; step 4
-not yet.
+Steps 1 (screen), 2 (shortcuts, and Gameplay with them) and 3 (controls) built. Step 4,
+the shelf's system first, shelved on 2026-11-06 (below).
 
 ## Decided (2026-11-06, after the shortcut pages)
 
@@ -23,7 +23,8 @@ not yet.
   Gameplay, Controls, Shortcuts): the general shortcuts and the playing system's, as this
   game's keys.
 - Build order, each checked on the device before the next: the per-game file and the
-  Screen overrides; then Shortcuts; then Controls; then the shelf's system first.
+  Screen overrides; then Shortcuts; then Controls; then the shelf's system first
+  (shelved).
 
 ## Step 1 as built
 
@@ -45,7 +46,7 @@ not yet.
   footer offers Y (Default) only there.
 - The game's own value is drawn in `GAME_INK` (amber, `slot_ui::quick_menu`), a multiply
   over its pale face (`Draw::Tinted`). The user checked it on the device on 2026-11-06 and
-  kept it; the shelf's system first takes the same ink.
+  kept it. Amber means only this: a game's own value.
 - A row whose footer spreads three legends (Back, Default, Change) shows the full slot
   bar behind them, as binding rows do (`spreads_legends`).
 ## Step 2 as built: shortcuts and Gameplay
@@ -134,17 +135,19 @@ same rules.
 - **Tint:** a game's own value is drawn in the accent ink; a value that follows the system
   is drawn as now.
 
-## The shelf's system first
+## The shelf's system first (shelved)
 
-When the shelf shows one system:
+Shelved by the user on 2026-11-06: amber already means a game's own value, and seeing it
+mean something else elsewhere would confuse. If it comes back it needs another cue. As
+agreed before then, when the shelf shows one system:
 
 - Settings > Screen lists General first, then that system, then the rest in the usual
   order. Controls > In-Game lists that system first.
 - That system's row label is drawn in the accent ink.
 - On Recents and Favorites, both lists keep their usual order and no tint.
 
-One ink means one thing: **this is about what you're looking at** (the system on the
-shelf, the game in the slot): the amber of a game's own values.
+(The plan was one ink for "what you're looking at", the system on the shelf and the game
+in the slot alike; it is what was given up.)
 
 ## What it needs in the code
 
@@ -162,6 +165,6 @@ shelf, the game in the slot): the amber of a game's own values.
    on values.
 2. The in-game Shortcuts page, with the game's own keys; and Gameplay per game.
 3. Controls per game: the in-game Controls page edits the game.
-4. The shelf's system first and tinted, on Screen and Controls > In-Game.
+4. The shelf's system first and tinted, on Screen and Controls > In-Game (shelved).
 
 Each step is tested on the device before the next.

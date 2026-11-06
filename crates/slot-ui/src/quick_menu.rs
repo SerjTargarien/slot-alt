@@ -2206,8 +2206,8 @@ pub struct QuickMenuFaces {
 }
 
 /// Slot²: the ink of a game's own value (design/game-overrides.md), multiplied over the
-/// value's pale face. Amber, chosen with the user on the device (2026-11-06); the shelf's
-/// own system is to take it too.
+/// value's pale face. Amber, chosen with the user on the device (2026-11-06), and only
+/// ever meaning that: a game's own value.
 pub const GAME_INK: [f32; 4] = [1.0, 0.72, 0.28, 1.0];
 
 pub struct QuickMenu<'a> {
