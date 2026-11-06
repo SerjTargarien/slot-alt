@@ -149,9 +149,12 @@ fn y_puts_the_row_back_at_once_and_saves_it() {
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
     assert_eq!(row_of(&a, Input::A), default_row(Platform::Gba, Input::A));
     assert_eq!(row_of(&a, Input::R), [None, None, None], "only that row");
-    let saved = read_system_controls(d.path(), Platform::Gba);
-    assert_eq!(saved.row(Input::A), default_row(Platform::Gba, Input::A));
-    assert_eq!(saved.row(Input::R), [None, None, None]);
+    // Slot²: in a game the rows are the game's own; Y gives the row back to the system.
+    let own = slot_store::games::read_game(d.path(), Platform::Gba, "Emerald").controls;
+    assert!(!own.has(Input::A));
+    assert!(own.has(Input::R));
+    let system = read_system_controls(d.path(), Platform::Gba);
+    assert_eq!(system.row(Input::R), default_row(Platform::Gba, Input::R));
 }
 
 #[test]
@@ -204,21 +207,25 @@ fn reset_all_on_the_shortcut_and_shelf_pages_resets_only_that_page() {
 }
 
 #[test]
-fn a_change_in_game_is_saved_at_once_for_every_game_of_that_system() {
+fn a_change_in_game_is_saved_at_once_as_that_games_own() {
     let (d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameA);
     bind(&mut a, &tap_bind(Btn::X));
     let added = [plain(Device::A), plain(Device::X), None];
+    assert!(a.game_owns_row(QuickRow::GameA));
     assert_eq!(
         read_system_controls(d.path(), Platform::Gba).row(Input::A),
+        default_row(Platform::Gba, Input::A),
+        "the GBA's own controls are the shelf's to set"
+    );
+    assert_eq!(
+        row_of(&app_playing_in(d.path(), "Emerald"), Input::A),
         added
     );
-    write_gb_cart(&d, "Tetris", "TETRIS");
-    assert_eq!(row_of(&app_playing_in(d.path(), "Fusion"), Input::A), added);
     assert_eq!(
-        row_of(&app_playing_in(d.path(), "Tetris"), Input::A),
-        default_row(Platform::Gb, Input::A),
-        "a Game Boy game keeps its own"
+        row_of(&app_playing_in(d.path(), "Fusion"), Input::A),
+        default_row(Platform::Gba, Input::A),
+        "another GBA game follows the system"
     );
 }
 

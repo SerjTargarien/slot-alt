@@ -7,6 +7,7 @@ use std::path::Path;
 use common::{app_playing_in, tmp_root_with_carts, StubSnapshot};
 use slot::app::App;
 use slot_input::{Action, Btn, RawEvent};
+use slot_store::controls::Input;
 use slot_store::games::{game_file, read_game};
 use slot_store::{
     read_slot_state, write_slot_state, Core, Platform, Shader, Shortcut, SlotState, StateRing,
@@ -333,4 +334,60 @@ fn a_shortcut_line_that_means_nothing_leaves_the_file() {
         std::fs::read_to_string(game_file(d.path(), Platform::Gba, "Emerald")).unwrap(),
         "later=kept\n"
     );
+}
+
+fn to_controls_row(a: &mut App, row: QuickRow) {
+    a.apply(Action::QuickMenu);
+    for step in [QuickRow::Settings, QuickRow::PlayControls, row] {
+        for _ in 0..24 {
+            if a.in_game_menu() == Some(step) {
+                break;
+            }
+            press(a, Btn::Down);
+        }
+        assert_eq!(a.in_game_menu(), Some(step), "never reached {step:?}");
+        if step != row {
+            press(a, Btn::A);
+        }
+    }
+}
+
+fn bind_tap(a: &mut App, b: Btn) {
+    press(a, Btn::A);
+    assert!(a.capturing());
+    a.capture_input(RawEvent::Down(b));
+    a.capture_input(RawEvent::Up(b));
+    assert!(!a.capturing());
+}
+
+#[test]
+fn a_controls_row_set_back_to_the_systems_follows_the_system_again() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    to_controls_row(&mut a, QuickRow::GameUp);
+    let system = a.controls_of(Platform::Gba).row(Input::Up);
+    press(&mut a, Btn::X);
+    assert!(a.game_owns_row(QuickRow::GameUp));
+    assert_ne!(a.controls_of(Platform::Gba).row(Input::Up), system);
+    // The left stick's up was the row's last binding; binding it again puts it back.
+    bind_tap(&mut a, Btn::LsUp);
+    assert_eq!(a.controls_of(Platform::Gba).row(Input::Up), system);
+    assert!(!a.game_owns_row(QuickRow::GameUp));
+    assert!(!game_file(d.path(), Platform::Gba, "Emerald").exists());
+}
+
+#[test]
+fn the_games_own_controls_decide_which_shortcuts_give_way() {
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    let fast = |a: &App| {
+        a.input_entries()
+            .iter()
+            .any(|e| e.action == Action::FfStart)
+    };
+    let mut a = app_playing_in(d.path(), "Emerald");
+    assert!(fast(&a), "R2 fast-forwards");
+    to_controls_row(&mut a, QuickRow::GameA);
+    bind_tap(&mut a, Btn::R2);
+    assert!(!fast(&a), "Emerald's A is on R2 now, so the game has it");
+    assert!(fast(&app_playing_in(d.path(), "Fusion")), "Fusion's isn't");
 }

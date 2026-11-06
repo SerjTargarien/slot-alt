@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::bindings::{Binding, Shortcut};
-use crate::controls::system_key;
+use crate::controls::{inputs, parse_row, row_text, system_key, Input, Row, SystemControls};
 use crate::gb_palette::{GbColors, GbPalette};
 use crate::platform::Platform;
 use crate::slot_state::{
@@ -549,6 +549,78 @@ impl GameShortcuts {
     }
 }
 
+/// A game's own controls rows, over its system's: each `None` follows the system.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct GameControls {
+    rows: [Option<Row>; Input::COUNT],
+}
+
+impl Default for GameControls {
+    fn default() -> Self {
+        GameControls {
+            rows: [None; Input::COUNT],
+        }
+    }
+}
+
+const CONTROL_PREFIX: &str = "control.";
+
+impl GameControls {
+    fn at(input: Input) -> usize {
+        Input::ALL.iter().position(|i| *i == input).unwrap_or(0)
+    }
+
+    /// The game's controls: its own rows over `system`'s.
+    pub fn apply(&self, system: &SystemControls) -> SystemControls {
+        let mut c = *system;
+        for input in Input::ALL {
+            if let Some(row) = self.rows[Self::at(input)] {
+                c.set_row(input, row);
+            }
+        }
+        c
+    }
+
+    /// Keeps as the game's own every row of `now` that isn't `system`'s.
+    pub fn record(&mut self, platform: Platform, system: &SystemControls, now: &SystemControls) {
+        for input in Input::ALL {
+            let own = inputs(platform).contains(&input) && now.row(input) != system.row(input);
+            self.rows[Self::at(input)] = own.then(|| now.row(input));
+        }
+    }
+
+    pub fn has(&self, input: Input) -> bool {
+        self.rows[Self::at(input)].is_some()
+    }
+
+    /// The row follows the system again.
+    pub fn clear(&mut self, input: Input) {
+        self.rows[Self::at(input)] = None;
+    }
+
+    fn text(&self) -> String {
+        Input::ALL
+            .into_iter()
+            .filter_map(|i| {
+                let row = self.rows[Self::at(i)]?;
+                Some(format!("{CONTROL_PREFIX}{}={}\n", i.key(), row_text(row)))
+            })
+            .collect()
+    }
+
+    /// Takes a `control.` line; whether it was one. One naming an input the game's system
+    /// hasn't is dropped, as a shortcut line is.
+    fn read(&mut self, platform: Platform, key: &str, value: &str) -> bool {
+        let Some(name) = key.strip_prefix(CONTROL_PREFIX) else {
+            return false;
+        };
+        if let Some(input) = Input::parse(name).filter(|i| inputs(platform).contains(i)) {
+            self.rows[Self::at(input)] = Some(parse_row(value));
+        }
+        true
+    }
+}
+
 /// Everything one game changed from its system.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct GameSettings {
@@ -557,6 +629,7 @@ pub struct GameSettings {
     pub screen: ScreenOverrides,
     pub play: PlayOverrides,
     pub shortcuts: GameShortcuts,
+    pub controls: GameControls,
     /// Lines this build doesn't know, kept as they were.
     other: Vec<(String, String)>,
 }
@@ -570,6 +643,7 @@ impl GameSettings {
             screen: ScreenOverrides::default(),
             play: PlayOverrides::default(),
             shortcuts: GameShortcuts::default(),
+            controls: GameControls::default(),
             other: Vec::new(),
         }
     }
@@ -592,6 +666,7 @@ impl GameSettings {
             }
         }
         text.push_str(&self.shortcuts.text());
+        text.push_str(&self.controls.text());
         for (k, v) in &self.other {
             text.push_str(&format!("{k}={v}\n"));
         }
@@ -615,7 +690,8 @@ pub fn read_game(root: &Path, platform: Platform, stem: &str) -> GameSettings {
         let (key, value) = (key.trim(), value.trim());
         let known = game.screen.read(key, value)
             || game.play.read(key, value)
-            || game.shortcuts.read(key, value);
+            || game.shortcuts.read(key, value)
+            || game.controls.read(platform, key, value);
         if !known {
             game.other.push((key.to_string(), value.to_string()));
         }

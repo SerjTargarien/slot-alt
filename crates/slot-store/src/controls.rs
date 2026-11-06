@@ -128,7 +128,7 @@ impl Input {
         )
     }
 
-    fn parse(key: &str) -> Option<Input> {
+    pub(crate) fn parse(key: &str) -> Option<Input> {
         Input::ALL
             .into_iter()
             .find(|i| i.key().eq_ignore_ascii_case(key.trim()))
@@ -301,19 +301,7 @@ impl SystemControls {
         inputs(platform)
             .iter()
             .filter(|&&input| self.rows[input.index()] != default_row(platform, input))
-            .map(|&input| {
-                let row = self.rows[input.index()];
-                let values: Vec<String> = row
-                    .into_iter()
-                    .flatten()
-                    .map(|b| Binding::key(Some(b)))
-                    .collect();
-                let value = match values.is_empty() {
-                    true => "none".to_string(),
-                    false => values.join(","),
-                };
-                format!("{}={value}\n", input.key())
-            })
+            .map(|&input| format!("{}={}\n", input.key(), row_text(self.rows[input.index()])))
             .collect()
     }
 
@@ -322,22 +310,38 @@ impl SystemControls {
             let Some(input) = Input::parse(key).filter(|i| inputs(platform).contains(i)) else {
                 continue;
             };
-            let mut row = [None; SLOTS];
-            let mut at = 0;
-            for part in value.split(',') {
-                match Binding::parse(part) {
-                    Some(Some(b)) if at < SLOTS => {
-                        row[at] = Some(b);
-                        at += 1;
-                    }
-                    Some(_) => {}
-                    None => {}
-                }
-            }
-            base.rows[input.index()] = row;
+            base.rows[input.index()] = parse_row(value);
         }
         base
     }
+}
+
+/// A row as a file holds it: its bindings, oldest first, or `none`.
+pub(crate) fn row_text(row: Row) -> String {
+    let values: Vec<String> = row
+        .into_iter()
+        .flatten()
+        .map(|b| Binding::key(Some(b)))
+        .collect();
+    match values.is_empty() {
+        true => "none".to_string(),
+        false => values.join(","),
+    }
+}
+
+/// A row from its text, skipping what isn't a binding.
+pub(crate) fn parse_row(value: &str) -> Row {
+    let mut row = [None; SLOTS];
+    let mut at = 0;
+    for part in value.split(',') {
+        if let Some(Some(b)) = Binding::parse(part) {
+            if at < SLOTS {
+                row[at] = Some(b);
+                at += 1;
+            }
+        }
+    }
+    row
 }
 
 fn default_row(platform: Platform, input: Input) -> Row {

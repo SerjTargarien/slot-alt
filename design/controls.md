@@ -94,8 +94,10 @@ files, so nothing a user set is lost.
 
 ## Menus
 
-- Settings > Controls > In-Game lists the systems; each opens its page. In a game, the
-  in-game Controls page is the playing system's.
+- Settings > Controls > In-Game lists the systems; each opens its page and sets that
+  system's controls. In a game, the in-game Controls page sets the game's own rows over
+  its system's, and Y puts a row back to the system's (2026-11-06,
+  [game-overrides.md](game-overrides.md)).
 - A row shows the input and its bindings: `Y1      RS Up · L1+Up`.
 - On a row: **A** adds a binding (press the buttons to bind; with three already, it
   replaces the oldest), **X** removes the last one, **Y** puts the row back to its default.

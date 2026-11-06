@@ -6,7 +6,7 @@ use slot_gfx::{Canvas, GameLayout, Sizing, OUT_H, OUT_W, WHOLE_TEXTURE};
 use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
-use slot_store::controls::{inputs, AllControls, SystemControls};
+use slot_store::controls::{inputs, system_key, AllControls, Input, SystemControls};
 use slot_store::games::{read_game, write_game, GameSettings, PlaySetting, ScreenSetting};
 use slot_store::shortcuts::{
     has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
@@ -601,6 +601,8 @@ pub struct App {
     editing_game: bool,
     /// The shelf's shortcut page open: General (`None`) or a system's.
     shortcut_page: Option<Platform>,
+    /// The game in the slot's controls: its own rows over its system's.
+    game_controls: Option<SystemControls>,
     vol_before: Vec<(u8, bool, Millis)>,
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
@@ -1073,6 +1075,7 @@ impl App {
             game_view: None,
             editing_game: false,
             shortcut_page: None,
+            game_controls: None,
             vol_before: Vec::new(),
             snapshot: None,
             core: Core::default(),
@@ -2879,6 +2882,10 @@ impl App {
     }
 
     fn build_game_view(&mut self) {
+        self.game_controls = self
+            .game
+            .as_ref()
+            .map(|g| g.controls.apply(self.controls.get(g.platform)));
         self.game_view = self.game.as_ref().map(|g| {
             let mut view = self.state.clone();
             view.set_screen(g.platform, &g.screen.apply(&self.state.screen(g.platform)));
@@ -2980,6 +2987,7 @@ impl App {
                 GameSetting::Screen(s) => game.screen.clear(s),
                 GameSetting::Play(s) => game.play.clear(s),
                 GameSetting::Key(s) => game.shortcuts.clear(s),
+                GameSetting::Control(i) => game.controls.clear(i),
             }
         }
         self.keep_game();
@@ -3003,6 +3011,7 @@ impl App {
             GameSetting::Screen(s) => g.screen.has(s),
             GameSetting::Play(s) => g.play.has(s),
             GameSetting::Key(s) => g.shortcuts.has(s),
+            GameSetting::Control(i) => g.controls.has(i),
         })
     }
 
@@ -3621,7 +3630,15 @@ impl App {
     }
 
     /// A system's controls (the GBA's for a GBA game played on the Game Boy Player).
+    /// A system's controls; in a game of that system, the game's (its own rows over the
+    /// system's).
     pub fn controls_of(&self, platform: Platform) -> &SystemControls {
+        let game = self.game_in_slot().map(|g| system_key(g.platform));
+        if let (Some(key), Some(c)) = (game, &self.game_controls) {
+            if key == system_key(platform) {
+                return c;
+            }
+        }
         self.controls.get(platform)
     }
 
@@ -3891,6 +3908,20 @@ impl App {
     /// Changes a controls row on the open page and writes that system's file.
     fn edit_controls(&mut self, edit: impl FnOnce(&mut SystemControls, Platform)) {
         let platform = self.controls_page();
+        // Slot²: in a game, the rows changed are the game's own.
+        let game = self
+            .game_in_slot()
+            .map(|g| g.platform)
+            .filter(|p| system_key(*p) == system_key(platform));
+        if let Some(game_platform) = game {
+            let mut now = *self.controls_of(platform);
+            edit(&mut now, platform);
+            let system = *self.controls.get(platform);
+            if let Some(g) = &mut self.game {
+                g.controls.record(game_platform, &system, &now);
+            }
+            return self.keep_game();
+        }
         edit(self.controls.get_mut(platform), platform);
         if let Some(root) = &self.root {
             let written = self.controls.write(root, platform);
@@ -4824,6 +4855,10 @@ impl App {
             match action {
                 Action::GbaDown(Btn::A) => return self.start_capture(row),
                 Action::GbaDown(Btn::X) => return self.edit_controls(|c, _| c.remove_last(input)),
+                // Slot²: in a game, Y puts a row back to the system's.
+                Action::GbaDown(Btn::Y) if self.game_in_slot().is_some() => {
+                    return self.clear_game_row(row)
+                }
                 Action::GbaDown(Btn::Y) => return self.edit_controls(|c, p| c.reset(p, input)),
                 Action::GbaDown(Btn::Left | Btn::Right) => return,
                 _ => {}
@@ -6779,8 +6814,7 @@ impl App {
                 disabled: self.disabled_rows(),
                 // The shelf's pages set the systems' own values.
                 own: &[],
-                // Controls are the same for every game, so from the shelf the
-                // turbo rows keep their own names.
+                // The shelf's pages show the systems' own controls.
                 controls: self.controls_page(),
                 bound: Some(&self.bound_faces()),
                 description: self.description(*row),
@@ -7229,7 +7263,12 @@ impl App {
             };
         if let Some(input) = row.input() {
             let mut legends = vec![back];
-            if !self.page_is_default(row) {
+            // In a game, Y puts a row back to the system's; on the shelf, to the default.
+            let changed = match self.in_game_menu.is_some() && self.game_in_slot().is_some() {
+                true => self.game_owns_row(row),
+                false => !self.page_is_default(row),
+            };
+            if changed {
                 legends.push(default);
             }
             if self
@@ -8029,6 +8068,9 @@ impl App {
         }
         self.close_game_menu();
         self.flush_eject(&cart, keep_state);
+        // The game's own settings leave with it; the next game in loads its own.
+        self.game = None;
+        self.build_game_view();
         self.pending = None;
         self.refusal = None;
         self.refused_from = None;
@@ -13089,6 +13131,7 @@ enum GameSetting {
     Screen(ScreenSetting),
     Play(PlaySetting),
     Key(Shortcut),
+    Control(Input),
 }
 
 /// The setting an in-game row sets as the game's own.
@@ -13108,7 +13151,10 @@ fn game_setting(row: QuickRow) -> Option<GameSetting> {
         QuickRow::Rumble => Play(PlaySetting::Rumble),
         QuickRow::AutoLoad => Play(PlaySetting::AutoLoad),
         QuickRow::EjectSave => Play(PlaySetting::EjectSave),
-        r => GameSetting::Key(r.shortcut()?),
+        r => match r.input() {
+            Some(input) => GameSetting::Control(input),
+            None => GameSetting::Key(r.shortcut()?),
+        },
     })
 }
 

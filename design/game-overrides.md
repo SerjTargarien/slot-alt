@@ -1,7 +1,8 @@
 # Game overrides: system defaults, a game's own values
 
 Status: agreed with the user on 2026-11-06; decisions of the same day below ("Decided").
-Steps 1 (screen) and 2 (shortcuts, and Gameplay with them) built; steps 3 and 4 not yet.
+Steps 1 (screen), 2 (shortcuts, and Gameplay with them) and 3 (controls) built; step 4
+not yet.
 
 ## Decided (2026-11-06, after the shortcut pages)
 
@@ -66,6 +67,20 @@ Steps 1 (screen) and 2 (shortcuts, and Gameplay with them) built; steps 3 and 4 
   follows the shelf again and leaves the file, as a Screen value does. A `shortcut.` line
   naming no shortcut or no key is dropped (the game follows the shelf's key) and leaves
   the file when it is next written.
+
+## Step 3 as built: controls
+
+- In a game, Settings > Controls sets the game's own rows (`GameControls`, `control.<input>=`
+  lines of its file, bindings as in `Config/controls/<system>.txt`). A, X and Y work as on
+  the shelf, but Y puts the row back to the system's, not the default, and the footer
+  offers it only on a row of the game's own, drawn in amber. A row set back to the
+  system's follows the system again and leaves the file.
+- Everything that reads a system's controls in a game reads the game's
+  (`App::controls_of`): the pad the core sees, the clash flags, and the rule that the
+  game's input wins over a shortcut on the same button, so a shortcut gives way only in
+  the game whose own controls take its button.
+- The shelf's Controls > In-Game pages set the systems' controls. A game's settings are
+  dropped when it leaves the slot and read again when it starts.
 
 - Left as they were: `video_mode.txt`, upstream's per-game stretch on 4:3 panels, where
   the stretch has no system value to follow; and `nds_view.txt`, the DS's screens, layout

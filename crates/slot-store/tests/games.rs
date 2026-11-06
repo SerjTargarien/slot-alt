@@ -87,3 +87,26 @@ fn a_games_gameplay_and_keys_read_back() {
         "follows the shelf"
     );
 }
+
+#[test]
+fn a_games_own_controls_rows_read_back_and_others_are_dropped() {
+    use slot_store::controls::{Input, SystemControls};
+    let d = tempfile::tempdir().unwrap();
+    let system = SystemControls::default_for(Platform::Gb);
+    let mut now = system;
+    now.add(Input::A, Binding::plain(Device::Y).unwrap());
+    now.set_row(Input::Up, [None; 3]);
+    let mut game = GameSettings::new(Platform::Gb, "Tetris");
+    game.controls.record(Platform::Gb, &system, &now);
+    assert!(game.controls.has(Input::A) && game.controls.has(Input::Up));
+    assert!(!game.controls.has(Input::B));
+    write_game(d.path(), &game).unwrap();
+    let file = game_file(d.path(), Platform::Gb, "Tetris");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("control.up=none\n"), "{text}");
+    // A Game Boy has no L: a line for it means nothing here.
+    std::fs::write(&file, format!("{text}control.l=r1\n")).unwrap();
+    let back = read_game(d.path(), Platform::Gb, "Tetris");
+    assert_eq!(back.controls, game.controls);
+    assert_eq!(back.controls.apply(&system), now);
+}

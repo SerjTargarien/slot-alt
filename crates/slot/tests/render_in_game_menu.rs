@@ -379,3 +379,38 @@ fn the_in_game_shortcuts_page_renders_the_systems_own_first() {
     assert!(f.app().game_owns_row(QuickRow::ScColour));
     composed(&mut f, &mut c, "shortcuts-own");
 }
+
+#[test]
+fn a_games_own_controls_row_renders_in_its_ink() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::A);
+    run_for(&mut f, &mut input, 4.0);
+    tap(&mut f, &mut input, Btn::Menu);
+    run_for(&mut f, &mut input, 0.4);
+    for step in [QuickRow::Settings, QuickRow::PlayControls] {
+        for _ in 0..12 {
+            if f.app().in_game_menu() == Some(step) {
+                break;
+            }
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        assert_eq!(f.app().in_game_menu(), Some(step));
+        tap(&mut f, &mut input, Btn::A);
+    }
+    run_for(&mut f, &mut input, 0.3);
+    assert_eq!(f.app().in_game_menu(), Some(QuickRow::GameUp));
+    tap(&mut f, &mut input, Btn::X);
+    run_for(&mut f, &mut input, 0.3);
+    assert!(f.app().game_owns_row(QuickRow::GameUp));
+    composed(&mut f, &mut c, "controls-own");
+}
