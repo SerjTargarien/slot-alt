@@ -6,7 +6,7 @@ use slot_gfx::{Canvas, GameLayout, Sizing, OUT_H, OUT_W, WHOLE_TEXTURE};
 use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
-use slot_store::controls::{inputs, AllControls, Input, SystemControls};
+use slot_store::controls::{inputs, AllControls, SystemControls};
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Blending, Cart,
     Core, GbColors, Platform, Recent, Scale, Shader, ShotDir, ShotEntry, SlotState, StateEntry,
@@ -3362,25 +3362,36 @@ impl App {
 
     /// The shortcuts the input layer listens for now. Stretch On and Off only apply where a
     /// game can stretch, so in a GBA or DS game their keys stay free.
-    /// In a DS game its own controls (Swap Screens, Next Layout, Stylus) win over a shortcut
-    /// on the same keys, as they always have.
+    /// In a game, the game's own controls win: a shortcut that needs a button one of the
+    /// playing system's inputs uses (see `input::collides`) is left out of the game, and
+    /// still works on the shelf and in menus. The menus flag the clash. Fast forward at
+    /// speed 0 and rewind switched off (or never recorded, as in a DS game) aren't listened
+    /// for at all, so their keys are the game's.
     pub fn input_entries(&self) -> Vec<slot_input::Entry> {
+        let off = |a: Action| match a {
+            Action::FfStart | Action::FfToggle => self.state.ff_speed == 0,
+            Action::RewindStart => !self.may_rewind() || !self.records_rewind(),
+            _ => false,
+        };
         let platform = self.playing_platform();
         let stretches = stretches(platform);
-        let ds_keys: Vec<slot_input::Chord> = match platform {
-            Platform::Nds => [Input::SwapScreens, Input::NextLayout, Input::Stylus]
-                .into_iter()
-                .flat_map(|i| self.controls_of(platform).bindings(i))
-                .map(crate::input::chord)
-                .collect(),
-            _ => Vec::new(),
-        };
+        let game: Vec<slot_input::Chord> = inputs(platform)
+            .iter()
+            .flat_map(|&i| self.controls_of(platform).bindings(i))
+            .map(crate::input::chord)
+            .collect();
         let shortcut = |a: Action| !matches!(a, Action::SelectChordDown(_));
         self.binding_table()
             .entries()
             .into_iter()
             .filter(|e| stretches || !matches!(e.action, Action::StretchOn | Action::StretchOff))
-            .filter(|e| !(shortcut(e.action) && ds_keys.contains(&e.chord)))
+            .filter(|e| !off(e.action))
+            .filter_map(|mut e| {
+                if shortcut(e.action) && game.iter().any(|g| crate::input::collides(e.chord, *g)) {
+                    e.contexts = e.contexts.without(slot_input::Contexts::GAME);
+                }
+                (!e.contexts.is_empty()).then_some(e)
+            })
             .collect()
     }
 

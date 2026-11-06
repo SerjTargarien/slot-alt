@@ -104,6 +104,15 @@ impl Contexts {
     pub fn meets(self, other: Contexts) -> bool {
         self.0 & other.0 != 0
     }
+
+    /// Slot²: these contexts but those in `other`.
+    pub fn without(self, other: Contexts) -> Contexts {
+        Contexts(self.0 & !other.0)
+    }
+
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

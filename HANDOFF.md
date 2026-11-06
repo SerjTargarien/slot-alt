@@ -111,18 +111,29 @@ The order is decided with the user at the start of a session; see the list below
    turbo gone, the WonderSwan's Y pad on the right stick and shoulders, the DS stylus on
    the right stick and R2, built 2026-11-06; to check on the device. More systems as the
    user plays them.
-2. **Game overrides and the shelf's system first**
+2. **Shortcuts per system and per game** ([design/shortcuts.md](design/shortcuts.md)):
+   the game's input wins over a shortcut (built 2026-11-06); then General plus a page per
+   system; then per-game keys, with the per-game screen settings.
+3. **Game overrides and the shelf's system first**
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
-3. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it) against
+4. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+   listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
+   once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
+   2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
+   or a sync writes, when a Screen page opens) and the shortcut list (rebuild when bindings,
+   the game or the context change). In menus it's worse (every system's bezel folder, a
+   table per controls row drawn). Separately: the shelf waits for cart faces while
+   scrolling. Upstream's code: worth offering upstream.
+5. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it) against
    today's, timed, before anything else on DS speed ([cores/README.md](cores/README.md)).
-4. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
+6. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
    by itself. A game that changes orientation mid-game needs a way to follow it (by hand,
    or from the core), and upright games want checking too.
-5. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
-6. Bezels at Integer and Fit for the new systems.
-7. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
+7. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
+8. Bezels at Integer and Fit for the new systems.
+9. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
    recompiler fixes) and Gearsystem (3.9.24).
-8. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+10. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
 
 Waiting on a decision or an outside party:
@@ -130,6 +141,8 @@ Waiting on a decision or an outside party:
 - The `adc-joystick` fix, to send to the kernel (`os/.../0004-...patch`).
 - Input backlog ([design/input-layers.md](design/input-layers.md)): one merged input, only
   if the D-pad and stick ever misbehave.
+- SELECT is held back up to 600 ms in games while SELECT chords exist
+  ([design/shortcuts.md](design/shortcuts.md), Later).
 - Turbo as a feature (removed as an input on 2026-11-06): one way for every system, such as
   a MENU chord that makes whatever is held auto-fire.
 

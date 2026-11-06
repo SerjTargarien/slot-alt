@@ -182,7 +182,7 @@ fn the_fast_forward_settings_reach_the_emulator() {
 }
 
 #[test]
-fn with_fast_forward_off_holding_it_is_refused_and_the_game_keeps_its_pace() {
+fn with_fast_forward_off_its_key_does_nothing_and_the_game_keeps_its_pace() {
     let d = common::tmp_root_with_carts(&["Emerald"]);
     write_slot_state(
         d.path(),
@@ -204,10 +204,12 @@ fn with_fast_forward_off_holding_it_is_refused_and_the_game_keeps_its_pace() {
         std::thread::sleep(Duration::from_millis(1));
     }
 
+    // Slot²: with fast forward off its keys aren't listened for at all: no refusal, and
+    // the press is the game's.
     step(&mut s, &mut now, Some(RawEvent::Down(Btn::R2)));
     assert!(
-        s.app().refusal_active(now),
-        "holding fast forward with it off was not refused"
+        !s.app().refusal_active(now),
+        "fast forward switched off still answered its key"
     );
     assert!(badge(&s).is_none(), "fast forward ran with it off");
     step(&mut s, &mut now, Some(RawEvent::Up(Btn::R2)));

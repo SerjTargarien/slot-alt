@@ -300,3 +300,42 @@ fn the_ds_stylus_is_the_right_stick_and_r2_and_leaves_the_game_its_buttons() {
         "the D-pad steers it"
     );
 }
+
+#[test]
+fn chords_collide_when_they_need_a_button_in_the_same_layer() {
+    use slot::input::collides;
+    use slot_input::{Chord, Mod};
+    let plain = |button| Chord {
+        modifier: None,
+        button,
+    };
+    let with = |m, button| Chord {
+        modifier: Some(m),
+        button,
+    };
+    assert!(collides(plain(Btn::L1), plain(Btn::L1)));
+    assert!(
+        collides(plain(Btn::L1), with(Mod::Button(Btn::L1), Btn::Up)),
+        "L1 alone takes the L1 of L1+Up"
+    );
+    assert!(
+        !collides(plain(Btn::L1), with(Mod::Menu, Btn::L1)),
+        "MENU+L1 is its own"
+    );
+    assert!(
+        !collides(plain(Btn::X), with(Mod::Select, Btn::X)),
+        "and SELECT+X"
+    );
+    assert!(collides(
+        with(Mod::Select, Btn::X),
+        with(Mod::Select, Btn::X)
+    ));
+    assert!(
+        !collides(with(Mod::Button(Btn::Start), Btn::L2), plain(Btn::Start)),
+        "START leads: it reaches the game, only L2 is taken"
+    );
+    assert!(collides(
+        with(Mod::Button(Btn::Start), Btn::L2),
+        plain(Btn::L2)
+    ));
+}

@@ -3,7 +3,7 @@ use slot_store::controls::{inputs, SystemControls};
 use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
-use super::bind::{chord, device_btn, shortcut_action};
+use super::bind::{chord, collides, device_btn, shortcut_action};
 
 #[derive(Copy, Clone, Debug)]
 struct Row {
@@ -86,9 +86,11 @@ impl Table {
 
     /// Another row sharing one of this row's bindings. A system's inputs are checked
     /// against its own inputs and the shortcuts; the Stretch shortcuts only where that
-    /// system stretches.
+    /// system stretches. A shortcut that needs a button an input uses clashes with it
+    /// (in a game the input wins and the shortcut is left out).
     pub fn clash(&self, row: QuickRow) -> Option<QuickRow> {
         let console = |r: &Row| r.action.is_none();
+        let game = |r: &Row| r.row.input().is_some();
         self.rows.iter().filter(|m| m.row == row).find_map(|mine| {
             self.rows
                 .iter()
@@ -96,6 +98,8 @@ impl Table {
                 .filter(|r| !self.apart(mine.row, r.row))
                 .find(|r| {
                     r.binding == mine.binding
+                        || (game(mine) != game(r)
+                            && collides(chord(mine.binding), chord(r.binding)))
                         || (!console(mine)
                             && !console(r)
                             && (overlaps(mine.binding, r.binding)

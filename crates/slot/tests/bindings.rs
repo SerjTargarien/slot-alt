@@ -695,10 +695,11 @@ fn a_pair_of_console_buttons_is_not_a_clash() {
 
 #[test]
 fn a_pair_holding_another_shortcuts_button_names_it() {
+    // R2 with L1, which the Game Boy's controls leave free.
     let (_d, s) = bind_save_state(&[
         RawEvent::Down(Btn::R2),
-        RawEvent::Down(Btn::A),
-        RawEvent::Up(Btn::A),
+        RawEvent::Down(Btn::L1),
+        RawEvent::Up(Btn::L1),
         RawEvent::Up(Btn::R2),
     ]);
     assert_eq!(
@@ -914,4 +915,65 @@ fn binding_fast_forward_toggle_to_r2_takes_it_from_fast_forward_without_a_toast(
         Binding::plain(Device::R2)
     );
     assert_eq!(keys.get(Shortcut::FastForward), None);
+}
+
+fn playing_wonderswan() -> (TempDir, App) {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let ws = d.path().join("Games/WS");
+    std::fs::create_dir_all(&ws).unwrap();
+    std::fs::write(ws.join("Swan.ws"), vec![0u8; 0x10000]).unwrap();
+    let a = app_playing_in(d.path(), "Swan");
+    assert_eq!(a.playing_platform(), Platform::Ws);
+    (d, a)
+}
+
+/// Whether the input layer listens for `chord` in a game.
+fn in_game(a: &App, modifier: Option<slot_input::Mod>, button: Btn) -> bool {
+    a.input_entries().iter().any(|e| {
+        e.chord == slot_input::Chord { modifier, button }
+            && e.contexts.has(slot_input::Context::Game)
+    })
+}
+
+#[test]
+fn in_a_game_its_controls_win_over_a_shortcut_on_the_same_button() {
+    // Fast Forward is on R2 and Rewind on L2 by default; the WonderSwan's Y pad uses both.
+    let (_d, ws) = playing_wonderswan();
+    assert!(!in_game(&ws, None, Btn::R2), "R2 is the WonderSwan's Y3");
+    assert!(!in_game(&ws, None, Btn::L2), "L2 is its Y1");
+    let (_d, gba) = playing("Emerald");
+    assert!(in_game(&gba, None, Btn::R2), "a GBA game keeps fast forward on R2");
+    assert!(
+        in_game(&gba, Some(slot_input::Mod::Select), Btn::R1),
+        "and SELECT chords"
+    );
+    // The page says so.
+    assert_eq!(ws.clash(QuickRow::ScFastForward), Some(QuickRow::GameY3));
+}
+
+#[test]
+fn fast_forward_and_rewind_switched_off_leave_their_keys_alone() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let state = slot_store::SlotState {
+        cart: Some("Emerald".into()),
+        clock_set: true,
+        ff_speed: 0,
+        rewind: false,
+        ..Default::default()
+    };
+    slot_store::write_slot_state(d.path(), &state).expect("write slot.state");
+    let mut a = App::boot(d.path());
+    a.set_snapshot(common::StubSnapshot::boxed());
+    a.on_core_ready();
+    for _ in 0..120 {
+        a.update(1.0 / 60.0);
+    }
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
+    assert!(!in_game(&a, None, Btn::R2), "fast forward at speed 0");
+    assert!(!in_game(&a, None, Btn::L2), "rewind switched off");
+    let entries = a.input_entries();
+    assert!(!entries.iter().any(|e| matches!(
+        e.action,
+        slot_input::Action::FfStart | slot_input::Action::RewindStart
+    )));
 }

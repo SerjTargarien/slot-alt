@@ -39,6 +39,30 @@ pub fn btn_device(b: Btn) -> Option<Device> {
     PAIRS.iter().find(|(_, x)| *x == b).map(|(d, _)| *d)
 }
 
+/// Slot²: whether a shortcut's chord takes a press a game binding needs. Plain buttons and
+/// two-button chords are one layer, MENU chords another, SELECT chords a third, and a
+/// shortcut only takes presses in its own layer: its button, and the first of a two-button
+/// chord unless that one leads (START reaches the game at once; only its partner is taken).
+pub fn collides(shortcut: Chord, game: Chord) -> bool {
+    fn layer(c: Chord) -> u8 {
+        match c.modifier {
+            None | Some(Mod::Button(_)) => 0,
+            Some(Mod::Menu) => 1,
+            Some(Mod::Select) => 2,
+        }
+    }
+    let first = |c: Chord| match c.modifier {
+        Some(Mod::Button(m)) => Some(m),
+        _ => None,
+    };
+    let takes = [
+        Some(shortcut.button),
+        first(shortcut).filter(|m| *m != Btn::Start),
+    ];
+    let needs = [Some(game.button), first(game)];
+    layer(shortcut) == layer(game) && takes.iter().flatten().any(|b| needs.contains(&Some(*b)))
+}
+
 pub fn chord(binding: Binding) -> Chord {
     Chord {
         modifier: binding.modifier.map(|m| match m {
