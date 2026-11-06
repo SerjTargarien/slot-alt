@@ -77,13 +77,11 @@ Done and checked on the device:
    WonderSwan has X1-X4 and Y1-Y4). Read `Controls`/`GameButton` (`slot-store`
    `bindings.rs`), the In-Game Controls page, `Pad::mask` and slotPlus's per-core masks
    (`session.rs`), then propose a design before building.
-2. **Install the renamed Base²** on the device if not done yet (new kernel suffix
-   `-basesq`, `/etc/basesq/`, `/data`, card files `basesq-*`). See "Renaming" below.
-3. The DS on the square screen: layouts that use it (stacked screens at about 1.9x).
-4. Check a vertical WonderSwan game and Klonoa's mid-game turn.
-5. Bezels at Integer and Fit for the new systems.
-6. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
-7. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
+2. The DS on the square screen: layouts that use it (stacked screens at about 1.9x).
+3. Check a vertical WonderSwan game and Klonoa's mid-game turn.
+4. Bezels at Integer and Fit for the new systems.
+5. Learn to build the cores ourselves (`cores/*/build.sh`) before adding more.
+6. Our own KMS HDMI (the RGB20SX has `HDMI-A-1`); link play when the second device
    arrives; our own U-Boot.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
@@ -92,7 +90,6 @@ Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall, NDS 230x250
 ## Renaming (2026-11-06)
 
 The OS was called "slot²" (`slotsq`) until 2026-11-06; it is Base² (`basesq`) now and
-"Slot²" is the frontend. On a device installed before then: the kernel is
-`7.2.11-slotsq` booted as `/Image.slotsq` with `device_trees/slotsq.dtb`, the scripts are
-in `/etc/slotsq/`, the hostname is `slotsq` and the card files are `slotsq-boot.log` and
-`slotsq-dev`. The new frontend script accepts both kernel suffixes.
+"Slot²" is the frontend. The device was moved over the same day (kernel `7.2.11-basesq`,
+`/etc/basesq/`, `/data`, card files `basesq-*`) and the old files removed. Older notes and
+logs still say `slotsq` for the OS.

@@ -28,8 +28,7 @@ export SLOT_RUN=/run
 # slot reads the device from /etc/slot-device. Our kernel reports FN as a key; ROCKNIX's
 # (the fallback, dev.sh kernel-back) drops it, so slot reads FN from the ADC there.
 case "$(uname -r)" in
-# -slotsq: our kernel before Base² got its name.
-*-basesq | *-slotsq) ;;
+*-basesq) ;;
 *) export SLOT_FN_ADC=/sys/bus/iio/devices/iio:device0/in_voltage0_raw ;;
 esac
 
