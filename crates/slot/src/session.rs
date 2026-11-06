@@ -54,6 +54,9 @@ pub struct Session {
     ws_portrait: bool,
     /// Rotate was down last frame, so a hold turns the game once.
     ws_rotate_held: bool,
+    /// The way the game last said, by the LCD's icons, it is held: upright (`true`) or
+    /// wide; `None` until it lights one.
+    ws_icon_said: Option<bool>,
     /// SELECT flips this Lynx game between the turned and the upright layout.
     lynx_select: bool,
     /// The Lynx game is held the usual way, drawn upright with bars at the sides.
@@ -95,6 +98,7 @@ impl Session {
             ws_vertical: false,
             ws_portrait: false,
             ws_rotate_held: false,
+            ws_icon_said: None,
             lynx_select: false,
             lynx_upright: false,
             lynx_held: "off",
@@ -480,14 +484,27 @@ impl Session {
             .contains(&Input::Rotate);
         let fresh = down && !self.ws_rotate_held;
         self.ws_rotate_held = down;
-        if !fresh || !self.playing() {
+        // The game says how it is held by lighting the LCD's vertical or horizontal
+        // icon; when it says something new, the picture follows. Rotate turns it by hand
+        // in between.
+        let said = self.emu.as_ref().and_then(|e| e.lcd_icons()).and_then(ws_icon_says);
+        let told = said.is_some() && said != self.ws_icon_said;
+        if said.is_some() {
+            self.ws_icon_said = said;
+        }
+        let to = match (fresh && self.playing(), told) {
+            (true, _) => !self.ws_portrait,
+            (false, true) => said.unwrap_or(self.ws_portrait),
+            (false, false) => return,
+        };
+        if to == self.ws_portrait {
             return;
         }
-        self.ws_portrait = !self.ws_portrait;
+        self.ws_portrait = to;
         if let Some(emu) = &self.emu {
-            emu.set_option(WS_ROTATE, ws_rotation(self.ws_portrait));
+            emu.set_option(WS_ROTATE, ws_rotation(to));
         }
-        self.app.keep_ws_portrait(self.ws_portrait);
+        self.app.keep_ws_portrait(to);
     }
 
     /// SELECT switches between the way the handheld was being held and the
@@ -774,6 +791,7 @@ impl Session {
             emu.set_speed(speed);
             emu.set_rewinding(self.actually_rewinding());
             emu.set_face_xy(self.app.core() == Core::Dsperate);
+            emu.set_watch_icons(self.app.core() == Core::Cygne);
             emu.set_skip_slow(self.app.core() == Core::Dsperate);
             emu.set_pointer(self.app.pointer());
             emu.set_rewind_recording(self.app.records_rewind());
@@ -945,6 +963,7 @@ impl Session {
         self.ws_vertical = loaded.ws_vertical;
         self.ws_portrait = loaded.ws_portrait;
         self.ws_rotate_held = false;
+        self.ws_icon_said = None;
         self.lynx_select = false;
         self.lynx_upright = false;
         if let Some(setup) = loaded.lynx_turn {
@@ -1014,6 +1033,16 @@ struct Loaded {
 /// The core's own turn: Portrait draws the WonderSwan held upright, Landscape wide.
 const WS_ROTATE: &str = "wswan_rotate_display";
 
+/// What the WonderSwan's LCD icons say about how the game is held: upright (bit 1, the
+/// vertical icon) or wide (bit 2), or nothing when neither or both are lit.
+fn ws_icon_says(icons: u8) -> Option<bool> {
+    match (icons & 0b010 != 0, icons & 0b100 != 0) {
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        _ => None,
+    }
+}
+
 fn ws_rotation(portrait: bool) -> &'static str {
     match portrait {
         true => "portrait",
@@ -1040,4 +1069,18 @@ pub(crate) fn trace() -> bool {
 
 fn launch(step: &str) {
     eprintln!("slot: launch: {step} at {:.1} ms", crate::boot_time::ms());
+}
+
+#[cfg(test)]
+mod ws_icon_tests {
+    use super::ws_icon_says;
+
+    #[test]
+    fn the_lcds_icons_say_upright_or_wide_or_nothing() {
+        assert_eq!(ws_icon_says(0b010), Some(true), "the vertical icon");
+        assert_eq!(ws_icon_says(0b100), Some(false), "the horizontal icon");
+        assert_eq!(ws_icon_says(0b111_011), Some(true), "the dots and sleep don't count");
+        assert_eq!(ws_icon_says(0), None);
+        assert_eq!(ws_icon_says(0b110), None, "both lit says nothing");
+    }
 }

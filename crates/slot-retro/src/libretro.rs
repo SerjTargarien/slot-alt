@@ -26,6 +26,10 @@ static LIVE: AtomicBool = AtomicBool::new(false);
 /// on the console held the way the game was made to be held.
 pub const HANDHELD_TURN_OPTION: &str = "slot_handheld_turn";
 
+/// Slot²: the memory id Slot²'s patch to Beetle Cygne gives the LCD's icon byte. Past
+/// libretro's own ids, so an unpatched core answers none.
+const LCD_ICONS_MEMORY: c_uint = 0x5715;
+
 /// How the handheld is held, from `HANDHELD_TURN_OPTION`.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Held {
@@ -1026,6 +1030,10 @@ impl RetroCore for LibretroCore {
 
     fn rumble(&self) -> Rumble {
         self.host.rumble.clone()
+    }
+
+    fn lcd_icons(&self) -> Option<u8> {
+        self.memory(LCD_ICONS_MEMORY).and_then(|m| m.first().copied())
     }
 
     fn net(&self) -> Link {

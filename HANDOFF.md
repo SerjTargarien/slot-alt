@@ -108,18 +108,19 @@ Done and checked on the device:
 - Game overrides ([design/game-overrides.md](design/game-overrides.md)): one file per game
   (`Config/games/<system>/<file name>.txt`). In a game, the Screen, Gameplay, Controls and
   Shortcuts pages set the game's own values, drawn in amber, with Y back to the shelf's.
-- Cores mapped in [cores/README.md](cores/README.md): all nine are slotPlus's
-  v1.14.0-plus2.6 builds.
+- WonderSwan orientation ([design/ws-orientation.md](design/ws-orientation.md)): Rotate
+  (SELECT) turns any game, a game keeps the way it was left, and a game turns by itself
+  when it lights the LCD's orientation icons (Klonoa does).
+- Cores mapped in [cores/README.md](cores/README.md): slotPlus's v1.14.0-plus2.6 builds,
+  but Beetle Cygne, Slot²'s own build since 2026-11-06 (patched for the LCD icons,
+  cross-compiled here).
 
 ## Next, in order
 
 The order is decided with the user at the start of a session; see the list below (last
 set on 2026-11-06).
 
-1. **WonderSwan orientation:** Klonoa (tried 2026-11-06) can't be turned and doesn't turn
-   by itself. A game that changes orientation mid-game needs a way to follow it (by hand,
-   or from the core), and upright games want checking too.
-2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+1. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
    2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
@@ -127,15 +128,16 @@ set on 2026-11-06).
    the game or the context change). In menus it's worse (every system's bezel folder, a
    table per controls row drawn). Separately: the shelf waits for cart faces while
    scrolling. Upstream's code: worth offering upstream.
-3. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
-4. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+2. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed.
+3. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
-5. Bezels at Integer and Fit for the new systems.
-6. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
+4. Bezels at Integer and Fit for the new systems.
+5. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
    against today's, timed, before anything else on DS speed
    ([cores/README.md](cores/README.md)).
-7. Learn to build the cores ourselves (`cores/*/build.sh`), then bump gpSP (save-type and
-   recompiler fixes) and Gearsystem (3.9.24).
+6. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
+   Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
+   Gearsystem (3.9.24).
 
 Waiting on a decision or an outside party:
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved

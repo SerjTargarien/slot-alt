@@ -243,6 +243,11 @@ pub trait RetroCore: Send {
     fn rumble(&self) -> Rumble {
         Rumble::default()
     }
+    /// Slot²: the WonderSwan LCD's icon byte (port 0x15), from a core patched to give it
+    /// (design/ws-orientation.md): bit 1 lit says the game is held upright, bit 2 wide.
+    fn lcd_icons(&self) -> Option<u8> {
+        None
+    }
     fn net(&self) -> Link {
         Link::default()
     }

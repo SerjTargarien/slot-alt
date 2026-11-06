@@ -5,9 +5,32 @@ use slot_retro::LibretroCore;
 use slot_store::{Blending, Core, Platform};
 
 fn dylib_for(core: Core) -> std::path::PathBuf {
-    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../vendor")
-        .join(slot::core::dylib_name(core))
+        .join(slot::core::dylib_name(core));
+    // Slot²: `vendor/` also holds the device's builds (aarch64), which this host can't
+    // load; those are skipped like a missing one.
+    match built_for_another_machine(&path) {
+        true => path.with_extension("not-for-this-host"),
+        false => path,
+    }
+}
+
+/// Whether `path` is an ELF library for another machine than this test's.
+fn built_for_another_machine(path: &std::path::Path) -> bool {
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    if bytes.len() < 20 || &bytes[..4] != b"\x7fELF" {
+        return false;
+    }
+    let machine = u16::from_le_bytes([bytes[18], bytes[19]]);
+    let here = match std::env::consts::ARCH {
+        "x86_64" => 0x3e,
+        "aarch64" => 0xb7,
+        _ => return false,
+    };
+    machine != here
 }
 
 fn every_serial_mode() -> Vec<&'static str> {
@@ -366,15 +389,7 @@ fn every_frame_blending_slot_sets_is_one_the_core_declares() {
         let platform = test_platform(which);
         for blending in Blending::MGBA {
             let mut core = LibretroCore::open(&path).expect("open core");
-            slot::core::apply_core_options(
-                &mut core,
-                which,
-                platform,
-                "auto",
-                false,
-                false,
-                None,
-            );
+            slot::core::apply_core_options(&mut core, which, platform, "auto", false, false, None);
             slot::core::apply_blending(&mut core, which, blending);
             every_option_is_one_the_core_has(
                 &core,

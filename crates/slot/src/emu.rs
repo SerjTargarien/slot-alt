@@ -191,6 +191,10 @@ struct Shared {
     /// The core takes X and Y as buttons of its own (the DS); every other core gets
     /// neither.
     face_xy: AtomicBool,
+    /// Slot²: read the WonderSwan core's LCD icons after each frame, into `icons`
+    /// (0x100 and the byte; 0 when the core gives none).
+    watch_icons: AtomicBool,
+    icons: AtomicU16,
     /// The core skips drawing the frame after one that ran slow (the DS):
     /// slot runs a frame a present, so a slow one only makes the present
     /// late, and the core is never otherwise told it is behind.
@@ -273,6 +277,8 @@ impl EmuHandle {
             rewind: AtomicBool::new(false),
             rewind_fill: AtomicU8::new(0),
             face_xy: AtomicBool::new(false),
+            watch_icons: AtomicBool::new(false),
+            icons: AtomicU16::new(0),
             skip_slow: AtomicBool::new(false),
             pointer: AtomicU64::new(0),
             recording: AtomicBool::new(true),
@@ -339,6 +345,17 @@ impl EmuHandle {
 
     pub fn peer_ended(&self) -> bool {
         self.shared.peer_ended.load(Ordering::Relaxed)
+    }
+
+    /// Slot²: whether to read the core's LCD icons (a WonderSwan core).
+    pub fn set_watch_icons(&self, on: bool) {
+        self.shared.watch_icons.store(on, Ordering::Relaxed);
+    }
+
+    /// The WonderSwan LCD's icon byte after the last frame, if the core gives it.
+    pub fn lcd_icons(&self) -> Option<u8> {
+        let icons = self.shared.icons.load(Ordering::Relaxed);
+        (icons & 0x100 != 0).then_some(icons as u8)
     }
 
     pub fn bios_mismatch(&self) -> bool {
@@ -917,6 +934,10 @@ impl Worker {
                     if last {
                         break;
                     }
+                }
+                if self.shared.watch_icons.load(Ordering::Relaxed) {
+                    let icons = core.lcd_icons().map_or(0, |b| 0x100 | u16::from(b));
+                    self.shared.icons.store(icons, Ordering::Relaxed);
                 }
                 let core_time = began.elapsed();
                 cost.measured(skipped, drawn);

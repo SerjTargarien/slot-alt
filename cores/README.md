@@ -11,7 +11,7 @@ The emulator cores Slot² runs, where each comes from, and how current it is. Ch
 | Game Boy Advance | gpSP (`gpsp`), pick | [libretro/gpsp](https://github.com/libretro/gpsp) | `7b2dd37`, 2026-08-19 | 9 commits (fixes) |
 | Game Boy, Game Boy Color | Gambatte (`gambatte`), default | [libretro/gambatte-libretro](https://github.com/libretro/gambatte-libretro) | `77f2567`, 2026-10-30 | none |
 | Game Boy, Game Boy Color | mGBA (`mgba`), pick and link play | as above | | |
-| WonderSwan (Color) | Beetle Cygne (`cygne`) | [libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro) | `4b01295`, 2026-07-31 | none |
+| WonderSwan (Color) | Beetle Cygne (`cygne`), Slot²'s build | [libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro) | `4b01295`, 2026-07-31 | none |
 | Atari Lynx | Beetle Lynx (`lynx`) | [libretro/beetle-lynx-libretro](https://github.com/libretro/beetle-lynx-libretro) | `fcdefcf`, 2026-04-20 | none |
 | Game Gear | Gearsystem (`gearsystem`) | [drhelius/Gearsystem](https://github.com/drhelius/Gearsystem) | `517ddaa`, 3.9.22, 2026-10-11 | 56 commits, releases 3.9.23 and 3.9.24 |
 | NeoGeo Pocket (Color) | Beetle NeoPop (`ngp`) | [libretro/beetle-ngp-libretro](https://github.com/libretro/beetle-ngp-libretro) | `a50d5ac`, 2026-06-14 | none |
@@ -25,7 +25,8 @@ Boy game on Gambatte is told it needs mGBA.
 
 ## Where the files on the card come from
 
-The nine `System/*_libretro.so` on the card are **slotPlus's builds, byte for byte**: each
+The `System/*_libretro.so` on the card are **slotPlus's builds, byte for byte**, but for
+Beetle Cygne, which Slot² builds itself since 2026-11-06 (below). Each of slotPlus's
 matches the same file in slotPlus's
 [v1.14.0-plus2.6 release](https://github.com/nelynes/slotPlus/releases/tag/v1.14.0-plus2.6)
 (`slot-plusultra.zip`, 2026-11-04), checked by MD5. That release carries a build record for
@@ -39,7 +40,8 @@ pins in `taskfile.yml` and the patches in `cores/*/`.
 - `System/premerge/` on the card holds the three cores of the slot build from before the
   merge.
 
-Slot² hasn't built a core itself yet: that's still on the plan (HANDOFF.md).
+Slot² builds one core itself, Beetle Cygne (2026-11-06), for its patch; the others are
+still slotPlus's builds.
 
 ## How they are built
 
@@ -55,6 +57,13 @@ Each recipe:
 
 Bullseye's glibc 2.31 keeps the cores running on BaseOS's older system. Base² has glibc
 2.44, so it could run cores built on a newer system (see DSperate).
+
+**Cross-building here (2026-11-06):** Docker isn't reachable from this WSL machine, so
+Beetle Cygne was built with Ubuntu's cross compiler instead of the container, through the
+same recipe: `CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ sh cores/cygne/build.sh
+build <commit> vendor/cygne-src.tar.gz <workdir> vendor/cygne_libretro.so` (GCC 13.3; the
+core needs nothing newer than glibc 2.17). The `.meta` stamp records the commit, recipe,
+flags and patch as usual.
 
 ## Each core
 
@@ -100,9 +109,16 @@ Bullseye's glibc 2.31 keeps the cores running on BaseOS's older system. Base² h
 ### Beetle Cygne: WonderSwan and WonderSwan Color
 
 - **What:** Mednafen's WonderSwan module (from Cygne), as a libretro core. GPL-2.0.
-- **Pin:** `4b01295` (2026-07-31), the newest. No patches.
-- **In Slot²:** turns its pads for games played upright (`session.rs`); its second pad is
-  in the WonderSwan's controls.
+- **Pin:** `4b01295` (2026-07-31), the newest.
+- **Patch (1):** `0001-lcd-icons`, Slot²'s: the LCD's icon byte (port 0x15), which a game
+  lights to say how the console is held, as memory id `0x5715`
+  ([design/ws-orientation.md](../design/ws-orientation.md)). The core's own rotation reads
+  no orientation by itself (its header check is `#if 0`).
+- **Built by Slot²** (2026-11-06), cross-compiled; slotPlus's build is kept on the card as
+  `System/cygne_libretro.so.slotplus`.
+- **In Slot²:** opens a game as it was last left or as its cart says, turns it with Rotate
+  (SELECT) and when the game lights an orientation icon, and turns its pads to follow
+  (`session.rs`); its second pad is in the WonderSwan's controls.
 
 ### Beetle Lynx: Atari Lynx
 

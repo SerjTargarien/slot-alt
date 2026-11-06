@@ -1,6 +1,7 @@
 # WonderSwan orientation
 
-Status: agreed with the user on 2026-11-06. Step 1 built; step 2 not yet.
+Status: agreed with the user on 2026-11-06. Steps 1 and 2 built and checked on the device
+(Klonoa turns by itself).
 
 ## What the user asked for
 
@@ -37,10 +38,13 @@ turnable by hand.
 - Code: `Input::Rotate` (a slot input, like the DS's), `Session::sync_ws` and `ws_layout`,
   `App::keep_ws_portrait`, and the core option set as the game opens (`spawn_core`).
 
-### Step 2: following the game
+### Step 2: following the game (built)
 
-- A small patch to Beetle Cygne exposes the LCD icon byte (a memory region of its own).
-  The first core Slot² builds itself; slotPlus's build stays as the fallback, and the core
-  map is updated.
-- Slot² reads it each frame: when the game lights the vertical or the horizontal icon, the
-  picture turns to match. Rotate still turns by hand in between.
+- A small patch to Beetle Cygne (`cores/cygne/0001-lcd-icons.patch`) gives the LCD icon
+  byte as memory id `0x5715`. The first core Slot² builds itself, cross-compiled
+  ([cores/README.md](../cores/README.md)); slotPlus's build stays on the card as the
+  fallback. An unpatched core gives no byte, and Slot² then only turns by hand.
+- The emulator thread reads the byte after each frame (`RetroCore::lcd_icons`, for the
+  WonderSwan only). When the game lights the vertical or the horizontal icon (and not
+  both), and that is new, the picture turns to match and the game keeps that way. Rotate
+  still turns by hand in between; the game's next change of icon wins again.
