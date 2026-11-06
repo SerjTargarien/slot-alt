@@ -114,6 +114,27 @@ Done and checked on the device:
 - Cores mapped in [cores/README.md](cores/README.md): slotPlus's v1.14.0-plus2.6 builds,
   but Beetle Cygne, Slot²'s own build since 2026-11-06 (patched for the LCD icons,
   cross-compiled here).
+- Every core's options surveyed ([design/core-options.md](design/core-options.md)), and the
+  shelf's GBA Frame Blending says gpSP has no ghosting (it mixes instead).
+
+## The state at the end of 2026-11-06
+
+- **Committed:** everything up to the core options survey (`674cde0`), on `slotsq-plus`,
+  local only (not pushed).
+- **Built, tested, not committed:** the WonderSwan and TurboGrafx-16 palettes (the working
+  tree: `slot_store::core_palette`, `palette_ws`/`palette_tg16` in `slot.state`, the
+  `WsPalette`/`Tg16Palette` rows, the game's own `palette=`). The full test run passes but
+  for the known label failure. The device build in `target/` has them; the device does not.
+- **On the device:** the build with the GBA Frame Blending note (`bbb6ee0`), and on the
+  card `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne (slotPlus's is kept as
+  `System/cygne_libretro.so.slotplus`). `Config/selected_core.txt` sets Castlevania - Aria
+  of Sorrow to gpSP.
+- **Cores here:** Docker isn't reachable from this WSL machine and `task` isn't
+  installed; cores are cross-compiled through their recipes (cores/README.md, "How they
+  are built"). `scp` doesn't work with Base² (no SFTP server): copy files with
+  `ssh ... 'cat > path' < file`.
+- **Tests:** the two `render_screenshot` tests can fail in a loaded full run (they wait
+  four seconds of wall time for a game to start) and pass when run again.
 
 ## Next, in order
 
@@ -121,8 +142,13 @@ The order is decided with the user at the start of a session; see the list below
 set on 2026-11-06).
 
 1. **Core options** ([design/core-options.md](design/core-options.md), chosen
-   2026-11-06): the WonderSwan and TurboGrafx-16 palettes, a sprite limit row, and Lynx 60
-   Hz and gpSP 32 kHz once measured.
+   2026-11-06), in this order:
+   1. The WonderSwan and TurboGrafx-16 palettes: built and tested here, **not yet
+      deployed**. Deploy with the user on the shelf, check, commit.
+   2. A Sprite Limit row (Gameplay; gpSP, Gearsystem and PCE Fast have it): planned in the
+      design note.
+   3. Lynx at 60 Hz and gpSP at 32 kHz: a `SLOT_CORE_OPTIONS` variable to try options
+      without a build, then measure on the device and set them if they help.
 2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):

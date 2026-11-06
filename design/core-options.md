@@ -1,7 +1,9 @@
 # Core options: what each core offers, what Slot² uses
 
-Status: surveyed with the user's ask on 2026-11-06; chosen the same day ("Chosen"), not
-built yet.
+Status: surveyed with the user's ask on 2026-11-06; chosen the same day ("Chosen"). The
+palettes built, tested here and built for the device, **not yet deployed or checked on the
+device** (the session stopped there). The sprite limit and the measurements not yet built;
+their plans are under "Next" below.
 
 ## What the user asked for
 
@@ -222,6 +224,55 @@ Each core's source at its pin in `taskfile.yml` (the cores Slot² runs, see
 - **The audio filters** (6) are noted for the audio diagnosis, as things to try there.
 
 Build order: the palettes, then the sprite limit, then the measurements.
+
+### The palettes as built
+
+- `slot.state` keeps `palette_ws` and `palette_tg16`, as their cores spell them
+  (`slot_store::core_palette`); a game's own is its file's `palette=` line, read as its
+  core's palette on these two systems and as a Game Boy palette on the Game Boy.
+- The shelf's WonderSwan and TurboGrafx-16 Screen pages have a Palette row; in a game, the
+  Palette row shows for a mono WonderSwan game (the footer's system byte,
+  `slot_store::ws_color`) and every TurboGrafx-16 game, and sets the game's own, with
+  amber and Y like the rest.
+- The core gets it as the game opens, and live when it changes (both cores apply it at
+  once: Cygne's mono palette, PCE Fast's per frame).
+
+## Next
+
+### 1. Check the palettes on the device
+
+Deploy (`tools/slotsq/dev.sh deploy`, with the user on the shelf) and check: the
+WonderSwan and TurboGrafx-16 Screen pages' Palette rows; a mono WonderSwan game's
+in-game Palette (cycles, applies at once, amber, Y back); no Palette row in a WonderSwan
+Color game; RGB against Composite on a TurboGrafx-16 game; the value kept on reopening.
+
+### 2. The sprite limit row
+
+- A Gameplay setting like the others there: the shelf's one value (Settings > Gameplay),
+  the game's own in game (`PlayOverrides`, amber, Y), saved as `sprite_limit=` in the
+  game's file. Label "Sprite Limit", On (the hardware's, the default) or Off.
+- Three cores have it, each spelled its own way: gpSP `gpsp_sprlim` (enabled = no limit),
+  Gearsystem `gearsystem_no_sprite_limit` (Enabled = no limit), PCE Fast
+  `pce_fast_nospritelimit` (enabled = no limit). A `sprite_option(core, on)` beside
+  `blend_option` in `crates/slot/src/core.rs`, set when the core opens and live.
+- Each core reads it in its `check_variables`, which runs on an option update, so a
+  change should apply at once; to confirm on the device.
+- In a game the row shows only where the running core has it (hidden as Frame Blending is
+  when a core has fewer than two choices). On the shelf it always shows, with a note under
+  it naming where it works ("gpSP, Game Gear and TurboGrafx-16 only." or the user's own
+  words), as the GBA's Frame Blending has.
+
+### 3. Lynx at 60 Hz and gpSP at 32 kHz, measured
+
+- A way to try a core option without a build: `SLOT_CORE_OPTIONS="key=value;key=value"`
+  in `/run/slot.env` (`tools/slotsq/dev.sh restart VAR=x`), set after Slot²'s own in
+  `apply_core_options`, logged when it is.
+- gpSP: the same game with `gpsp_sound_rate` 65536 and 32768, `SLOT_TRACE_POWER=1`, logs
+  saved with `dev.sh logs NAME` and compared with `tools/slotsq/medians.py` (core ms a
+  frame). Set 32768 if it's cheaper and sounds the same.
+- Lynx: the same game with `lynx_force_60hz` disabled and enabled, judged by the user for
+  smoothness, and checked for speed (a 60 Hz game must not run slow). Set it if it's
+  smoother at the right speed.
 
 ## Candidates
 
