@@ -552,7 +552,7 @@ impl Frontend {
         session
             .app_mut()
             .set_romm_jobs(crate::romm::romm_jobs(platform.root().to_path_buf(), crate::romm::http_api));
-        // An OS that runs Wi-Fi itself (ROCKNIX) keeps slot out of it (hardware.rs).
+        // An OS that runs Wi-Fi itself (`WIFI=0` in its description) keeps slot out of it.
         let no_wifi = cfg!(feature = "device") && !crate::hardware::current().wifi;
         if no_wifi {
             session.app_mut().set_wifi_absent();

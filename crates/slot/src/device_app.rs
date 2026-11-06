@@ -184,7 +184,7 @@ pub fn run() {
         slot::input::evdev::set_layout(slot::input::evdev::Layout::Gamepad);
     }
     let mut input = DeviceInput::open(&root);
-    // Only where the kernel drops the FN key (ROCKNIX's). A kernel that reports it would
+    // Only where the kernel drops the FN key (`FN_ADC`). A kernel that reports it would
     // see FN twice.
     if let Some(adc) = hw.fn_adc.as_ref().filter(|p| p.exists()) {
         input.watch_adc(adc.clone(), slot_input::Btn::Menu);

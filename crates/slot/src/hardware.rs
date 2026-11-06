@@ -2,8 +2,8 @@
 //! buttons are numbered, where FN comes from, and which features the OS supports.
 //!
 //! An OS describes its device in `/etc/slot-device`, a `KEY=value` file like BaseOS's
-//! release file. Without one, ROCKNIX gets its preset (recognised from `/etc/os-release`
-//! or `SLOT_PLATFORM=rocknix`), and anything else is treated as BaseOS, as upstream does.
+//! release file (Base² ships one; see CONTRACT.md). Without one, slot treats the OS as
+//! BaseOS, as upstream does.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -61,23 +61,6 @@ impl Hardware {
         }
     }
 
-    /// ROCKNIX: KMS, gamepad codes, and on the RGB20SX FN only through the ADC, since
-    /// ROCKNIX's kernel drops the key. ROCKNIX owns Wi-Fi, so slot leaves it alone.
-    pub fn rocknix(model: &str) -> Hardware {
-        Hardware {
-            name: format!("ROCKNIX, {model}"),
-            display: Display::Kms,
-            buttons: Buttons::Gamepad,
-            fn_adc: (model == crate::rocknix::RGB20SX)
-                .then(|| PathBuf::from(crate::input::adc::RGB20SX_FN)),
-            cpu_cap: true,
-            wifi: false,
-            left_stick: None,
-            boot_logo: false,
-            self_update: false,
-        }
-    }
-
     /// A description file. Missing keys keep the BaseOS value.
     pub fn parse(text: &str) -> Hardware {
         let base = Hardware::baseos();
@@ -122,31 +105,14 @@ impl Hardware {
 pub fn current() -> &'static Hardware {
     static CURRENT: OnceLock<Hardware> = OnceLock::new();
     CURRENT.get_or_init(|| {
-        detect(
-            std::env::var("SLOT_PLATFORM").ok().as_deref(),
-            Path::new(DESCRIPTION),
-            Path::new("/etc/os-release"),
-            &crate::rocknix::model(),
-        )
-        .with_fn_adc(std::env::var("SLOT_FN_ADC").ok().as_deref())
+        detect(Path::new(DESCRIPTION)).with_fn_adc(std::env::var("SLOT_FN_ADC").ok().as_deref())
     })
 }
 
-/// `SLOT_PLATFORM` (rocknix or baseos) wins, then the description file, then ROCKNIX's
-/// os-release, then BaseOS.
-pub fn detect(
-    platform: Option<&str>,
-    description: &Path,
-    os_release: &Path,
-    model: &str,
-) -> Hardware {
-    if platform.is_none() {
-        if let Ok(text) = std::fs::read_to_string(description) {
-            return Hardware::parse(&text);
-        }
-    }
-    match crate::rocknix::running_in(platform, os_release) {
-        true => Hardware::rocknix(model),
-        false => Hardware::baseos(),
+/// The OS's description file, or BaseOS, which ships none.
+pub fn detect(description: &Path) -> Hardware {
+    match std::fs::read_to_string(description) {
+        Ok(text) => Hardware::parse(&text),
+        Err(_) => Hardware::baseos(),
     }
 }

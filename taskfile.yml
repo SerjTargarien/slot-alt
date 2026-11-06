@@ -109,7 +109,6 @@ tasks:
       - sh card/test-coresave.sh
       - sh card/test-launch.sh
       - sh card/test-repair.sh
-      - sh card/test-rocknix.sh
 
   core:
     desc: >-
@@ -718,19 +717,6 @@ tasks:
           cp "$p" "{{.OUT}}/System/licenses/dsperate-$(basename "$p")"
         done
       - 'echo "device tree ready at {{.OUT}}, copy its contents to SD2"'
-
-  dist:rocknix:
-    desc: >-
-      Build the card tree for a ROCKNIX device, OUT defaults to ./dist-rocknix. Copy it to
-      /storage/slot on the device and start it with System/rocknix.sh
-    vars:
-      OUT: '{{.OUT | default "dist-rocknix"}}'
-    cmds:
-      - task: dist:device
-        vars: { OUT: '{{.OUT}}' }
-      - cp card/rocknix/rocknix.sh '{{.OUT}}/System/rocknix.sh'
-      - chmod 755 '{{.OUT}}/System/rocknix.sh' '{{.OUT}}/System/slot'
-      - 'echo "rocknix tree ready at {{.OUT}}, copy its contents to /storage/slot"'
 
   deploy:device:
     desc: Build and push onto a device over adb, then restart it. SD defaults to /mnt/sdcard

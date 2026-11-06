@@ -4,8 +4,6 @@ use std::time::Duration;
 
 use slot_input::{Btn, RawEvent};
 
-pub const RGB20SX_FN: &str = "/sys/bus/iio/devices/iio:device0/in_voltage0_raw";
-
 pub const PRESSED_BELOW: u32 = 300;
 
 pub const RELEASED_ABOVE: u32 = 800;
