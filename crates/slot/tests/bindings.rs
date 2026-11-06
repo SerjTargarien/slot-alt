@@ -411,7 +411,7 @@ fn in_game_buttons_are_set_from_the_main_menu_and_reach_a_game() {
     tap(&mut s, &mut now, Btn::A);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::GameUp));
     let shown = QuickRow::GameUp.shown(&s.app().hidden_rows());
-    assert_eq!(shown.len(), 10, "a Game Boy's ten inputs: {shown:?}");
+    assert_eq!(shown.len(), 8, "a Game Boy's eight inputs: {shown:?}");
     let to_a = QuickRow::GameA.position(&s.app().hidden_rows());
     for _ in 0..to_a {
         tap(&mut s, &mut now, Btn::Down);
@@ -466,7 +466,7 @@ fn each_system_has_its_own_page_and_back_returns_to_it() {
 }
 
 #[test]
-fn turbo_b_moves_off_y_from_the_in_game_page() {
+fn a_row_moves_to_another_button_from_the_shelf() {
     let d = shelf_card();
     let (mut s, mut now) = on_shelf(d.path());
     tap(&mut s, &mut now, Btn::Menu);
@@ -477,17 +477,17 @@ fn turbo_b_moves_off_y_from_the_in_game_page() {
     tap(&mut s, &mut now, Btn::Up);
     tap(&mut s, &mut now, Btn::A);
     tap(&mut s, &mut now, Btn::A);
-    for _ in 0..QuickRow::GameTurboB.position(&s.app().hidden_rows()) {
+    for _ in 0..QuickRow::GameStart.position(&s.app().hidden_rows()) {
         tap(&mut s, &mut now, Btn::Down);
     }
-    assert_eq!(s.app().quick_menu(), Some(QuickRow::GameTurboB));
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::GameStart));
     tap(&mut s, &mut now, Btn::X);
     tap(&mut s, &mut now, Btn::A);
     assert!(s.app().capturing());
     tap(&mut s, &mut now, Btn::L2);
     assert!(!s.app().capturing());
     assert_eq!(
-        read_system_controls(d.path(), Platform::Gb).row(Input::TurboB),
+        read_system_controls(d.path(), Platform::Gb).row(Input::Start),
         [plain(Device::L2), None, None]
     );
 }
@@ -590,7 +590,6 @@ fn a_shortcut_pair_reaches_the_gestures_as_a_pair() {
         true,
         &keys,
         &CarouselKeys::default(),
-        true,
     );
     assert!(table.entries().iter().any(|e| e.chord
         == slot_input::Chord {
@@ -641,7 +640,6 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
         true,
         &keys,
         &CarouselKeys::default(),
-        true,
     );
     for row in [
         QuickRow::ScPaletteBack,
@@ -662,7 +660,6 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
         true,
         &keys,
         &CarouselKeys::default(),
-        true,
     );
     assert!(
         table.clash(QuickRow::ScRewind).is_some(),
@@ -681,7 +678,6 @@ fn an_unordered_pair_still_clashes_with_a_single_on_either_button() {
         true,
         &keys,
         &CarouselKeys::default(),
-        true,
     );
     assert_eq!(table.clash(QuickRow::ScSave), Some(QuickRow::ScRewind));
 }
@@ -765,7 +761,6 @@ fn a_shelf_key_led_by_start_needs_start_first() {
         true,
         &ShortcutKeys::default(),
         &keys,
-        true,
     );
     let shelf = || {
         let mut g = slot_input::Gestures::new();
@@ -873,21 +868,12 @@ fn brightness_on_a_shelf_key_does_both_on_the_shelf_and_is_flagged() {
 }
 
 #[test]
-fn with_turbo_off_its_rows_are_hidden_and_never_flagged() {
+fn x_and_y_are_free_on_a_game_boy_so_a_shortcut_there_clashes_with_nothing() {
     let mut keys = ShortcutKeys::default();
     keys.set(Shortcut::SaveState, Binding::plain(Device::X));
     let d = shelf_card();
     write_shortcuts(d.path(), &keys).expect("write shortcuts");
     let (s, _) = on_shelf(d.path());
-    assert_eq!(s.app().clash(QuickRow::ScSave), Some(QuickRow::GameTurboA));
-    let mut state = slot_store::read_slot_state(d.path());
-    state.turbo = false;
-    slot_store::write_slot_state(d.path(), &state).expect("write slot.state");
-    let (s, _) = on_shelf(d.path());
-    for row in [QuickRow::GameTurboA, QuickRow::GameTurboB] {
-        assert!(s.app().hidden_rows().contains(&row), "{row:?} is shown");
-        assert_eq!(s.app().clash(row), None);
-    }
     assert_eq!(s.app().clash(QuickRow::ScSave), None);
 }
 
@@ -899,7 +885,6 @@ fn select_x_in_game_is_the_screenshot_action() {
         true,
         &ShortcutKeys::default(),
         &CarouselKeys::default(),
-        true,
     );
     assert!(table.entries().iter().any(|e| e.chord
         == slot_input::Chord {

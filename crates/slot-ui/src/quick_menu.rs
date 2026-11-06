@@ -22,7 +22,6 @@ pub enum QuickRow {
     GbColourCorrection,
     Game,
     EjectSave,
-    Turbo,
     Rewind,
     GbPalette,
     Theme,
@@ -81,6 +80,9 @@ pub enum QuickRow {
     NdsBezel,
     /// Slot²: the DS's layout a game starts with, its Scale and Stretch.
     NdsLayout,
+    /// Slot²: whether moving the DS's stylus brings its touch screen up, for every DS
+    /// game (the shelf's) and for the one playing.
+    NdsStylusScreen,
     NdsScale,
     NdsStretch,
     General,
@@ -100,8 +102,6 @@ pub enum QuickRow {
     GameStart,
     GameL,
     GameR,
-    GameTurboA,
-    GameTurboB,
     GameX,
     GameY,
     GameY1,
@@ -112,6 +112,10 @@ pub enum QuickRow {
     GameNextLayout,
     GameStylus,
     GameTouch,
+    GameStylusUp,
+    GameStylusDown,
+    GameStylusLeft,
+    GameStylusRight,
     ScSave,
     ScLoad,
     ScScreenshot,
@@ -169,6 +173,7 @@ pub enum QuickRow {
     Blending,
     /// Slot²: the playing DS game's own layout.
     Layout,
+    StylusScreen,
     Guide,
     ScGuide,
     ScStretchOn,
@@ -196,7 +201,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 181] = [
+    pub const ALL: [QuickRow; 184] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -209,7 +214,6 @@ impl QuickRow {
         QuickRow::GbColourCorrection,
         QuickRow::Game,
         QuickRow::EjectSave,
-        QuickRow::Turbo,
         QuickRow::Rewind,
         QuickRow::GbPalette,
         QuickRow::Theme,
@@ -267,6 +271,7 @@ impl QuickRow {
         QuickRow::NdsShader,
         QuickRow::NdsBezel,
         QuickRow::NdsLayout,
+        QuickRow::NdsStylusScreen,
         QuickRow::NdsScale,
         QuickRow::NdsStretch,
         QuickRow::General,
@@ -286,8 +291,6 @@ impl QuickRow {
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
-        QuickRow::GameTurboA,
-        QuickRow::GameTurboB,
         QuickRow::GameX,
         QuickRow::GameY,
         QuickRow::GameY1,
@@ -298,6 +301,10 @@ impl QuickRow {
         QuickRow::GameNextLayout,
         QuickRow::GameStylus,
         QuickRow::GameTouch,
+        QuickRow::GameStylusUp,
+        QuickRow::GameStylusDown,
+        QuickRow::GameStylusLeft,
+        QuickRow::GameStylusRight,
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScScreenshot,
@@ -354,6 +361,7 @@ impl QuickRow {
         QuickRow::GbBlending,
         QuickRow::Blending,
         QuickRow::Layout,
+        QuickRow::StylusScreen,
         QuickRow::Guide,
         QuickRow::ScGuide,
         QuickRow::ScStretchOn,
@@ -473,7 +481,7 @@ impl QuickRow {
 
     /// A system's controls page: every input any system has, each system showing its own
     /// (see `slot_store::controls::inputs`).
-    pub const CONTROLS: [QuickRow; 22] = [
+    pub const CONTROLS: [QuickRow; 24] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
@@ -490,12 +498,14 @@ impl QuickRow {
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
-        QuickRow::GameTurboA,
-        QuickRow::GameTurboB,
         QuickRow::GameSwapScreens,
         QuickRow::GameNextLayout,
         QuickRow::GameStylus,
         QuickRow::GameTouch,
+        QuickRow::GameStylusUp,
+        QuickRow::GameStylusDown,
+        QuickRow::GameStylusLeft,
+        QuickRow::GameStylusRight,
     ];
 
     pub const SHORTCUTS: [QuickRow; 21] = [
@@ -579,8 +589,9 @@ impl QuickRow {
         QuickRow::Tg16Scale,
         QuickRow::Tg16Stretch,
     ];
-    pub const SCREEN_NDS: [QuickRow; 5] = [
+    pub const SCREEN_NDS: [QuickRow; 6] = [
         QuickRow::NdsLayout,
+        QuickRow::NdsStylusScreen,
         QuickRow::NdsShader,
         QuickRow::NdsScale,
         QuickRow::NdsStretch,
@@ -614,11 +625,10 @@ impl QuickRow {
         QuickRow::GbStretch,
     ];
 
-    pub const GAME: [QuickRow; 7] = [
+    pub const GAME: [QuickRow; 6] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
-        QuickRow::Turbo,
         QuickRow::Rumble,
         QuickRow::AutoLoad,
         QuickRow::EjectSave,
@@ -642,9 +652,10 @@ impl QuickRow {
         QuickRow::PlayControls,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 12] = [
+    pub const PLAY_SCREEN: [QuickRow; 13] = [
         QuickRow::Shader,
         QuickRow::Layout,
+        QuickRow::StylusScreen,
         QuickRow::Bezel,
         QuickRow::Scale,
         QuickRow::Stretch,
@@ -702,6 +713,7 @@ impl QuickRow {
             QuickRow::NdsShader
             | QuickRow::NdsBezel
             | QuickRow::NdsLayout
+            | QuickRow::NdsStylusScreen
             | QuickRow::NdsScale
             | QuickRow::NdsStretch => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
@@ -725,7 +737,6 @@ impl QuickRow {
             QuickRow::FastForward
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
-            | QuickRow::Turbo
             | QuickRow::Rumble
             | QuickRow::AutoLoad
             | QuickRow::EjectSave => &QuickRow::GAME,
@@ -780,7 +791,8 @@ impl QuickRow {
             | QuickRow::Scale
             | QuickRow::Stretch
             | QuickRow::Blending
-            | QuickRow::Layout => &QuickRow::PLAY_SCREEN,
+            | QuickRow::Layout
+            | QuickRow::StylusScreen => &QuickRow::PLAY_SCREEN,
             _ => &QuickRow::MAIN,
         }
     }
@@ -907,7 +919,6 @@ impl QuickRow {
             QuickRow::Game => "Gameplay",
             QuickRow::AutoLoad => "Load State on Insert",
             QuickRow::EjectSave => "Save State on Eject",
-            QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalette => "Palette",
             QuickRow::Theme => "Theme",
@@ -961,8 +972,6 @@ impl QuickRow {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
-            | QuickRow::GameTurboA
-            | QuickRow::GameTurboB
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameY1
@@ -972,7 +981,11 @@ impl QuickRow {
             | QuickRow::GameSwapScreens
             | QuickRow::GameNextLayout
             | QuickRow::GameStylus
-            | QuickRow::GameTouch => self
+            | QuickRow::GameTouch
+            | QuickRow::GameStylusUp
+            | QuickRow::GameStylusDown
+            | QuickRow::GameStylusLeft
+            | QuickRow::GameStylusRight => self
                 .input()
                 .map_or("", |i| controls::label(Platform::Gba, i)),
             QuickRow::ControlsGb => "Game Boy",
@@ -1061,6 +1074,7 @@ impl QuickRow {
             QuickRow::NdsShader => "Shader",
             QuickRow::NdsBezel => "Bezel",
             QuickRow::NdsLayout | QuickRow::Layout => "Layout",
+            QuickRow::NdsStylusScreen | QuickRow::StylusScreen => "Stylus Shows Touch Screen",
             QuickRow::NdsScale => "Scale",
             QuickRow::NdsStretch => "Stretch",
         }
@@ -1141,8 +1155,6 @@ impl QuickRow {
             QuickRow::GameStart => Input::Start,
             QuickRow::GameL => Input::L,
             QuickRow::GameR => Input::R,
-            QuickRow::GameTurboA => Input::TurboA,
-            QuickRow::GameTurboB => Input::TurboB,
             QuickRow::GameY1 => Input::Y1,
             QuickRow::GameY2 => Input::Y2,
             QuickRow::GameY3 => Input::Y3,
@@ -1151,6 +1163,10 @@ impl QuickRow {
             QuickRow::GameNextLayout => Input::NextLayout,
             QuickRow::GameStylus => Input::Stylus,
             QuickRow::GameTouch => Input::Touch,
+            QuickRow::GameStylusUp => Input::StylusUp,
+            QuickRow::GameStylusDown => Input::StylusDown,
+            QuickRow::GameStylusLeft => Input::StylusLeft,
+            QuickRow::GameStylusRight => Input::StylusRight,
             _ => return None,
         })
     }

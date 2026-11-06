@@ -75,18 +75,19 @@ impl Pad {
     }
 
     /// The core buttons held: the pressed inputs that drive the core. While the DS's
-    /// stylus is out, the D-pad's inputs move it instead.
+    /// Stylus Hold is held, the D-pad's inputs move the stylus instead.
     pub fn mask(
         &self,
         controls: &SystemControls,
         platform: Platform,
         stylus_out: bool,
     ) -> ButtonMask {
+        let pressed = self.pressed(controls, platform, stylus_out);
+        let steering = pressed.contains(&Input::Stylus);
         let moving = |i: Input| {
-            stylus_out && matches!(i, Input::Up | Input::Down | Input::Left | Input::Right)
+            steering && matches!(i, Input::Up | Input::Down | Input::Left | Input::Right)
         };
-        let bits = self
-            .pressed(controls, platform, stylus_out)
+        let bits = pressed
             .into_iter()
             .filter(|&i| !i.is_slots() && !moving(i))
             .fold(0, |bits, i| bits | bit(drives(platform, i)));
@@ -126,8 +127,8 @@ impl Pad {
     }
 }
 
-/// The core button each input drives. Turbo A and B ride on X and Y, which the
-/// emulator turns into auto-fire; the WonderSwan's second pad is R2, R, L2 and L to Cygne.
+/// The core button each input drives. The WonderSwan's second pad is R2, R, L2 and L to
+/// Cygne.
 fn bit(input: Input) -> u16 {
     match input {
         Input::Up => ButtonMask::UP,
@@ -136,8 +137,8 @@ fn bit(input: Input) -> u16 {
         Input::Right => ButtonMask::RIGHT,
         Input::A => ButtonMask::A,
         Input::B => ButtonMask::B,
-        Input::X | Input::TurboA => ButtonMask::X,
-        Input::Y | Input::TurboB => ButtonMask::Y,
+        Input::X => ButtonMask::X,
+        Input::Y => ButtonMask::Y,
         Input::L => ButtonMask::L,
         Input::R => ButtonMask::R,
         Input::Select => ButtonMask::SELECT,
@@ -146,6 +147,13 @@ fn bit(input: Input) -> u16 {
         Input::Y2 => ButtonMask::R,
         Input::Y3 => ButtonMask::L2,
         Input::Y4 => ButtonMask::L,
-        Input::SwapScreens | Input::NextLayout | Input::Stylus | Input::Touch => 0,
+        Input::SwapScreens
+        | Input::NextLayout
+        | Input::Stylus
+        | Input::Touch
+        | Input::StylusUp
+        | Input::StylusDown
+        | Input::StylusLeft
+        | Input::StylusRight => 0,
     }
 }

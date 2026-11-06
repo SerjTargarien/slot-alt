@@ -125,7 +125,13 @@ fn select_l2_steps_through_the_layouts_at_fit_and_shaders_show_from_2x() {
 
 #[test]
 fn the_views_saved_before_layouts_still_read() {
-    let view = |layout, main| Some(DsView { main, layout });
+    let view = |layout, main| {
+        Some(DsView {
+            main,
+            layout,
+            stylus_screen: None,
+        })
+    };
     assert_eq!(
         DsView::parse("both"),
         view(DsLayout::Stacked, DsScreen::Top)
@@ -137,15 +143,21 @@ fn the_views_saved_before_layouts_still_read() {
     );
     for layout in DsLayout::ALL {
         for main in [DsScreen::Top, DsScreen::Bottom] {
-            let v = DsView { main, layout };
-            assert_eq!(DsView::parse(&v.as_str()), Some(v));
+            for stylus_screen in [None, Some(true), Some(false)] {
+                let v = DsView {
+                    main,
+                    layout,
+                    stylus_screen,
+                };
+                assert_eq!(DsView::parse(&v.as_str()), Some(v));
+            }
         }
     }
     assert_eq!(DsView::parse("sideways,top"), None);
 }
 
 #[test]
-fn the_stylus_moves_touches_and_shows_the_bottom_screen() {
+fn the_stylus_moves_and_touches_and_leaves_the_screens_where_they_are() {
     let (_d, mut a) = playing_ds();
     a.next_ds_layout();
     assert_eq!(a.ds_view().layout, DsLayout::Single);
@@ -154,8 +166,8 @@ fn the_stylus_moves_touches_and_shows_the_bottom_screen() {
     a.stylus_out(true);
     assert_eq!(
         a.source_rect(),
-        DsScreen::Bottom.source_rect(),
-        "the stylus brings the bottom screen up"
+        DsScreen::Top.source_rect(),
+        "the stylus never swaps the screens: L2 does"
     );
     let at = a.pointer().unwrap();
     assert!(!at.pressed);
@@ -170,11 +182,6 @@ fn the_stylus_moves_touches_and_shows_the_bottom_screen() {
     assert!(moved.pressed, "it touches");
     a.stylus_out(false);
     assert_eq!(a.pointer(), None);
-    assert_eq!(
-        a.source_rect(),
-        DsScreen::Top.source_rect(),
-        "back to the top"
-    );
     a.stylus_out(true);
     let back = a.pointer().unwrap();
     assert_eq!(
@@ -203,8 +210,7 @@ fn a_ds_game_records_no_rewind_and_keeps_x_and_y_as_buttons() {
     assert!(!a.records_rewind());
     let hidden = a.in_game_hidden();
     assert!(
-        !hidden.contains(&slot_ui::QuickRow::GameX)
-            && hidden.contains(&slot_ui::QuickRow::GameTurboA),
+        !hidden.contains(&slot_ui::QuickRow::GameX) && !hidden.contains(&slot_ui::QuickRow::GameY),
         "X and Y are the DS's own"
     );
 }
@@ -331,4 +337,52 @@ fn integer_scale_draws_whole_multiples_and_stretch_fills_with_one_screen() {
         [0.0, 0.0, 720.0, 540.0],
         "Stretch is One Screen's only"
     );
+}
+
+#[test]
+fn the_stylus_shows_the_touch_screen_when_the_shelf_or_the_game_says_so() {
+    use slot_store::SlotState;
+    use slot_ui::{QuickRow, QuickValue};
+    let one_screen = |a: &mut App| {
+        a.set_ds_view(DsView {
+            layout: DsLayout::Single,
+            ..a.ds_view()
+        })
+    };
+    let (_d, mut a) = playing_ds();
+    one_screen(&mut a);
+    a.stylus_out(true);
+    assert_eq!(
+        a.source_rect(),
+        DsScreen::Top.source_rect(),
+        "off by default"
+    );
+    a.stylus_out(false);
+    let (d, mut a) = playing_ds_in(SlotState {
+        nds_stylus_screen: true,
+        ..Default::default()
+    });
+    one_screen(&mut a);
+    assert_eq!(a.quick_value(QuickRow::StylusScreen), Some(QuickValue::On));
+    a.stylus_out(true);
+    assert_eq!(
+        a.source_rect(),
+        DsScreen::Bottom.source_rect(),
+        "the shelf's On brings the touch screen up"
+    );
+    a.stylus_out(false);
+    assert_eq!(a.source_rect(), DsScreen::Top.source_rect(), "and back");
+    // The game's own choice wins over the shelf's, and is kept with its view.
+    let mut view = a.ds_view();
+    view.stylus_screen = Some(false);
+    a.set_ds_view(view);
+    a.stylus_out(true);
+    assert_eq!(a.source_rect(), DsScreen::Top.source_rect());
+    assert_eq!(
+        slot::video_mode::DsView::parse(&view.as_str())
+            .unwrap()
+            .stylus_screen,
+        Some(false)
+    );
+    let _ = d;
 }

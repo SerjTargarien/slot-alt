@@ -34,14 +34,12 @@ type DestroyContext = unsafe extern "C" fn(Ptr, Ptr) -> u32;
 type MakeCurrent = unsafe extern "C" fn(Ptr, Ptr, Ptr, Ptr) -> u32;
 type GetProcAddress = unsafe extern "C" fn(*const c_char) -> *const c_void;
 type GetError = unsafe extern "C" fn() -> i32;
-type Terminate = unsafe extern "C" fn(Ptr) -> u32;
 
 struct Egl {
     make_current: MakeCurrent,
     destroy_context: DestroyContext,
     get_proc_address: GetProcAddress,
     get_error: GetError,
-    terminate: Terminate,
     _lib: Library,
 }
 
@@ -125,7 +123,6 @@ impl HeadlessSurface {
                 destroy_context: sym(&lib, "eglDestroyContext")?,
                 get_proc_address,
                 get_error,
-                terminate: sym(&lib, "eglTerminate")?,
                 _lib: lib,
             };
             let mut surface = HeadlessSurface {
@@ -168,12 +165,13 @@ impl Surface for HeadlessSurface {
 }
 
 impl Drop for HeadlessSurface {
+    /// The display stays up: EGL hands every surface in the process the same one, so
+    /// terminating it would pull it from under the others (tests run side by side).
     fn drop(&mut self) {
         let none = std::ptr::null_mut();
         unsafe {
             (self.egl.make_current)(self.display, none, none, none);
             (self.egl.destroy_context)(self.display, self.context);
-            (self.egl.terminate)(self.display);
         }
     }
 }

@@ -1560,7 +1560,7 @@ impl App {
             hidden.push(QuickRow::Stretch);
         }
         if platform != Platform::Nds {
-            hidden.push(QuickRow::Layout);
+            hidden.extend([QuickRow::Layout, QuickRow::StylusScreen]);
         }
         // slotPlus's other cores have no frame blending to pick.
         if Blending::choices(self.core).len() < 2 {
@@ -1743,6 +1743,8 @@ impl App {
             QuickRow::NdsStretch => Some(QuickValue::flag(self.state.stretched_nds)),
             QuickRow::NdsLayout => Some(ds_layout_value(self.ds_starting_layout())),
             QuickRow::Layout => Some(ds_layout_value(self.ds_view.layout)),
+            QuickRow::NdsStylusScreen => Some(QuickValue::flag(self.state.nds_stylus_screen)),
+            QuickRow::StylusScreen => Some(QuickValue::flag(self.ds_stylus_screen())),
             QuickRow::GbStretch
             | QuickRow::GbcStretch
             | QuickRow::GgStretch
@@ -1800,7 +1802,6 @@ impl App {
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.state.auto_load)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
-            QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
             QuickRow::Recents => Some(if self.state.show_recents {
                 QuickValue::Show
@@ -1909,8 +1910,6 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
-            | QuickRow::GameTurboA
-            | QuickRow::GameTurboB
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameY1
@@ -1921,6 +1920,10 @@ impl App {
             | QuickRow::GameNextLayout
             | QuickRow::GameStylus
             | QuickRow::GameTouch
+            | QuickRow::GameStylusUp
+            | QuickRow::GameStylusDown
+            | QuickRow::GameStylusLeft
+            | QuickRow::GameStylusRight
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -2822,15 +2825,23 @@ impl App {
         self.ds_view
     }
 
-    /// The view drawn: while the stylus is out, the bottom screen it touches
-    /// is the main one, unless both are already shown full size.
+    /// Whether moving the DS's stylus brings its touch screen up: the game's choice, else
+    /// the shelf's (off unless set).
+    pub fn ds_stylus_screen(&self) -> bool {
+        self.ds_view
+            .stylus_screen
+            .unwrap_or(self.state.nds_stylus_screen)
+    }
+
+    /// The view drawn: while the stylus is out and the stylus shows the touch screen,
+    /// the bottom screen is the main one, unless both are shown full size already.
     fn ds_view_shown(&self) -> DsView {
-        match (self.ds_view.layout, self.stylus.is_some()) {
-            (DsLayout::Stacked, _) | (_, false) => self.ds_view,
-            (layout, true) => DsView {
+        match self.stylus.is_some() && self.ds_stylus_screen() {
+            true if self.ds_view.layout != DsLayout::Stacked => DsView {
                 main: DsScreen::Bottom,
-                layout,
+                ..self.ds_view
             },
+            _ => self.ds_view,
         }
     }
 
@@ -3387,16 +3398,11 @@ impl App {
         }
     }
 
-    /// A controls page's rows that its system doesn't have, and the turbo rows while
-    /// turbo is off.
+    /// A controls page's rows that its system doesn't have.
     fn controls_hidden(&self, platform: Platform) -> Vec<QuickRow> {
         QuickRow::CONTROLS
             .into_iter()
-            .filter(|r| {
-                let input = r.input().expect("a controls row");
-                !inputs(platform).contains(&input)
-                    || (!self.state.turbo && matches!(input, Input::TurboA | Input::TurboB))
-            })
+            .filter(|r| r.input().is_some_and(|i| !inputs(platform).contains(&i)))
             .collect()
     }
 
@@ -3479,7 +3485,6 @@ impl App {
             stretches(platform),
             &self.shortcuts,
             &self.carousel,
-            self.state.turbo,
         )
     }
 
@@ -3721,10 +3726,6 @@ impl App {
 
     pub fn may_rewind(&self) -> bool {
         self.state.rewind && !self.link_active()
-    }
-
-    pub fn turbo(&self) -> bool {
-        self.state.turbo
     }
 
     /// Whether rewind is recorded. Not for a DS game: its states are about
@@ -4694,7 +4695,6 @@ impl App {
             | QuickRow::PlayContrast
             | QuickRow::AutoLoad
             | QuickRow::EjectSave
-            | QuickRow::Turbo
             | QuickRow::Rewind
             | QuickRow::FastForward
             | QuickRow::FastForwardSound
@@ -4742,9 +4742,11 @@ impl App {
             | QuickRow::Tg16Bezel
             | QuickRow::NdsBezel
             | QuickRow::NdsLayout
+            | QuickRow::NdsStylusScreen
             | QuickRow::NdsScale
             | QuickRow::NdsStretch
             | QuickRow::Layout
+            | QuickRow::StylusScreen
             | QuickRow::GbaScale
             | QuickRow::GbScale
             | QuickRow::GbcScale
@@ -4782,8 +4784,6 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
-            | QuickRow::GameTurboA
-            | QuickRow::GameTurboB
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameY1
@@ -4794,6 +4794,10 @@ impl App {
             | QuickRow::GameNextLayout
             | QuickRow::GameStylus
             | QuickRow::GameTouch
+            | QuickRow::GameStylusUp
+            | QuickRow::GameStylusDown
+            | QuickRow::GameStylusLeft
+            | QuickRow::GameStylusRight
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -4969,6 +4973,16 @@ impl App {
             self.keep_ds_view();
             return;
         }
+        if row == QuickRow::NdsStylusScreen {
+            self.state.nds_stylus_screen = !self.state.nds_stylus_screen;
+            self.persist();
+            return;
+        }
+        if row == QuickRow::StylusScreen {
+            self.ds_view.stylus_screen = Some(!self.ds_stylus_screen());
+            self.keep_ds_view();
+            return;
+        }
         if row == QuickRow::Wallpaper {
             self.cycle_wallpaper(right);
             self.persist();
@@ -5095,7 +5109,6 @@ impl App {
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::AutoLoad => s.auto_load = !s.auto_load,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
-            QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbaBlending => {
                 s.blending_gba = s.blending_gba.step(&Blending::MGBA, right);
@@ -5156,9 +5169,11 @@ impl App {
             | QuickRow::Tg16Bezel
             | QuickRow::NdsBezel
             | QuickRow::NdsLayout
+            | QuickRow::NdsStylusScreen
             | QuickRow::NdsScale
             | QuickRow::NdsStretch
             | QuickRow::Layout
+            | QuickRow::StylusScreen
             | QuickRow::ScreenWs
             | QuickRow::ScreenLynx
             | QuickRow::ScreenGg
@@ -5201,8 +5216,6 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
-            | QuickRow::GameTurboA
-            | QuickRow::GameTurboB
             | QuickRow::GameX
             | QuickRow::GameY
             | QuickRow::GameY1
@@ -5213,6 +5226,10 @@ impl App {
             | QuickRow::GameNextLayout
             | QuickRow::GameStylus
             | QuickRow::GameTouch
+            | QuickRow::GameStylusUp
+            | QuickRow::GameStylusDown
+            | QuickRow::GameStylusLeft
+            | QuickRow::GameStylusRight
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot

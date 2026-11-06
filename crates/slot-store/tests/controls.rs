@@ -41,41 +41,37 @@ fn every_system_moves_with_the_d_pad_and_the_left_stick() {
 fn the_defaults_bind_what_upstream_bound() {
     let gb = SystemControls::default_for(Platform::Gb);
     assert_eq!(gb.row(Input::A), [Some(plain(Device::A)), None, None]);
-    assert_eq!(gb.row(Input::TurboB), [Some(plain(Device::Y)), None, None]);
+    assert_eq!(
+        gb.row(Input::X),
+        [None; SLOTS],
+        "turbo is gone: X and Y are free"
+    );
     assert_eq!(gb.row(Input::L), [None; SLOTS], "a Game Boy has no L");
     let gba = SystemControls::default_for(Platform::Gba);
     assert_eq!(gba.row(Input::L), [Some(plain(Device::L1)), None, None]);
     let ds = SystemControls::default_for(Platform::Nds);
     assert_eq!(ds.row(Input::X), [Some(plain(Device::X)), None, None]);
-    assert_eq!(
-        ds.row(Input::TurboA),
-        [None; SLOTS],
-        "the DS's X is its own"
-    );
 }
 
 #[test]
-fn the_wonderswan_second_pad_is_held_l1_with_the_d_pad_or_held_r1_with_the_face() {
+fn the_wonderswan_second_pad_is_the_right_stick_and_the_shoulders() {
     let ws = SystemControls::default_for(Platform::Ws);
-    assert_eq!(
-        ws.row(Input::Y1),
-        [
-            Some(chord(Device::L1, Device::Up)),
-            Some(chord(Device::R1, Device::X)),
-            None
-        ]
-    );
-    assert_eq!(
-        ws.row(Input::Y4),
-        [
-            Some(chord(Device::L1, Device::Left)),
-            Some(chord(Device::R1, Device::Y)),
-            None
-        ]
-    );
+    // The shoulders left to right (L1, L2, R2, R1) are its left, up, down and right.
+    for (input, stick, shoulder) in [
+        (Input::Y1, Device::RsUp, Device::L2),
+        (Input::Y2, Device::RsRight, Device::R1),
+        (Input::Y3, Device::RsDown, Device::R2),
+        (Input::Y4, Device::RsLeft, Device::L1),
+    ] {
+        assert_eq!(
+            ws.row(input),
+            [Some(plain(stick)), Some(plain(shoulder)), None],
+            "{input:?}"
+        );
+    }
     assert!(
         !inputs(Platform::Ws).contains(&Input::L),
-        "L1 is only a modifier"
+        "L1 is the Y pad's"
     );
 }
 
@@ -125,12 +121,17 @@ fn x_removes_the_last_binding_and_y_puts_the_row_back() {
 fn each_system_keeps_its_own_file() {
     let d = tempfile::tempdir().unwrap();
     let mut ws = SystemControls::default_for(Platform::Ws);
-    ws.add(Input::Y1, plain(Device::RsUp));
+    ws.add(Input::Y1, plain(Device::R3));
     ws.remove_last(Input::B);
     write_system_controls(d.path(), Platform::Ws, &ws).unwrap();
     let text = std::fs::read_to_string(d.path().join("Config/controls/ws.txt")).unwrap();
-    assert!(text.lines().any(|l| l == "y1=up+l1,x+r1,rs_up"), "{text}");
+    assert!(text.lines().any(|l| l == "y1=rs_up,l2,r3"), "{text}");
     assert!(text.lines().any(|l| l == "b=none"), "{text}");
+    assert_eq!(
+        text.lines().count(),
+        2,
+        "only the rows that differ from the defaults: {text}"
+    );
     assert_eq!(read_system_controls(d.path(), Platform::Ws), ws);
     assert_eq!(
         read_system_controls(d.path(), Platform::Gb),
@@ -167,8 +168,8 @@ fn upstream_controls_seed_every_system_where_the_user_changed_them() {
     let ds = read_system_controls(d.path(), Platform::Nds);
     assert_eq!(
         ds.row(Input::X),
-        [Binding::with(Modifier::Menu, Device::X), None, None],
-        "the DS's X was the Turbo A row"
+        [Some(plain(Device::X)), None, None],
+        "upstream's Turbo A row is about turbo, not the DS's X"
     );
 }
 
@@ -202,7 +203,7 @@ fn rows_read_in_each_systems_own_order_and_keep_todays_buttons() {
 }
 
 #[test]
-fn the_ds_page_has_its_screens_and_stylus_where_slot_had_them() {
+fn the_ds_page_has_its_screens_and_a_stylus_on_the_right_stick() {
     let ds = SystemControls::default_for(Platform::Nds);
     assert_eq!(
         ds.row(Input::SwapScreens),
@@ -212,8 +213,20 @@ fn the_ds_page_has_its_screens_and_stylus_where_slot_had_them() {
         ds.row(Input::NextLayout),
         [Binding::with(Modifier::Select, Device::L2), None, None]
     );
-    assert_eq!(ds.row(Input::Stylus), [Some(plain(Device::R2)), None, None]);
-    assert_eq!(ds.row(Input::Touch), [Some(plain(Device::A)), None, None]);
+    assert_eq!(
+        ds.row(Input::Stylus),
+        [None; SLOTS],
+        "unbound: the stick steers"
+    );
+    assert_eq!(ds.row(Input::Touch), [Some(plain(Device::R2)), None, None]);
+    for (input, stick) in [
+        (Input::StylusUp, Device::RsUp),
+        (Input::StylusDown, Device::RsDown),
+        (Input::StylusLeft, Device::RsLeft),
+        (Input::StylusRight, Device::RsRight),
+    ] {
+        assert_eq!(ds.row(input), [Some(plain(stick)), None, None], "{input:?}");
+    }
     assert!(Input::Stylus.is_slots() && !Input::A.is_slots());
     assert!(
         !inputs(Platform::Gba).contains(&Input::Stylus),

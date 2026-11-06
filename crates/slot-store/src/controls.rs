@@ -31,24 +31,27 @@ pub enum Input {
     R,
     Select,
     Start,
-    TurboA,
-    TurboB,
     /// The WonderSwan's second four-way pad (its first is Up, Down, Left and Right).
     Y1,
     Y2,
     Y3,
     Y4,
     /// The DS's slot controls, which drive slot rather than the core: swap the main
-    /// screen, step through the layouts, hold the stylus out, and touch with it. While the
-    /// stylus is out, the D-pad's inputs move it and Touch's buttons touch.
+    /// screen, step through the layouts, and the stylus. Stylus Up/Down/Left/Right move
+    /// it and Touch touches with it, bringing it out; holding Stylus brings it out for the
+    /// D-pad's inputs to move it instead.
     SwapScreens,
     NextLayout,
     Stylus,
     Touch,
+    StylusUp,
+    StylusDown,
+    StylusLeft,
+    StylusRight,
 }
 
 impl Input {
-    pub const COUNT: usize = 22;
+    pub const COUNT: usize = 24;
 
     pub const ALL: [Input; Input::COUNT] = [
         Input::Up,
@@ -63,8 +66,6 @@ impl Input {
         Input::R,
         Input::Select,
         Input::Start,
-        Input::TurboA,
-        Input::TurboB,
         Input::Y1,
         Input::Y2,
         Input::Y3,
@@ -73,6 +74,10 @@ impl Input {
         Input::NextLayout,
         Input::Stylus,
         Input::Touch,
+        Input::StylusUp,
+        Input::StylusDown,
+        Input::StylusLeft,
+        Input::StylusRight,
     ];
 
     fn index(self) -> usize {
@@ -93,8 +98,6 @@ impl Input {
             Input::R => "r",
             Input::Select => "select",
             Input::Start => "start",
-            Input::TurboA => "turbo_a",
-            Input::TurboB => "turbo_b",
             Input::Y1 => "y1",
             Input::Y2 => "y2",
             Input::Y3 => "y3",
@@ -103,6 +106,10 @@ impl Input {
             Input::NextLayout => "next_layout",
             Input::Stylus => "stylus",
             Input::Touch => "touch",
+            Input::StylusUp => "stylus_up",
+            Input::StylusDown => "stylus_down",
+            Input::StylusLeft => "stylus_left",
+            Input::StylusRight => "stylus_right",
         }
     }
 
@@ -110,7 +117,14 @@ impl Input {
     pub fn is_slots(self) -> bool {
         matches!(
             self,
-            Input::SwapScreens | Input::NextLayout | Input::Stylus | Input::Touch
+            Input::SwapScreens
+                | Input::NextLayout
+                | Input::Stylus
+                | Input::Touch
+                | Input::StylusUp
+                | Input::StylusDown
+                | Input::StylusLeft
+                | Input::StylusRight
         )
     }
 
@@ -133,17 +147,22 @@ impl Input {
             Input::Start => GameButton::Start,
             Input::L => GameButton::L,
             Input::R => GameButton::R,
-            // The DS's X and Y were the Turbo A and B rows' buttons.
-            Input::TurboA | Input::X => GameButton::TurboA,
-            Input::TurboB | Input::Y => GameButton::TurboB,
-            Input::Y1
+            // The DS's X and Y were upstream's Turbo A and B rows, which are about turbo,
+            // gone now, not about the DS's buttons.
+            Input::X
+            | Input::Y
+            | Input::Y1
             | Input::Y2
             | Input::Y3
             | Input::Y4
             | Input::SwapScreens
             | Input::NextLayout
             | Input::Stylus
-            | Input::Touch => return None,
+            | Input::Touch
+            | Input::StylusUp
+            | Input::StylusDown
+            | Input::StylusLeft
+            | Input::StylusRight => return None,
         })
     }
 }
@@ -153,16 +172,14 @@ pub fn inputs(platform: Platform) -> &'static [Input] {
     use Input::*;
     match platform {
         Platform::Gb | Platform::Gbc | Platform::Tg16 => {
-            &[Up, Down, Left, Right, A, B, Select, Start, TurboA, TurboB]
+            &[Up, Down, Left, Right, A, B, Select, Start]
         }
         // Select resets the Game Gear, and the Pocket has none.
-        Platform::Gg | Platform::Ngp => &[Up, Down, Left, Right, A, B, Start, TurboA, TurboB],
-        Platform::Gba | Platform::Gbav | Platform::Lynx => &[
-            Up, Down, Left, Right, A, B, Select, Start, L, R, TurboA, TurboB,
-        ],
-        Platform::Ws => &[
-            Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start, TurboA, TurboB,
-        ],
+        Platform::Gg | Platform::Ngp => &[Up, Down, Left, Right, A, B, Start],
+        Platform::Gba | Platform::Gbav | Platform::Lynx => {
+            &[Up, Down, Left, Right, A, B, Select, Start, L, R]
+        }
+        Platform::Ws => &[Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start],
         Platform::Nds => &[
             Up,
             Down,
@@ -180,6 +197,10 @@ pub fn inputs(platform: Platform) -> &'static [Input] {
             NextLayout,
             Stylus,
             Touch,
+            StylusUp,
+            StylusDown,
+            StylusLeft,
+            StylusRight,
         ],
     }
 }
@@ -192,8 +213,6 @@ pub fn drives(platform: Platform, input: Input) -> Input {
     match (platform, input) {
         (Platform::Gg | Platform::Ngp, Input::A) => Input::B,
         (Platform::Gg | Platform::Ngp, Input::B) => Input::A,
-        (Platform::Gg | Platform::Ngp, Input::TurboA) => Input::TurboB,
-        (Platform::Gg | Platform::Ngp, Input::TurboB) => Input::TurboA,
         (Platform::Ws, Input::Down) => Input::Right,
         (Platform::Ws, Input::Left) => Input::Down,
         (Platform::Ws, Input::Right) => Input::Left,
@@ -276,9 +295,12 @@ impl SystemControls {
         self.rows[input.index()] = default_row(platform, input);
     }
 
+    /// The rows that differ from the system's defaults, so a later change of default
+    /// reaches every row the user left alone.
     fn text(&self, platform: Platform) -> String {
         inputs(platform)
             .iter()
+            .filter(|&&input| self.rows[input.index()] != default_row(platform, input))
             .map(|&input| {
                 let row = self.rows[input.index()];
                 let values: Vec<String> = row
@@ -337,29 +359,23 @@ fn default_row(platform: Platform, input: Input) -> Row {
         Input::R => one(plain(Device::R1)),
         Input::Select => one(plain(Device::Select)),
         Input::Start => one(plain(Device::Start)),
-        Input::TurboA => one(plain(Device::X)),
-        Input::TurboB => one(plain(Device::Y)),
-        // The WonderSwan's second pad, as slotPlus placed it on the RG SP: hold L1 and
-        // the D-pad drives it, or hold R1 and the face diamond (X up, A right, B down,
-        // Y left) does.
-        Input::Y1 => two(chord(Device::L1, Device::Up), chord(Device::R1, Device::X)),
-        Input::Y2 => two(
-            chord(Device::L1, Device::Right),
-            chord(Device::R1, Device::A),
-        ),
-        Input::Y3 => two(
-            chord(Device::L1, Device::Down),
-            chord(Device::R1, Device::B),
-        ),
-        Input::Y4 => two(
-            chord(Device::L1, Device::Left),
-            chord(Device::R1, Device::Y),
-        ),
-        // The DS's controls, where slot has always had them.
+        // The WonderSwan's second pad: the right stick, and the shoulders read left to
+        // right as its left, up, down and right (L1, L2, R2, R1 on the RGB20SX).
+        Input::Y1 => two(plain(Device::RsUp), plain(Device::L2)),
+        Input::Y2 => two(plain(Device::RsRight), plain(Device::R1)),
+        Input::Y3 => two(plain(Device::RsDown), plain(Device::R2)),
+        Input::Y4 => two(plain(Device::RsLeft), plain(Device::L1)),
+        // The DS's controls: L2 swaps the screens and SELECT+L2 steps the layouts, as slot
+        // has always had them; the right stick steers the stylus and R2 touches. Holding
+        // Stylus to steer it with the D-pad is there to bind, for a handheld with no stick.
         Input::SwapScreens => one(plain(Device::L2)),
         Input::NextLayout => one(chord(Device::Select, Device::L2)),
-        Input::Stylus => one(plain(Device::R2)),
-        Input::Touch => one(plain(Device::A)),
+        Input::Stylus => [None; SLOTS],
+        Input::Touch => one(plain(Device::R2)),
+        Input::StylusUp => one(plain(Device::RsUp)),
+        Input::StylusDown => one(plain(Device::RsDown)),
+        Input::StylusLeft => one(plain(Device::RsLeft)),
+        Input::StylusRight => one(plain(Device::RsRight)),
     }
     .map(|b: Option<Binding>| b.filter(|_| inputs(platform).contains(&input)))
 }
@@ -423,14 +439,10 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (Platform::Ws, Input::Right) => "X4",
         (Platform::Gg, Input::A) => "Button 1",
         (Platform::Gg, Input::B) => "Button 2",
-        (Platform::Gg, Input::TurboA) => "Turbo 1",
-        (Platform::Gg, Input::TurboB) => "Turbo 2",
         (Platform::Ngp, Input::Start) => "Option",
         (Platform::Tg16, Input::B) => "Button II",
         (Platform::Tg16, Input::A) => "Button I",
         (Platform::Tg16, Input::Start) => "Run",
-        (Platform::Tg16, Input::TurboB) => "Turbo II",
-        (Platform::Tg16, Input::TurboA) => "Turbo I",
         (Platform::Lynx, Input::L) => "Option 1",
         (Platform::Lynx, Input::R) => "Option 2",
         (Platform::Lynx, Input::Start) => "Pause",
@@ -446,16 +458,18 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (_, Input::R) => "R Button",
         (_, Input::Select) => "Select",
         (_, Input::Start) => "Start",
-        (_, Input::TurboA) => "Turbo A",
-        (_, Input::TurboB) => "Turbo B",
         (_, Input::Y1) => "Y1",
         (_, Input::Y2) => "Y2",
         (_, Input::Y3) => "Y3",
         (_, Input::Y4) => "Y4",
         (_, Input::SwapScreens) => "Swap Screens",
         (_, Input::NextLayout) => "Next Layout",
-        (_, Input::Stylus) => "Stylus",
+        (_, Input::Stylus) => "Stylus Hold",
         (_, Input::Touch) => "Touch",
+        (_, Input::StylusUp) => "Stylus Up",
+        (_, Input::StylusDown) => "Stylus Down",
+        (_, Input::StylusLeft) => "Stylus Left",
+        (_, Input::StylusRight) => "Stylus Right",
     }
 }
 

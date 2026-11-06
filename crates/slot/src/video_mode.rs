@@ -329,6 +329,9 @@ impl DsFrame {
 pub struct DsView {
     pub main: DsScreen,
     pub layout: DsLayout,
+    /// Whether moving the stylus brings the touch screen up, once the game has chosen;
+    /// `None` follows the shelf's.
+    pub stylus_screen: Option<bool>,
 }
 
 impl DsView {
@@ -337,27 +340,51 @@ impl DsView {
             DsScreen::Top => "top",
             DsScreen::Bottom => "bottom",
         };
-        format!("{},{main}", self.layout.as_str())
+        match self.stylus_screen {
+            None => format!("{},{main}", self.layout.as_str()),
+            Some(on) => format!(
+                "{},{main},{}",
+                self.layout.as_str(),
+                if on { "touch" } else { "keep" }
+            ),
+        }
     }
 
     /// Reads a saved view, the views before layouts among them: "both" was
     /// both stacked, "top" and "bottom" one screen at 2x.
     pub fn parse(s: &str) -> Option<DsView> {
         let s = s.trim().to_ascii_lowercase();
-        let view = |layout, main| Some(DsView { main, layout });
+        let view = |layout, main| {
+            Some(DsView {
+                main,
+                layout,
+                stylus_screen: None,
+            })
+        };
         match s.as_str() {
             "both" => return view(DsLayout::Stacked, DsScreen::Top),
             "top" => return view(DsLayout::Single, DsScreen::Top),
             "bottom" => return view(DsLayout::Single, DsScreen::Bottom),
             _ => {}
         }
-        let (layout, main) = s.split_once(',')?;
-        let main = match main {
+        let mut parts = s.split(',');
+        let layout = DsLayout::parse(parts.next()?)?;
+        let main = match parts.next()? {
             "top" => DsScreen::Top,
             "bottom" => DsScreen::Bottom,
             _ => return None,
         };
-        view(DsLayout::parse(layout)?, main)
+        let stylus_screen = match parts.next() {
+            None => None,
+            Some("touch") => Some(true),
+            Some("keep") => Some(false),
+            Some(_) => return None,
+        };
+        Some(DsView {
+            main,
+            layout,
+            stylus_screen,
+        })
     }
 
     pub fn swapped(self) -> DsView {

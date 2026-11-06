@@ -115,7 +115,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Bezel,
                 QuickRow::Scale,
                 QuickRow::Stretch,
-                QuickRow::Layout
+                QuickRow::Layout,
+                QuickRow::StylusScreen
             ][..],
             &empty
         ]
@@ -129,7 +130,8 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Bezel,
                 QuickRow::Scale,
                 QuickRow::Stretch,
-                QuickRow::Layout
+                QuickRow::Layout,
+                QuickRow::StylusScreen
             ][..],
             &empty
         ]
@@ -861,16 +863,16 @@ fn drawn(a: &App, id: usize) -> bool {
         .any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == TexId::from_raw(id)))
 }
 
-fn at_turbo_a(a: &mut App) {
+fn at_controls_row(a: &mut App, row: QuickRow) {
     go_to(a, QuickRow::PlayControls);
     press(a, Btn::A);
     for _ in 0..QuickRow::CONTROLS.len() {
-        if a.in_game_menu() == Some(QuickRow::GameTurboA) {
+        if a.in_game_menu() == Some(row) {
             break;
         }
         press(a, Btn::Down);
     }
-    assert_eq!(a.in_game_menu(), Some(QuickRow::GameTurboA));
+    assert_eq!(a.in_game_menu(), Some(row));
     frames(a, 30);
 }
 
@@ -919,11 +921,11 @@ fn a_wonderswan_game_names_its_rows_after_its_own_pads() {
 }
 
 #[test]
-fn a_game_boy_advance_game_keeps_turbo_a_and_turbo_b() {
+fn a_game_boy_advance_game_names_its_shoulders() {
     let (_d, mut a) = playing();
     menu_faces(&mut a);
-    at_turbo_a(&mut a);
-    assert!(drawn(&a, lit_name("Turbo A")));
+    at_controls_row(&mut a, QuickRow::GameL);
+    assert!(drawn(&a, lit_name("L Button")));
     let hidden = a.in_game_hidden();
     assert!(hidden.contains(&QuickRow::GameY1) && hidden.contains(&QuickRow::GameX));
     assert!(!hidden.contains(&QuickRow::GameL), "a GBA has L and R");

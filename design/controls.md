@@ -167,3 +167,21 @@ Each step is tested on the device before the next.
   "Left Stick as D-Pad" switch and the `LEFT_STICK` description key are gone.
 - **SELECT chords on game rows** reach the game: the gesture layer sends them as
   themselves, as it does MENU chords, instead of holding SELECT back.
+
+## Defaults, step 4 (2026-11-06)
+
+Decided with the user:
+
+- **Turbo is a feature, not an input.** The Turbo A and Turbo B rows, the Turbo Buttons
+  switch and the emulator's auto-fire are gone; no system has a rule for which of its
+  buttons would get turbo. A turbo feature (for example a MENU chord that makes whatever
+  is held auto-fire) is in the backlog.
+- **Two-button systems** (Game Boy, Game Boy Color, Game Gear, NeoGeo Pocket,
+  TurboGrafx-16) keep one face button each. X and Y are free.
+- **WonderSwan:** the Y pad is on the right stick and on the shoulders, read left to
+  right as its left, up, down and right: L1 = Y4, L2 = Y1, R2 = Y3, R1 = Y2. No chords.
+- **DS stylus:** the right stick steers it (Stylus Up/Down/Left/Right) and R2 touches;
+  either brings it out, and it stays out two seconds after. The D-pad and A stay the
+  game's. Stylus Hold (hold it and the D-pad steers) is there to bind, unbound.
+- **A system's file keeps only the rows that differ from its defaults**, so a later
+  change of default reaches every row the user left alone.

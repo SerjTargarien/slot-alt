@@ -107,8 +107,10 @@ Done and checked on the device:
 
 The order is decided with the user at the start of a session; see the list below.
 
-1. **Default controls per system** ([design/controls.md](design/controls.md), step 4), one
-   system at a time with the user. First: the WonderSwan's Y pad (Dicing Knight's items).
+1. **Default controls per system** ([design/controls.md](design/controls.md), step 4):
+   turbo gone, the WonderSwan's Y pad on the right stick and shoulders, the DS stylus on
+   the right stick and R2, built 2026-11-06; to check on the device. More systems as the
+   user plays them.
 2. **Game overrides and the shelf's system first**
    ([design/game-overrides.md](design/game-overrides.md)): agreed, not built.
 3. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it) against
@@ -128,6 +130,8 @@ Waiting on a decision or an outside party:
 - The `adc-joystick` fix, to send to the kernel (`os/.../0004-...patch`).
 - Input backlog ([design/input-layers.md](design/input-layers.md)): one merged input, only
   if the D-pad and stick ever misbehave.
+- Turbo as a feature (removed as an input on 2026-11-06): one way for every system, such as
+  a MENU chord that makes whatever is held auto-fire.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
 Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall, NDS 230x250.

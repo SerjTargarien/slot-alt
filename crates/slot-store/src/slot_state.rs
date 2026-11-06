@@ -384,7 +384,6 @@ pub struct SlotState {
     pub shader_nds: Shader,
     pub auto_load: bool,
     pub eject_save: bool,
-    pub turbo: bool,
     pub rewind: bool,
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
@@ -437,6 +436,9 @@ pub struct SlotState {
     pub scale_nds: Scale,
     pub stretched_nds: bool,
     pub nds_layout: String,
+    /// Slot²: whether moving the stylus brings the DS's touch screen up, for a game that
+    /// hasn't chosen.
+    pub nds_stylus_screen: bool,
     pub blending_gba: Blending,
     pub blending_gb: Blending,
     pub blending_gbc: Blending,
@@ -624,7 +626,6 @@ impl Default for SlotState {
             shader_nds: Shader::Off,
             auto_load: true,
             eject_save: true,
-            turbo: true,
             rewind: true,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
@@ -667,6 +668,7 @@ impl Default for SlotState {
             scale_nds: Scale::Fit,
             stretched_nds: false,
             nds_layout: "stacked".into(),
+            nds_stylus_screen: false,
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -726,7 +728,7 @@ fn write_list(root: &Path, name: &str, list: &[Recent]) -> std::io::Result<()> {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let mut text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nzone={}\nclock_24h={}\nnetwork_time={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction_gba={}\ncolour_correction_gb={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nappearance={}\nwallpaper={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nzone={}\nclock_24h={}\nnetwork_time={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction_gba={}\ncolour_correction_gb={}\nshader_gba={}\nshader_gb={}\neject_save={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nappearance={}\nwallpaper={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -747,7 +749,6 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.shader_gba.name(),
         s.shader_gb.name(),
         s.eject_save as u8,
-        s.turbo as u8,
         s.rewind as u8,
         s.gb_palettes as u8,
         s.gb_palette.core_name(),
@@ -809,6 +810,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("scale_nds={}\n", s.scale_nds.name()));
     text.push_str(&format!("stretched_nds={}\n", s.stretched_nds as u8));
     text.push_str(&format!("nds_layout={}\n", s.nds_layout));
+    text.push_str(&format!("nds_stylus_screen={}\n", s.nds_stylus_screen as u8));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -861,7 +863,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut shader_nds = None;
     let mut auto_load = None;
     let mut eject_save = None;
-    let mut turbo = None;
     let mut rewind = None;
     let mut gb_palettes = None;
     let mut gb_palette = None;
@@ -902,6 +903,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut scale_nds = None;
     let mut stretched_nds = None;
     let mut nds_layout = None;
+    let mut nds_stylus_screen = None;
     let mut stretched_lynx = None;
     let mut blending_gba = None;
     let mut blending_gb = None;
@@ -939,7 +941,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
             "auto_load" => auto_load = flag(value),
             "eject_save" => eject_save = flag(value),
-            "turbo" => turbo = flag(value),
             "rewind" => rewind = flag(value),
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
@@ -979,6 +980,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "stretched_ws" => stretched_ws = flag(value),
             "scale_nds" => scale_nds = Scale::parse(value),
             "stretched_nds" => stretched_nds = flag(value),
+            "nds_stylus_screen" => nds_stylus_screen = flag(value),
             "nds_layout" => nds_layout = Some(value.trim().to_string()).filter(|v| !v.is_empty()),
             "stretched_lynx" => stretched_lynx = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
@@ -1054,7 +1056,6 @@ fn parse(text: &str) -> Option<SlotState> {
         shader_nds: shader_nds.unwrap_or(fallback.shader_nds),
         auto_load: auto_load.unwrap_or(fallback.auto_load),
         eject_save: eject_save.unwrap_or(fallback.eject_save),
-        turbo: turbo.unwrap_or(fallback.turbo),
         rewind: rewind.unwrap_or(fallback.rewind),
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
@@ -1094,6 +1095,7 @@ fn parse(text: &str) -> Option<SlotState> {
         stretched_ws: stretched_ws.unwrap_or(fallback.stretched_ws),
         scale_nds: scale_nds.unwrap_or(fallback.scale_nds),
         stretched_nds: stretched_nds.unwrap_or(fallback.stretched_nds),
+        nds_stylus_screen: nds_stylus_screen.unwrap_or(fallback.nds_stylus_screen),
         nds_layout: nds_layout.unwrap_or(fallback.nds_layout),
         stretched_lynx: stretched_lynx.unwrap_or(fallback.stretched_lynx),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),

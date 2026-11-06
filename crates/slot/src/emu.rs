@@ -188,9 +188,8 @@ struct Shared {
     state: AtomicU8,
     rewind: AtomicBool,
     rewind_fill: AtomicU8,
-    turbo: AtomicBool,
-    /// The core takes X and Y as buttons of its own (the DS), so turbo leaves
-    /// them be.
+    /// The core takes X and Y as buttons of its own (the DS); every other core gets
+    /// neither.
     face_xy: AtomicBool,
     /// The core skips drawing the frame after one that ran slow (the DS):
     /// slot runs a frame a present, so a slow one only makes the present
@@ -273,7 +272,6 @@ impl EmuHandle {
             state: AtomicU8::new(CoreState::Loading as u8),
             rewind: AtomicBool::new(false),
             rewind_fill: AtomicU8::new(0),
-            turbo: AtomicBool::new(true),
             face_xy: AtomicBool::new(false),
             skip_slow: AtomicBool::new(false),
             pointer: AtomicU64::new(0),
@@ -470,10 +468,6 @@ impl EmuHandle {
 
     pub fn set_rewinding(&self, on: bool) {
         self.shared.rewind.store(on, Ordering::Relaxed);
-    }
-
-    pub fn set_turbo(&self, on: bool) {
-        self.shared.turbo.store(on, Ordering::Relaxed);
     }
 
     pub fn set_face_xy(&self, on: bool) {
@@ -726,7 +720,6 @@ impl Worker {
         let mut scale = 0.0f64;
         let mut rate = TickRate::new(Instant::now(), 0);
         let mut stalled = false;
-        let mut turbo_frame = 0u32;
         let mut owed = Owed::new(av.fps);
         let mut transport: Option<Box<dyn LinkChannel>> = None;
         let mut cable: Option<Cable> = None;
@@ -857,12 +850,9 @@ impl Worker {
                         || (speed != Speed::Normal && cost.last(began.elapsed(), budget));
                     let input = if self.shared.face_xy.load(Ordering::Relaxed) {
                         input
-                    } else if self.shared.turbo.load(Ordering::Relaxed) {
-                        input.turbo(turbo_frame)
                     } else {
                         input.without_turbo()
                     };
-                    turbo_frame = turbo_frame.wrapping_add(1);
                     let ask = !last
                         || (speed == Speed::Normal
                             && self.shared.skip_slow.load(Ordering::Relaxed)

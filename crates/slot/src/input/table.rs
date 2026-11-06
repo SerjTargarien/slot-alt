@@ -1,5 +1,5 @@
 use slot_input::{anywhere, Action, Contexts, Entry};
-use slot_store::controls::{inputs, Input, SystemControls};
+use slot_store::controls::{inputs, SystemControls};
 use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
@@ -27,26 +27,22 @@ impl Table {
         stretches: bool,
         shortcuts: &ShortcutKeys,
         carousel: &CarouselKeys,
-        turbo: bool,
     ) -> Table {
-        let game = inputs(platform)
-            .iter()
-            .filter(|i| turbo || !matches!(i, Input::TurboA | Input::TurboB))
-            .flat_map(|&input| {
-                controls.bindings(input).map(move |binding| Row {
-                    row: QuickRow::of_input(input),
-                    binding,
-                    // A SELECT chord is told apart from SELECT by the gesture layer, which
-                    // holds SELECT back while it might be a chord.
-                    action: match binding.modifier {
-                        Some(Modifier::Select) => {
-                            Some(Action::SelectChordDown(device_btn(binding.button)))
-                        }
-                        _ => None,
-                    },
-                    contexts: Contexts::GAME,
-                })
-            });
+        let game = inputs(platform).iter().flat_map(|&input| {
+            controls.bindings(input).map(move |binding| Row {
+                row: QuickRow::of_input(input),
+                binding,
+                // A SELECT chord is told apart from SELECT by the gesture layer, which
+                // holds SELECT back while it might be a chord.
+                action: match binding.modifier {
+                    Some(Modifier::Select) => {
+                        Some(Action::SelectChordDown(device_btn(binding.button)))
+                    }
+                    _ => None,
+                },
+                contexts: Contexts::GAME,
+            })
+        });
         let rest = QuickRow::ALL.into_iter().filter_map(|row| {
             if let Some(s) = row.shortcut() {
                 let action = shortcut_action(s);

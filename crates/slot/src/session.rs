@@ -10,6 +10,8 @@ use slot_ui::FfState;
 
 pub const RUMBLE_MIN_MS: Millis = 100;
 pub const RUMBLE_MAX_MS: Millis = 150;
+/// How long the DS's stylus stays out after it was last steered or touched with.
+pub const STYLUS_LINGER_MS: Millis = 2_000;
 
 use crate::app::{App, Phase};
 use crate::audio::{opened_sink, AudioSink, Ring, Sfx};
@@ -36,6 +38,8 @@ pub struct Session {
     pad: Pad,
     /// The DS's slot controls held at the last look, so a press acts once.
     ds_held: Vec<Input>,
+    /// When the DS's stylus was last steered or touched with; it stays out a moment after.
+    stylus_seen: Option<Millis>,
     sent: u16,
     rewinding: bool,
     fast: bool,
@@ -74,6 +78,7 @@ impl Session {
             captured: Vec::new(),
             pad: Pad::default(),
             ds_held: Vec::new(),
+            stylus_seen: None,
             sent: 0,
             rewinding: false,
             fast: false,
@@ -329,11 +334,13 @@ impl Session {
     }
 
     /// A DS game's own controls, from its bindings: Swap Screens and Next Layout act on
-    /// the press, and the stylus is out while Stylus is held, moved by the D-pad's inputs
-    /// and touching while Touch is held.
+    /// the press. The stylus comes out while Stylus Up/Down/Left/Right steer it or Touch
+    /// touches, and stays out a moment after; holding Stylus Hold brings it out for the
+    /// D-pad's inputs to steer instead.
     fn sync_ds(&mut self, controls: &SystemControls, platform: Platform) {
         if platform != Platform::Nds || !self.app.ds_controls() {
             self.ds_held.clear();
+            self.stylus_seen = None;
             return;
         }
         let pressed = self
@@ -349,9 +356,26 @@ impl Session {
         if next {
             self.app.next_ds_layout();
         }
-        self.app.stylus_out(now(Input::Stylus));
-        let moving = [Input::Up, Input::Down, Input::Left, Input::Right].map(now);
-        self.app.stylus_steer(moving, now(Input::Touch));
+        let held = now(Input::Stylus);
+        let stick = [
+            Input::StylusUp,
+            Input::StylusDown,
+            Input::StylusLeft,
+            Input::StylusRight,
+        ]
+        .map(now);
+        let pad = [Input::Up, Input::Down, Input::Left, Input::Right].map(|i| held && now(i));
+        let moving = [0, 1, 2, 3].map(|k| stick[k] || pad[k]);
+        let touching = now(Input::Touch);
+        let at = self.app.now();
+        if held || touching || moving.contains(&true) {
+            self.stylus_seen = Some(at);
+        }
+        let out = self
+            .stylus_seen
+            .is_some_and(|seen| at.saturating_sub(seen) < STYLUS_LINGER_MS);
+        self.app.stylus_out(out);
+        self.app.stylus_steer(moving, touching);
     }
 
     fn sync_pad(&mut self) {
@@ -715,7 +739,6 @@ impl Session {
             };
             emu.set_speed(speed);
             emu.set_rewinding(self.actually_rewinding());
-            emu.set_turbo(self.app.turbo());
             emu.set_face_xy(self.app.core() == Core::Dsperate);
             emu.set_skip_slow(self.app.core() == Core::Dsperate);
             emu.set_pointer(self.app.pointer());
