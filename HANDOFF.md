@@ -59,6 +59,11 @@ Last updated 2026-11-06. Read this first. Older detail is in
   and GLES2, as on the device. A test checks it starts, since render tests skip quietly
   without it. Frame-time tests are skipped on Linux (the software renderer is no measure).
 - `romm_ui` needs `--features romm`.
+- **Cores:** [cores/README.md](cores/README.md) maps every core (source, pin, patches, how
+  current it is). Once a day or session, `python3 -I tools/slotsq/cores.py daily` checks
+  the map names every pin and reports what upstream published since (only what changed
+  since its last run, kept in `logs/cores-check.json`). Update the map with any pin, patch
+  or core change.
 - Build settings for this machine are in `~/.cargo/config.toml`, not the repo: mold as the
   linker, and line numbers only in debug builds. A full test build takes about a minute
   and `target/` stays at a few GB; `cargo clean` if it grows.
