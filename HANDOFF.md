@@ -1,7 +1,7 @@
 # Handover: Base² and Slot² on the Powkiddy RGB20SX
 
 Last updated 2026-11-06. Read this first. Older detail is in
-[docs/history/handoff-2026-11-05.md](docs/history/handoff-2026-11-05.md).
+[history/handoff-2026-11-05.md](history/handoff-2026-11-05.md).
 
 ## The two halves
 
@@ -15,7 +15,7 @@ Last updated 2026-11-06. Read this first. Older detail is in
 - They meet only through [CONTRACT.md](CONTRACT.md). Neither names the other's internals,
   and Slot² never names the device: it reads `/etc/slot-device`.
 - Running slot on ROCKNIX was retired on 2026-11-06; its notes and probe scripts are in
-  `docs/history/rocknix/`.
+  `history/rocknix/`.
 
 ## Branches
 
