@@ -1477,7 +1477,7 @@ struct UiFaces {
     quick_values: Vec<[UndoFace; 2]>,
     quick_legend: [UndoFace; 11],
     quick_legend_light: [UndoFace; 11],
-    descriptions: [UndoFace; 2],
+    descriptions: [UndoFace; 3],
     sockets: Vec<CartFace>,
     chips: Vec<CartFace>,
     blank_chip: CartFace,
@@ -1541,6 +1541,8 @@ impl UiFaces {
                     "Up to three: a button, two-button chord or MENU+button.",
                 ]),
                 quick_description_face(&["Supports single button and two button chords."]),
+                // Slot²: gpSP has no ghosting, so a gpSP game mixes frames instead.
+                quick_description_face(&["Ghosting is unavailable in gpSP. Falls back to mix."]),
             ],
             sockets: slot_store::Core::choices(slot_store::Platform::Gba)
                 .iter()

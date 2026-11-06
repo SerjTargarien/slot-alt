@@ -617,8 +617,14 @@ fn network_sits_between_controls_and_about() {
     let at = |row| QuickRow::MAIN.iter().position(|r| *r == row);
     assert_eq!(at(QuickRow::Network), at(QuickRow::Controls).map(|i| i + 1));
     // slotPlus: RetroAchievements sits between Tools and About.
-    assert_eq!(at(QuickRow::Achievements), at(QuickRow::Network).map(|i| i + 1));
-    assert_eq!(at(QuickRow::About), at(QuickRow::Achievements).map(|i| i + 1));
+    assert_eq!(
+        at(QuickRow::Achievements),
+        at(QuickRow::Network).map(|i| i + 1)
+    );
+    assert_eq!(
+        at(QuickRow::About),
+        at(QuickRow::Achievements).map(|i| i + 1)
+    );
     assert_eq!(QuickRow::Network.label(), "Tools");
     assert_eq!(
         QuickRow::NETWORK,
@@ -677,9 +683,10 @@ fn tools_shows_the_message_when_not_connected() {
     press(&mut a, Btn::A);
     assert_eq!(a.quick_menu(), Some(QuickRow::Network));
     assert_eq!(a.update_text().map(|t| t.0), Some(NO_NETWORK.to_string()));
-    assert!(QuickRow::NETWORK
+    assert!(QuickRow::NETWORK.iter().all(|r| QuickRow::Network
+        .shown(&a.hidden_rows())
         .iter()
-        .all(|r| QuickRow::Network.shown(&a.hidden_rows()).iter().all(|s| s != r)));
+        .all(|s| s != r)));
 }
 
 #[test]
@@ -935,7 +942,11 @@ fn fake_faces(a: &mut App) {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: [
+            (id(410), 300, 44),
+            (id(411), 340, 44),
+            (id(413), 360, 44),
+        ],
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
     a.set_clock_legend_faces(
@@ -1412,7 +1423,11 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: [
+            (id(410), 300, 44),
+            (id(411), 340, 44),
+            (id(413), 360, 44),
+        ],
     });
     for page in [
         &QuickRow::SCREEN_GBA[..],
@@ -2089,7 +2104,10 @@ fn the_username_is_typed_on_the_keyboard_and_reaches_the_file() {
     // The keyboard starts with the name already there; Start is Done.
     press(&mut a, Btn::Start);
     assert!(a.keyboard().is_none());
-    assert!(ra_file(&d).contains("token = \"old\""), "an unchanged name leaves the file be");
+    assert!(
+        ra_file(&d).contains("token = \"old\""),
+        "an unchanged name leaves the file be"
+    );
     assert!(!a.take_achievements_changed());
     press(&mut a, Btn::A);
     press(&mut a, Btn::Y);
@@ -2110,9 +2128,15 @@ fn a_password_is_never_shown_and_turns_achievements_on() {
     press(&mut a, Btn::Start);
     assert!(a.keyboard().is_none());
     let text = ra_file(&d);
-    assert!(text.contains("password = \" \"") && text.contains("enabled = true"), "{text}");
+    assert!(
+        text.contains("password = \" \"") && text.contains("enabled = true"),
+        "{text}"
+    );
     assert_eq!(a.achievements_values()[1], "Set");
-    assert!(a.take_achievements_changed(), "the service starts again with it");
+    assert!(
+        a.take_achievements_changed(),
+        "the service starts again with it"
+    );
 }
 
 #[test]
@@ -2148,4 +2172,21 @@ fn retroachievements_are_hidden_while_switched_off() {
         !d.path().join("Config/retroachievements.toml").exists(),
         "nothing is written for it"
     );
+}
+
+#[test]
+fn the_gbas_frame_blending_says_a_gpsp_game_mixes_instead_of_ghosting() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    let note = |a: &App| {
+        let mut out = Vec::new();
+        a.draw(&mut out);
+        drawn(&out, 413)
+    };
+    open_at(&mut a, QuickRow::GbaBlending);
+    assert!(note(&a), "the GBA's row says Ghosting is mGBA's");
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    open_at(&mut a, QuickRow::GbBlending);
+    assert!(!note(&a), "the Game Boy's cores both ghost");
 }

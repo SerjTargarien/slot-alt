@@ -4049,6 +4049,10 @@ impl App {
             Some(faces.descriptions[1])
         } else if row.binds() {
             Some(faces.descriptions[0])
+        } else if row == QuickRow::GbaBlending {
+            // The shelf's value is every GBA game's, and gpSP has no ghosting. (Only
+            // here: the in-game menu has no room for it over the game.)
+            Some(faces.descriptions[2])
         } else {
             None
         }

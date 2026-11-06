@@ -700,7 +700,7 @@ fn menu_faces(a: &mut App) {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
+        descriptions: [(id(410), 300, 44), (id(411), 340, 44), (id(413), 360, 44)],
     });
 }
 
@@ -1052,4 +1052,14 @@ fn a_row_with_the_games_own_value_makes_room_for_its_three_legends() {
         plugged(&a),
         "Back, Default and Change run along the whole slot bar"
     );
+}
+
+#[test]
+fn the_in_game_frame_blending_has_no_note_even_on_gpsp() {
+    let (_d, mut a) = playing();
+    a.set_core(Core::Gpsp);
+    menu_faces(&mut a);
+    go_to(&mut a, QuickRow::Blending);
+    frames(&mut a, 30);
+    assert!(legend_missing(&a, 413), "the note is the shelf's only");
 }

@@ -991,3 +991,32 @@ fn the_tools_page_stays_shut_until_connected() {
     assert_eq!(f.app().quick_menu(), Some(QuickRow::Network));
     assert!(f.app().update_shown());
 }
+
+#[test]
+fn the_gbas_frame_blending_note_renders_under_the_page() {
+    let Ok(surface) = HeadlessSurface::new() else {
+        return;
+    };
+    let Ok(mut c) = Compositor::new(&surface) else {
+        return;
+    };
+    let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
+    clocked(d.path());
+    let mut f = Frontend::boot(Box::new(SimPlatform::at(d.path().to_path_buf())));
+    f.upload_faces(&mut c);
+    let mut input = Script(VecDeque::new());
+    tap(&mut f, &mut input, Btn::Menu);
+    for step in [QuickRow::Screen, QuickRow::ScreenGba, QuickRow::GbaBlending] {
+        for _ in 0..16 {
+            if f.app().quick_menu() == Some(step) {
+                break;
+            }
+            tap(&mut f, &mut input, Btn::Down);
+        }
+        assert_eq!(f.app().quick_menu(), Some(step));
+        if step != QuickRow::GbaBlending {
+            tap(&mut f, &mut input, Btn::A);
+        }
+    }
+    composed(&mut f, &mut c, "gba-blending-note");
+}

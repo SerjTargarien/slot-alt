@@ -2207,7 +2207,9 @@ pub struct QuickMenuFaces {
     pub values: Vec<[(TexId, u32, u32); 2]>,
     pub legend: [(TexId, u32); 11],
     pub legend_light: [(TexId, u32); 11],
-    pub descriptions: [(TexId, u32, u32); 2],
+    /// The note under a row: a controls row's, a shortcut's, and (Slot²) the shelf's GBA
+    /// Frame Blending.
+    pub descriptions: [(TexId, u32, u32); 3],
 }
 
 /// Slot²: the ink of a game's own value (design/game-overrides.md), multiplied over the

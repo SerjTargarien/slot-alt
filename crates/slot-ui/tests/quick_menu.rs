@@ -867,3 +867,14 @@ fn a_square_canvas_shows_ten_rows_and_the_band_six() {
         "the rows reach {bottom}"
     );
 }
+
+#[test]
+fn the_gbas_frame_blending_note_fits_across_the_screen() {
+    let face =
+        slot_ui::quick_description_face(&["Ghosting is unavailable in gpSP. Falls back to mix."]);
+    let widest = slot_ui::quick_description_face(&[
+        "Up to three: a button, two-button chord or MENU+button.",
+    ]);
+    eprintln!("note {} px, the controls' {} px", face.w, widest.w);
+    assert!(face.w > 0 && face.w <= slot_ui::OUT_W - 40, "{} px", face.w);
+}
