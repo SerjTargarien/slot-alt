@@ -1,0 +1,172 @@
+# Core map
+
+The emulator cores Slot² runs, where each comes from, and how current it is. Checked on
+2026-11-06 against GitHub, slotPlus's release, and the card in the RGB20SX.
+
+## At a glance
+
+| System | Core (file) | Source | Pinned at | Upstream since |
+|---|---|---|---|---|
+| Game Boy Advance | mGBA (`mgba`), default | [libretro/mgba](https://github.com/libretro/mgba) | `e31759b`, 2026-08-06 | 1 commit (log noise) |
+| Game Boy Advance | gpSP (`gpsp`), pick | [libretro/gpsp](https://github.com/libretro/gpsp) | `7b2dd37`, 2026-08-19 | 9 commits (fixes) |
+| Game Boy, Game Boy Color | Gambatte (`gambatte`), default | [libretro/gambatte-libretro](https://github.com/libretro/gambatte-libretro) | `77f2567`, 2026-10-30 | none |
+| Game Boy, Game Boy Color | mGBA (`mgba`), pick and link play | as above | | |
+| WonderSwan (Color) | Beetle Cygne (`cygne`) | [libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro) | `4b01295`, 2026-07-31 | none |
+| Atari Lynx | Beetle Lynx (`lynx`) | [libretro/beetle-lynx-libretro](https://github.com/libretro/beetle-lynx-libretro) | `fcdefcf`, 2026-04-20 | none |
+| Game Gear | Gearsystem (`gearsystem`) | [drhelius/Gearsystem](https://github.com/drhelius/Gearsystem) | `517ddaa`, 3.9.22, 2026-10-11 | 56 commits, releases 3.9.23 and 3.9.24 |
+| NeoGeo Pocket (Color) | Beetle NeoPop (`ngp`) | [libretro/beetle-ngp-libretro](https://github.com/libretro/beetle-ngp-libretro) | `a50d5ac`, 2026-06-14 | none |
+| TurboGrafx-16 | Beetle PCE Fast (`pce`) | [libretro/beetle-pce-fast-libretro](https://github.com/libretro/beetle-pce-fast-libretro) | `3f946f2`, 2026-10-02 | 2 commits (translations) |
+| Nintendo DS | DSperate (`dsperate`) | [beebono/DSperate](https://github.com/beebono/DSperate) through [thwonp/dsperate-lr](https://github.com/thwonp/dsperate-lr) | `ddf2910`, v3.0.5, 2026-10-21; wrapper `093d50f`, 2026-10-27 | 87 commits, v3.3.0; wrapper 11 commits, v3.3.0-lr.1 |
+
+"Default" is what a game runs on until another core is picked for it (the cart studio's
+chip, saved per game in `Config/selected_core.txt`). The Game Boy's default is the card's
+choice, `gb_core` in `slot.state`: Gambatte unless set. Link play runs on mGBA only; a Game
+Boy game on Gambatte is told it needs mGBA.
+
+## Where the files on the card come from
+
+The nine `System/*_libretro.so` on the card are **slotPlus's builds, byte for byte**: each
+matches the same file in slotPlus's
+[v1.14.0-plus2.6 release](https://github.com/nelynes/slotPlus/releases/tag/v1.14.0-plus2.6)
+(`slot-plusultra.zip`, 2026-11-04), checked by MD5. That release carries a build record for
+each core, `System/licenses/<core>-<commit>.meta`, and every record matches this repo's
+pins in `taskfile.yml` and the patches in `cores/*/`.
+
+- mGBA, gpSP and Gambatte, and their pins, are upstream slot's (BrandonKowalski/slot,
+  unchanged at `f1f6ef9` and on its main branch today). slotPlus builds them the same way.
+- The other six, and their recipes, are slotPlus's, from its `slotPlusUltra` branch
+  (`a61ccfe`), which Slot² merged on 2026-11-05.
+- `System/premerge/` on the card holds the three cores of the slot build from before the
+  merge.
+
+Slot² hasn't built a core itself yet: that's still on the plan (HANDOFF.md).
+
+## How they are built
+
+`task core:<name>` (`core:device` for mGBA) runs `cores/<name>/build.sh` in a Debian
+bullseye arm64 box (`docker run rust:1-bullseye`; natively on an aarch64 Linux host).
+Each recipe:
+
+- fetches its pinned commit as a source archive, which ships beside the core as its
+  corresponding source (GPL), with a `.meta` stamp of commit, recipe, flags and patches;
+- applies the patches in `cores/<name>/`;
+- builds for `-mcpu=cortex-a53` (the RK3566's Cortex-A55 runs it), with LTO for mGBA and
+  Gearsystem.
+
+Bullseye's glibc 2.31 keeps the cores running on BaseOS's older system. Base² has glibc
+2.44, so it could run cores built on a newer system (see DSperate).
+
+## Each core
+
+### mGBA: Game Boy Advance, Game Boy, Game Boy Color
+
+- **What:** Vicki Pfau's (endrift) accurate GBA emulator, which also runs the Game Boy
+  and Game Boy Color. libretro's fork of it. Licence MPL-2.0.
+- **Pin:** `e31759b` ("libretro: version", 2026-08-06). The fork has one newer commit,
+  which quietens debug logging.
+- **Patches (13):**
+  - two backports from mGBA proper: an MBC2 save-bank fix (`543a19758`, #3859) and a
+    FIFO DMA source-offset fix for GBA audio (`685023e05`);
+  - slot's own: GBA flash saves keep their bank (`flash-bank-survives-mask`); Game Boy
+    audio (`gb-audio-capacitor`, `gb-audio-centred-channels`, `gb-audio-stopped-channel`);
+    a blank frame after the LCD switches on; the DMG palette following its option and
+    choosing itself (`zz-gb-auto-palette`); and link play (`link-mode`, `zz-gb-link-mode`,
+    `zz-link-peer-frameskip`, `zz-link-peer-silence`: the second console a device runs
+    for a link is never drawn or heard).
+- **In Slot²:** the GBA's default, and the only core for link play.
+
+### gpSP: Game Boy Advance
+
+- **What:** a fast GBA emulator with an ARM recompiler (Exophase's, libretro's fork).
+  Licence GPL-2.0.
+- **Pin:** `7b2dd37` (2026-08-19, a recompiler fix).
+- **Patches (2):** `aw-session-reset` (a wireless-adapter session resets cleanly) and
+  `jit-cache-in-binary` (the recompiler's cache lives in the core itself).
+- **Upstream since (9 commits, 2026-08-20 to 09-19), worth having:** a scanned EEPROM
+  signature no longer overrides a game's real SRAM or flash (#287); running code from VRAM
+  under the recompiler (#289); GBA I/O read fixes (three commits); PSG status bits kept
+  readable; no crash when memory for the ROM or the recompiler cache can't be had; and the
+  default sound rate moved from 65536 to 32768 Hz (#288).
+- **In Slot²:** a pick for GBA games, for speed.
+
+### Gambatte: Game Boy, Game Boy Color
+
+- **What:** sinamas's accurate Game Boy and Game Boy Color emulator, libretro's port.
+  Licence GPL-2.0.
+- **Pin:** `77f2567` (2026-10-30), the newest.
+- **Patch (1):** `gb-audio-centred-channels`, as in mGBA.
+- **In Slot²:** the Game Boy's default since upstream slot 1.14 (2026-11-02).
+
+### Beetle Cygne: WonderSwan and WonderSwan Color
+
+- **What:** Mednafen's WonderSwan module (from Cygne), as a libretro core. GPL-2.0.
+- **Pin:** `4b01295` (2026-07-31), the newest. No patches.
+- **In Slot²:** turns its pads for games played upright (`session.rs`); its second pad is
+  in the WonderSwan's controls.
+
+### Beetle Lynx: Atari Lynx
+
+- **What:** Mednafen's Lynx module (from Handy), as a libretro core. GPL-2.0.
+- **Pin:** `fcdefcf` (2026-04-20), the newest. No patches.
+- **In Slot²:** Slot² turns games made to be held sideways (`LYNX_ROTATION_FILE`,
+  `hold_picker.rs`).
+
+### Gearsystem: Game Gear
+
+- **What:** Ignacio Sánchez's (drhelius) Sega 8-bit emulator: Master System, Game Gear,
+  SG-1000. Its own repository, with its libretro core in `platforms/libretro`. GPL-3.0.
+- **Pin:** `517ddaa`, release 3.9.22 (2026-10-11). Built with LTO. No patches.
+- **Upstream since:** 3.9.23 (2026-10-24) and 3.9.24 (2026-10-30): mostly the desktop app
+  (OpenGL, vsync, file dialogs), and "audio rate control" and bug fixes that may reach the
+  core. 56 commits in all.
+- **In Slot²:** Select never reaches it, since Gearsystem takes it as a console reset.
+
+### Beetle NeoPop: NeoGeo Pocket and Pocket Color
+
+- **What:** Mednafen's NeoGeo Pocket module (from NeoPop), as a libretro core. GPL-2.0.
+- **Pin:** `a50d5ac` (2026-06-14), the newest. No patches.
+- **In Slot²:** saves in its own `Saves/NGP/` folder (`save_dir_for`).
+
+### Beetle PCE Fast: TurboGrafx-16 (PC Engine)
+
+- **What:** Mednafen's faster PC Engine module, as a libretro core. GPL-2.0.
+- **Pin:** `3f946f2` (2026-10-02). Two newer commits, both translations. No patches.
+- **In Slot²:** its games change width as they run; Slot² follows the frame it last drew.
+
+### DSperate: Nintendo DS
+
+- **What:** beebono's DS emulator, "an attempt at reimplementing DraStic-level performance
+  with modern features". The libretro core is thwonp's wrapper, dsperate-lr (made for
+  plorpOS), around one DSperate commit. Both GPL-3.0.
+- **Pin:** DSperate `ddf2910`, v3.0.5 (2026-10-21), through the wrapper at `093d50f`
+  (2026-10-27). Built with GCC 10.2 without DSperate's PGO profiles (they match only the
+  GCC they were made with), Vulkan, SDL, Wi-Fi and RetroAchievements left out.
+- **Patch (1):** `wrapper-0001-frameskip`, slotPlus's frameskip: whole display periods
+  skipped while the audio runs behind, at most two in a row.
+- **Upstream since (87 commits, v3.0.6 to v3.3.0, 2026-10-31 to 11-04):** accuracy fixes
+  (Zoo Keeper, Picross DS Korean, Electroplankton, IPC timing, steadier 3D textures);
+  analog sticks for games with Circle Pad patches; save states that no longer freeze
+  Dragon Quest IX; GBA cartridges in slot 2, the Rumble Pak and the Guitar Grip; and a
+  GPU 3D renderer (Vulkan, OpenGL ES), which the libretro core doesn't use: its 3D is drawn
+  on the CPU.
+- **The wrapper since:** release
+  [v3.3.0-lr.1](https://github.com/thwonp/dsperate-lr/releases/tag/v3.3.0-lr.1)
+  (2026-11-04), pinned to exactly DSperate v3.3.0 (`99618eb`), with slotPlus's frameskip
+  taken in (`dsperate_frameskip = slotplus`, beside a per-frame `auto`), and opt-in core
+  options for analog patches and the Rumble Pak. It ships two prebuilt cores: one for
+  glibc 2.17 without PGO, and one for glibc 2.38 or newer built with GCC 13 and DSperate's
+  PGO profile. **Base²'s glibc 2.44 runs the PGO build.** Its authors measured 59.4-59.8 fps
+  on an H700 (Cortex-A53 at 1.5 GHz) in Metroid Prime Hunters, Golden Sun: Dark Dawn and
+  GTA: Chinatown Wars; the RK3566 runs at 1.8 GHz.
+- **In Slot²:** its controls (screens, layouts, stylus) are on its controls page; its
+  layouts are Slot²'s (`video_mode.rs`).
+
+## Where to look next
+
+1. **DSperate:** try the wrapper's prebuilt PGO core, timed against today's on the same
+   game (DS games slow down now). If it's better, pin the wrapper release instead of
+   building, and check our core option values against its new names.
+2. **gpSP:** the save-type and recompiler fixes. A pin bump for us, and for upstream slot,
+   which pins the same commit.
+3. **Gearsystem:** 3.9.24, after checking which of its changes reach the libretro core.
+4. The rest are at their newest, or behind only by logging and translations.
