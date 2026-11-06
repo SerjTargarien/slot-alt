@@ -199,7 +199,12 @@ fn opening_the_menu_puts_the_stylus_away() {
 fn a_ds_game_records_no_rewind_and_keeps_x_and_y_as_buttons() {
     let (_d, a) = playing_ds();
     assert!(!a.records_rewind());
-    assert!(a.ws_buttons(), "X and Y are the DS's own");
+    let hidden = a.in_game_hidden();
+    assert!(
+        !hidden.contains(&slot_ui::QuickRow::GameX)
+            && hidden.contains(&slot_ui::QuickRow::GameTurboA),
+        "X and Y are the DS's own"
+    );
 }
 
 #[test]

@@ -5,7 +5,8 @@ use crate::plate::{blit, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE};
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{opening, MOUTH_H};
 use crate::text;
-use slot_store::{CarouselAction, GameButton, Shortcut};
+use slot_store::controls::{self, Input};
+use slot_store::{CarouselAction, Platform, Shortcut};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum QuickRow {
@@ -97,6 +98,12 @@ pub enum QuickRow {
     GameR,
     GameTurboA,
     GameTurboB,
+    GameX,
+    GameY,
+    GameY1,
+    GameY2,
+    GameY3,
+    GameY4,
     ScSave,
     ScLoad,
     ScScreenshot,
@@ -120,6 +127,15 @@ pub enum QuickRow {
     Controls,
     ControlsShelf,
     ControlsInGame,
+    ControlsGb,
+    ControlsGbc,
+    ControlsGba,
+    ControlsWs,
+    ControlsLynx,
+    ControlsGg,
+    ControlsNgp,
+    ControlsTg16,
+    ControlsNds,
     LeftStick,
     ScreenGeneral,
     Brightness,
@@ -171,7 +187,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 159] = [
+    pub const ALL: [QuickRow; 174] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -260,6 +276,12 @@ impl QuickRow {
         QuickRow::GameR,
         QuickRow::GameTurboA,
         QuickRow::GameTurboB,
+        QuickRow::GameX,
+        QuickRow::GameY,
+        QuickRow::GameY1,
+        QuickRow::GameY2,
+        QuickRow::GameY3,
+        QuickRow::GameY4,
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScScreenshot,
@@ -283,6 +305,15 @@ impl QuickRow {
         QuickRow::Controls,
         QuickRow::ControlsShelf,
         QuickRow::ControlsInGame,
+        QuickRow::ControlsGb,
+        QuickRow::ControlsGbc,
+        QuickRow::ControlsGba,
+        QuickRow::ControlsWs,
+        QuickRow::ControlsLynx,
+        QuickRow::ControlsGg,
+        QuickRow::ControlsNgp,
+        QuickRow::ControlsTg16,
+        QuickRow::ControlsNds,
         QuickRow::LeftStick,
         QuickRow::ScreenGeneral,
         QuickRow::Brightness,
@@ -411,13 +442,34 @@ impl QuickRow {
         QuickRow::ShelfForget,
     ];
 
-    pub const CONTROLS: [QuickRow; 12] = [
+    /// The systems with a controls page, in `slot_store::controls::SYSTEMS` order.
+    pub const CONTROL_SYSTEMS: [QuickRow; 9] = [
+        QuickRow::ControlsGb,
+        QuickRow::ControlsGbc,
+        QuickRow::ControlsGba,
+        QuickRow::ControlsWs,
+        QuickRow::ControlsLynx,
+        QuickRow::ControlsGg,
+        QuickRow::ControlsNgp,
+        QuickRow::ControlsTg16,
+        QuickRow::ControlsNds,
+    ];
+
+    /// A system's controls page: every input any system has, each system showing its own
+    /// (see `slot_store::controls::inputs`).
+    pub const CONTROLS: [QuickRow; 18] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
         QuickRow::GameRight,
+        QuickRow::GameY1,
+        QuickRow::GameY2,
+        QuickRow::GameY3,
+        QuickRow::GameY4,
         QuickRow::GameA,
         QuickRow::GameB,
+        QuickRow::GameX,
+        QuickRow::GameY,
         QuickRow::GameSelect,
         QuickRow::GameStart,
         QuickRow::GameL,
@@ -688,7 +740,8 @@ impl QuickRow {
             QuickRow::PlayScreen | QuickRow::PlayGameplay | QuickRow::PlayControls => {
                 &QuickRow::SETTINGS
             }
-            r if r.game_button().is_some() => &QuickRow::CONTROLS,
+            r if r.input().is_some() => &QuickRow::CONTROLS,
+            r if r.control_system().is_some() => &QuickRow::CONTROL_SYSTEMS,
             r if r.shortcut().is_some() => &QuickRow::SHORTCUTS,
             r if r.carousel_action().is_some() => &QuickRow::SHELF_KEYS,
             QuickRow::Shader
@@ -718,7 +771,9 @@ impl QuickRow {
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),
-            QuickRow::GameUp => Some(QuickRow::ControlsInGame),
+            // The app returns to the system the page belongs to.
+            QuickRow::GameUp => Some(QuickRow::ControlsGb),
+            QuickRow::ControlsGb => Some(QuickRow::ControlsInGame),
             QuickRow::ScSave => Some(QuickRow::Shortcuts),
             QuickRow::Theme => Some(QuickRow::General),
             QuickRow::Server => Some(QuickRow::Network),
@@ -735,6 +790,7 @@ impl QuickRow {
         match self.parent() {
             Some(QuickRow::Game) => Some(QuickRow::PlayGameplay),
             Some(QuickRow::ControlsInGame) => Some(QuickRow::PlayControls),
+            Some(r) if r.control_system().is_some() => Some(QuickRow::PlayControls),
             parent => parent,
         }
     }
@@ -747,6 +803,7 @@ impl QuickRow {
             &QuickRow::SCREEN,
             &QuickRow::NETWORK,
             &QuickRow::CONTROL_PAGES,
+            &QuickRow::CONTROL_SYSTEMS,
         ]
         .contains(&self.page())
     }
@@ -767,7 +824,8 @@ impl QuickRow {
             QuickRow::Wifi => Some(QuickRow::WIFI[0]),
             QuickRow::Controls => Some(QuickRow::CONTROL_PAGES[0]),
             QuickRow::ControlsShelf => Some(QuickRow::SHELF_KEYS[0]),
-            QuickRow::ControlsInGame => Some(QuickRow::CONTROLS[0]),
+            QuickRow::ControlsInGame => Some(QuickRow::CONTROL_SYSTEMS[0]),
+            r if r.control_system().is_some() => Some(QuickRow::CONTROLS[0]),
             QuickRow::ScreenGeneral => Some(QuickRow::SCREEN_GENERAL[0]),
             QuickRow::ScreenGba => Some(QuickRow::SCREEN_GBA[0]),
             QuickRow::ScreenGbc => Some(QuickRow::SCREEN_GBC[0]),
@@ -875,7 +933,24 @@ impl QuickRow {
             | QuickRow::GameL
             | QuickRow::GameR
             | QuickRow::GameTurboA
-            | QuickRow::GameTurboB => self.game_button().map_or("", GameButton::label),
+            | QuickRow::GameTurboB
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameY1
+            | QuickRow::GameY2
+            | QuickRow::GameY3
+            | QuickRow::GameY4 => self
+                .input()
+                .map_or("", |i| controls::label(Platform::Gba, i)),
+            QuickRow::ControlsGb => "Game Boy",
+            QuickRow::ControlsGbc => "Game Boy Color",
+            QuickRow::ControlsGba => "Game Boy Advance",
+            QuickRow::ControlsWs => "WonderSwan",
+            QuickRow::ControlsLynx => "Atari Lynx",
+            QuickRow::ControlsGg => "Game Gear",
+            QuickRow::ControlsNgp => "NeoGeo Pocket",
+            QuickRow::ControlsTg16 => "TurboGrafx-16",
+            QuickRow::ControlsNds => "Nintendo DS",
             QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -978,6 +1053,15 @@ impl QuickRow {
                 | QuickRow::Controls
                 | QuickRow::ControlsShelf
                 | QuickRow::ControlsInGame
+                | QuickRow::ControlsGb
+                | QuickRow::ControlsGbc
+                | QuickRow::ControlsGba
+                | QuickRow::ControlsWs
+                | QuickRow::ControlsLynx
+                | QuickRow::ControlsGg
+                | QuickRow::ControlsNgp
+                | QuickRow::ControlsTg16
+                | QuickRow::ControlsNds
                 | QuickRow::PlayControls
                 | QuickRow::Shortcuts
                 | QuickRow::ScreenGba
@@ -1006,22 +1090,53 @@ impl QuickRow {
         )
     }
 
-    pub fn game_button(self) -> Option<GameButton> {
+    /// The input a controls row binds.
+    pub fn input(self) -> Option<Input> {
         Some(match self {
-            QuickRow::GameUp => GameButton::Up,
-            QuickRow::GameDown => GameButton::Down,
-            QuickRow::GameLeft => GameButton::Left,
-            QuickRow::GameRight => GameButton::Right,
-            QuickRow::GameA => GameButton::A,
-            QuickRow::GameB => GameButton::B,
-            QuickRow::GameSelect => GameButton::Select,
-            QuickRow::GameStart => GameButton::Start,
-            QuickRow::GameL => GameButton::L,
-            QuickRow::GameR => GameButton::R,
-            QuickRow::GameTurboA => GameButton::TurboA,
-            QuickRow::GameTurboB => GameButton::TurboB,
+            QuickRow::GameUp => Input::Up,
+            QuickRow::GameDown => Input::Down,
+            QuickRow::GameLeft => Input::Left,
+            QuickRow::GameRight => Input::Right,
+            QuickRow::GameA => Input::A,
+            QuickRow::GameB => Input::B,
+            QuickRow::GameX => Input::X,
+            QuickRow::GameY => Input::Y,
+            QuickRow::GameSelect => Input::Select,
+            QuickRow::GameStart => Input::Start,
+            QuickRow::GameL => Input::L,
+            QuickRow::GameR => Input::R,
+            QuickRow::GameTurboA => Input::TurboA,
+            QuickRow::GameTurboB => Input::TurboB,
+            QuickRow::GameY1 => Input::Y1,
+            QuickRow::GameY2 => Input::Y2,
+            QuickRow::GameY3 => Input::Y3,
+            QuickRow::GameY4 => Input::Y4,
             _ => return None,
         })
+    }
+
+    /// The row for an input, on any system's page.
+    pub fn of_input(input: Input) -> QuickRow {
+        QuickRow::CONTROLS
+            .into_iter()
+            .find(|r| r.input() == Some(input))
+            .unwrap_or(QuickRow::GameUp)
+    }
+
+    /// The system a row of the In-Game controls list opens.
+    pub fn control_system(self) -> Option<Platform> {
+        let at = QuickRow::CONTROL_SYSTEMS.iter().position(|r| *r == self)?;
+        Some(controls::SYSTEMS[at])
+    }
+
+    /// The In-Game controls list's row for a system.
+    pub fn controls_of(platform: Platform) -> QuickRow {
+        let platform = match platform {
+            Platform::Gbav => Platform::Gba,
+            p => p,
+        };
+        let at = controls::SYSTEMS.iter().position(|p| *p == platform);
+        QuickRow::CONTROL_SYSTEMS[at.unwrap_or(0)]
     }
 
     pub fn shortcut(self) -> Option<Shortcut> {
@@ -1062,9 +1177,7 @@ impl QuickRow {
     }
 
     pub fn binds(self) -> bool {
-        self.game_button().is_some()
-            || self.shortcut().is_some()
-            || self.carousel_action().is_some()
+        self.input().is_some() || self.shortcut().is_some() || self.carousel_action().is_some()
     }
 
     pub fn up(self, hidden: &[QuickRow]) -> QuickRow {
@@ -1345,13 +1458,27 @@ pub fn quick_label_face(row: QuickRow, lit: bool) -> UndoFace {
     quick_text_face(row.label(), if lit { MENU_INK } else { DIM_INK })
 }
 
-/// What the Turbo A and Turbo B rows are called while a WonderSwan game is
-/// playing. Its X and Y are also the Y pad with R1 held and the X pad in
-/// vertical games, so they are named as buttons, not as turbo.
-pub const WS_TURBO_LABELS: [&str; 2] = ["X Button", "Y Button"];
+/// Every name a controls row takes on some system's page, with its dim and lit faces.
+pub fn input_label_faces() -> Vec<(&'static str, [UndoFace; 2])> {
+    input_label_names()
+        .into_iter()
+        .map(|t| (t, [DIM_INK, MENU_INK].map(|ink| quick_text_face(t, ink))))
+        .collect()
+}
 
-pub fn ws_turbo_label_faces() -> [[UndoFace; 2]; 2] {
-    WS_TURBO_LABELS.map(|t| [DIM_INK, MENU_INK].map(|ink| quick_text_face(t, ink)))
+/// Every name a controls row takes on some system's page.
+pub fn input_label_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = controls::SYSTEMS
+        .iter()
+        .flat_map(|&p| {
+            controls::inputs(p)
+                .iter()
+                .map(move |&i| controls::label(p, i))
+        })
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 fn cap_centre(label: &fontdue::Font, h: u32) -> f32 {
@@ -1454,7 +1581,9 @@ pub(crate) fn quick_text_face(label: &str, colour: [u8; 3]) -> UndoFace {
     UndoFace { rgba, w, h: MENU_H }
 }
 
-pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 8] {
+/// The quick menu's legends: Back, Change, Open, Resume, Restart, then a shortcut row's
+/// Set, Clear and Reset All, then a controls row's Add, Remove and Default.
+pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 11] {
     let hint = Some(ink);
     [
         with_hint(button_face(ButtonLegend::B), "Back", hint, true),
@@ -1470,6 +1599,9 @@ pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 8] {
         with_hint(button_face(ButtonLegend::A), "Set", hint, false),
         with_hint(button_face(ButtonLegend::X), "Clear", hint, false),
         with_hint(button_face(ButtonLegend::Y), "Reset All", hint, true),
+        with_hint(button_face(ButtonLegend::A), "Add", hint, false),
+        with_hint(button_face(ButtonLegend::X), "Remove", hint, false),
+        with_hint(button_face(ButtonLegend::Y), "Default", hint, true),
     ]
 }
 
@@ -1861,12 +1993,12 @@ pub type FacePair = [(TexId, u32, u32); 2];
 
 pub struct QuickMenuFaces {
     pub labels: Vec<[(TexId, u32, u32); 2]>,
-    /// The Turbo A and Turbo B labels for a WonderSwan game, see `WS_TURBO_LABELS`.
-    pub ws_turbo_labels: [FacePair; 2],
+    /// The controls rows' names on each system's page, see `input_label_faces`.
+    pub input_labels: Vec<(&'static str, FacePair)>,
     pub pointer: (TexId, u32, u32),
     pub values: Vec<[(TexId, u32, u32); 2]>,
-    pub legend: [(TexId, u32); 8],
-    pub legend_light: [(TexId, u32); 8],
+    pub legend: [(TexId, u32); 11],
+    pub legend_light: [(TexId, u32); 11],
     pub descriptions: [(TexId, u32, u32); 2],
 }
 
@@ -1875,8 +2007,8 @@ pub struct QuickMenu<'a> {
     pub hidden: &'a [QuickRow],
     /// slotPlus: rows shown greyed out, which can be reached but not opened.
     pub disabled: &'a [QuickRow],
-    /// A WonderSwan game is playing, so the turbo rows are named X and Y.
-    pub ws_buttons: bool,
+    /// The system whose controls page this is, which names its rows.
+    pub controls: Platform,
     pub values: [Option<QuickValue>; QuickRow::ALL.len()],
     pub clock: Option<[(TexId, u32, u32); 2]>,
     pub wallpaper: Option<[(TexId, u32, u32); 2]>,
@@ -1933,10 +2065,15 @@ impl QuickMenu<'_> {
         let Some(faces) = self.faces else {
             return;
         };
-        let label = |row: QuickRow| match (self.ws_buttons, row) {
-            (true, QuickRow::GameTurboA) => Some(&faces.ws_turbo_labels[0]),
-            (true, QuickRow::GameTurboB) => Some(&faces.ws_turbo_labels[1]),
-            _ => faces.labels.get(row.index()),
+        let label = |row: QuickRow| {
+            let own = row.input().and_then(|i| {
+                let name = controls::label(self.controls, i);
+                faces.input_labels.iter().find(|(n, _)| *n == name)
+            });
+            match own {
+                Some((_, face)) => Some(face),
+                None => faces.labels.get(row.index()),
+            }
         };
         let (right, pad) = (self.canvas.w - QUICK_EDGE, MENU_PAD as f32);
         let main_w = self

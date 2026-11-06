@@ -142,7 +142,7 @@ impl Toast {
 
     pub fn text(self) -> String {
         match self {
-            Toast::Duplicate(row) if row.game_button().is_some() => {
+            Toast::Duplicate(row) if row.input().is_some() => {
                 format!("Same as Console {}", row.label())
             }
             Toast::Duplicate(row) => format!("Same as {}", row.label()),

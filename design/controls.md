@@ -136,3 +136,20 @@ Each step is tested on the device before the next.
 - **The DS's slot controls (Swap Screens, Next Layout, Stylus) are inputs on its page.**
   The principle: as little hard-coded input as possible. (Stretch already moved from fixed
   L1/R1 to shortcuts.) Orientation stays as it is for now.
+
+## Built (step 1a and 2, 2026-11-06)
+
+- **Pages:** Settings > Controls > In-Game lists the nine systems; each opens that system's
+  page. In a game, Controls is the playing system's page. B goes back to the system's row.
+- **One row order for every system** (Up, Down, Left, Right, Y1-Y4, A, B, X, Y, Select,
+  Start, L, R, Turbo A, Turbo B), each system showing only its own rows. Where a system's
+  names would read out of order, its rows drive other core buttons (`controls::drives`):
+  the Game Gear's Button 1 and the Pocket's A are the core's B; the WonderSwan's X1-X4
+  run up, right, down, left. The defaults follow, so every system still presses today's
+  core buttons for today's presses.
+- **Not offered:** Select on the Game Gear (it resets), the NeoGeo Pocket and the
+  WonderSwan.
+- **Capture** waits for a second button or the release on every row, so any row takes a
+  chord.
+- **Rows keep their names everywhere** except the clash toast, which still uses the
+  standard name ("Same as Console A Button").

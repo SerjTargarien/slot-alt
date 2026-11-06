@@ -241,6 +241,15 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Controls,
             QuickRow::ControlsShelf,
             QuickRow::ControlsInGame,
+            QuickRow::ControlsGb,
+            QuickRow::ControlsGbc,
+            QuickRow::ControlsGba,
+            QuickRow::ControlsWs,
+            QuickRow::ControlsLynx,
+            QuickRow::ControlsGg,
+            QuickRow::ControlsNgp,
+            QuickRow::ControlsTg16,
+            QuickRow::ControlsNds,
             QuickRow::ScreenGeneral,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
@@ -456,8 +465,9 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     assert_eq!(
         QuickRow::CONTROLS.map(QuickRow::label),
         [
-            "Up", "Down", "Left", "Right", "A Button", "B Button", "Select", "Start", "L Button",
-            "R Button", "Turbo A", "Turbo B"
+            "Up", "Down", "Left", "Right", "Y1", "Y2", "Y3", "Y4", "A Button", "B Button",
+            "X Button", "Y Button", "Select", "Start", "L Button", "R Button", "Turbo A",
+            "Turbo B"
         ]
     );
     assert_eq!(

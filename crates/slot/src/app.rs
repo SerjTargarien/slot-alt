@@ -6,6 +6,7 @@ use slot_gfx::{Canvas, GameLayout, Sizing, OUT_H, OUT_W, WHOLE_TEXTURE};
 use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
+use slot_store::controls::{inputs, AllControls, Input, SystemControls};
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Blending, Cart,
     Core, GbColors, Platform, Recent, Scale, Shader, ShotDir, ShotEntry, SlotState, StateEntry,
@@ -46,12 +47,14 @@ use crate::update::{
 use crate::stylus::Stylus;
 use crate::video_mode::{self, DsLayout, DsPart, DsScreen, DsView, VideoMode};
 use slot_store::{
-    read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
-    Binding, CarouselKeys, Controls, Device, Modifier, ShortcutKeys, LID_OFF_MIN,
+    read_carousel, read_shortcuts, write_carousel, write_shortcuts, Binding, CarouselKeys, Device,
+    Modifier, ShortcutKeys, LID_OFF_MIN,
 };
 
 pub const RECORDING: &str = "Recording";
 pub const CLASH_MARK: &str = "!";
+/// Between a controls row's bindings.
+const BINDING_GAP: &str = " · ";
 
 #[derive(Copy, Clone, Debug)]
 struct BindCapture {
@@ -571,7 +574,9 @@ pub struct App {
     root: Option<PathBuf>,
     state: SlotState,
     left_stick: bool,
-    controls: Controls,
+    /// Slot²: every system's controls, and the system whose page the shelf menu shows.
+    controls: AllControls,
+    controls_platform: Platform,
     capture: Option<BindCapture>,
     plugged_face: Option<TexId>,
     binding_faces: HashMap<String, [(TexId, u32, u32); 2]>,
@@ -1037,7 +1042,8 @@ impl App {
             root: None,
             state: SlotState::default(),
             left_stick: false,
-            controls: Controls::default(),
+            controls: AllControls::default(),
+            controls_platform: Platform::Gb,
             capture: None,
             plugged_face: None,
             binding_faces: HashMap::new(),
@@ -1154,7 +1160,7 @@ impl App {
         app.gifts = crate::romm::Gifts::load(root);
         app.carousel = read_carousel(root);
         app.shortcuts = read_shortcuts(root);
-        app.controls = read_controls(root);
+        app.controls = AllControls::read(root);
         app.restock_recents();
         app.restock_favorites();
         if let Some((at, i)) = app.remembered_seat() {
@@ -1556,16 +1562,7 @@ impl App {
         if self.single_cart() {
             hidden.push(QuickRow::ExitGame);
         }
-        // L1 and R1 are the Lynx's Option 1 and 2 and the WonderSwan's Y-pad
-        // and vertical A and B, so those two keep them.
-        // The Game Gear, NeoGeo Pocket and TurboGrafx-16 have no L or R either:
-        // slot keeps L1 and R1 there to stretch the picture.
-        if matches!(
-            platform,
-            Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp | Platform::Tg16
-        ) {
-            hidden.extend([QuickRow::GameL, QuickRow::GameR]);
-        }
+        hidden.extend(self.controls_hidden(platform));
         // A DS game records no rewind (its states are ~6 MB each), so it
         // offers none.
         if platform == Platform::Nds {
@@ -1573,9 +1570,6 @@ impl App {
         }
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
-        }
-        if !self.state.turbo {
-            hidden.extend([QuickRow::GameTurboA, QuickRow::GameTurboB]);
         }
         if !self.has_states || self.link_active() {
             hidden.push(QuickRow::States);
@@ -1908,6 +1902,12 @@ impl App {
             | QuickRow::GameR
             | QuickRow::GameTurboA
             | QuickRow::GameTurboB
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameY1
+            | QuickRow::GameY2
+            | QuickRow::GameY3
+            | QuickRow::GameY4
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -1931,7 +1931,16 @@ impl App {
             | QuickRow::ScStretchOff
             | QuickRow::Controls
             | QuickRow::ControlsShelf
-            | QuickRow::ControlsInGame => None,
+            | QuickRow::ControlsInGame
+            | QuickRow::ControlsGb
+            | QuickRow::ControlsGbc
+            | QuickRow::ControlsGba
+            | QuickRow::ControlsWs
+            | QuickRow::ControlsLynx
+            | QuickRow::ControlsGg
+            | QuickRow::ControlsNgp
+            | QuickRow::ControlsTg16
+            | QuickRow::ControlsNds => None,
         }
     }
 
@@ -2322,9 +2331,7 @@ impl App {
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
         }
-        if !self.state.turbo {
-            hidden.extend([QuickRow::GameTurboA, QuickRow::GameTurboB]);
-        }
+        hidden.extend(self.controls_hidden(self.controls_platform));
         if !self.server_allowed() {
             hidden.push(QuickRow::Server);
         }
@@ -3294,8 +3301,31 @@ impl App {
             .collect()
     }
 
-    pub fn controls(&self) -> Controls {
-        self.controls
+    /// A system's controls (the GBA's for a GBA game played on the Game Boy Player).
+    pub fn controls_of(&self, platform: Platform) -> &SystemControls {
+        self.controls.get(platform)
+    }
+
+    /// The system whose controls apply: the game's while one is playing, else the one
+    /// picked under Controls > In-Game.
+    pub fn controls_page(&self) -> Platform {
+        match self.phase {
+            Phase::Playing { .. } => self.playing_platform(),
+            _ => self.controls_platform,
+        }
+    }
+
+    /// A controls page's rows that its system doesn't have, and the turbo rows while
+    /// turbo is off.
+    fn controls_hidden(&self, platform: Platform) -> Vec<QuickRow> {
+        QuickRow::CONTROLS
+            .into_iter()
+            .filter(|r| {
+                let input = r.input().expect("a controls row");
+                !inputs(platform).contains(&input)
+                    || (!self.state.turbo && matches!(input, Input::TurboA | Input::TurboB))
+            })
+            .collect()
     }
 
     pub fn shortcuts(&self) -> ShortcutKeys {
@@ -3330,7 +3360,6 @@ impl App {
         let Some(mut c) = self.capture else {
             return;
         };
-        let pairs = c.row.game_button().is_none();
         match ev {
             RawEvent::Down(Btn::Menu) if c.first.is_none() => c.menu = true,
             RawEvent::Up(Btn::Menu) => c.menu = false,
@@ -3339,12 +3368,11 @@ impl App {
                     let binding = match (c.menu, c.first) {
                         (true, _) => Binding::with(Modifier::Menu, button),
                         (false, Some(first)) => Binding::pair(first, button),
-                        (false, None) if pairs => {
+                        (false, None) => {
                             c.first = Some(button);
                             self.capture = Some(c);
                             return;
                         }
-                        (false, None) => Binding::plain(button),
                     };
                     return self.bind(c.row, binding);
                 }
@@ -3372,8 +3400,11 @@ impl App {
     }
 
     pub fn binding_table(&self) -> crate::input::Table {
+        let platform = self.controls_page();
         crate::input::Table::new(
-            &self.controls,
+            self.controls_of(platform),
+            platform,
+            stretches(platform),
             &self.shortcuts,
             &self.carousel,
             self.state.turbo,
@@ -3399,9 +3430,6 @@ impl App {
     }
 
     fn binding_of(&self, row: QuickRow) -> Option<Binding> {
-        if let Some(g) = row.game_button() {
-            return self.controls.game(g);
-        }
         if let Some(s) = row.shortcut() {
             return self.shortcuts.get(s);
         }
@@ -3410,13 +3438,7 @@ impl App {
 
     fn reset_page(&mut self, row: QuickRow) {
         self.reset_prompt = None;
-        let (what, written) = if row.game_button().is_some() {
-            self.controls = Controls::default();
-            let Some(root) = &self.root else {
-                return;
-            };
-            ("controls", write_controls(root, &self.controls))
-        } else if row.shortcut().is_some() {
+        let (what, written) = if row.shortcut().is_some() {
             self.shortcuts = ShortcutKeys::default();
             let Some(root) = &self.root else {
                 return;
@@ -3436,8 +3458,10 @@ impl App {
     }
 
     fn page_is_default(&self, row: QuickRow) -> bool {
-        if row.game_button().is_some() {
-            self.controls == Controls::default()
+        if let Some(input) = row.input() {
+            let platform = self.controls_page();
+            self.controls_of(platform).row(input)
+                == SystemControls::default_for(platform).row(input)
         } else if row.shortcut().is_some() {
             self.shortcuts == ShortcutKeys::default()
         } else {
@@ -3450,13 +3474,7 @@ impl App {
     }
 
     fn reset_prompt_faces(&self, row: QuickRow) -> Vec<(TexId, u32, u32)> {
-        let at = if row.game_button().is_some() {
-            0
-        } else if row.shortcut().is_some() {
-            2
-        } else {
-            4
-        };
+        let at = if row.shortcut().is_some() { 2 } else { 4 };
         match self.reset_faces[..] {
             [_, _, _, _, _, _, cancel, reset] => {
                 vec![
@@ -3470,15 +3488,24 @@ impl App {
         }
     }
 
+    /// Changes a controls row on the open page and writes that system's file.
+    fn edit_controls(&mut self, edit: impl FnOnce(&mut SystemControls, Platform)) {
+        let platform = self.controls_page();
+        edit(self.controls.get_mut(platform), platform);
+        if let Some(root) = &self.root {
+            let written = self.controls.write(root, platform);
+            if let Err(e) = &written {
+                eprintln!("slot: controls: {e}");
+            }
+            self.card_writes.wrote("controls", &written);
+        }
+    }
+
+    /// A on a controls row adds the binding pressed; on another row, sets it.
     fn set_binding(&mut self, row: QuickRow, binding: Option<Binding>) {
-        if let Some(g) = row.game_button() {
-            self.controls.set_game(g, binding);
-            if let Some(root) = &self.root {
-                let written = write_controls(root, &self.controls);
-                if let Err(e) = &written {
-                    eprintln!("slot: controls: {e}");
-                }
-                self.card_writes.wrote("controls", &written);
+        if let Some(input) = row.input() {
+            if let Some(b) = binding {
+                self.edit_controls(|c, _| c.add(input, b));
             }
         } else if let Some(s) = row.shortcut() {
             self.shortcuts.set(s, binding);
@@ -3538,7 +3565,20 @@ impl App {
     }
 
     fn bound_text(&self, row: QuickRow) -> String {
-        let text = Binding::text(self.binding_of(row));
+        let text = match row.input() {
+            Some(input) => {
+                let set: Vec<String> = self
+                    .controls_of(self.controls_page())
+                    .bindings(input)
+                    .map(|b| Binding::text(Some(b)))
+                    .collect();
+                match set.is_empty() {
+                    true => Binding::text(None),
+                    false => set.join(BINDING_GAP),
+                }
+            }
+            None => Binding::text(self.binding_of(row)),
+        };
         match self.clash(row) {
             Some(_) => format!("{CLASH_MARK}{text}"),
             None => text,
@@ -3838,16 +3878,6 @@ impl App {
 
     pub fn colour_correction(&self) -> bool {
         self.colour_correction_for(self.playing_platform())
-    }
-
-    /// A WonderSwan game is in the slot, so the In-Game controls page names
-    /// the turbo rows after the X and Y buttons, which it uses for more than
-    /// turbo.
-    /// Whether the game's X and Y are buttons of its own, not Turbo A and B:
-    /// a WonderSwan's, or a DS's.
-    pub fn ws_buttons(&self) -> bool {
-        self.seated_cart()
-            .is_some_and(|c| matches!(c.platform, Platform::Ws | Platform::Nds))
     }
 
     pub fn playing_platform(&self) -> Platform {
@@ -4334,6 +4364,15 @@ impl App {
     }
 
     fn quick_menu_input(&mut self, row: QuickRow, action: Action) {
+        if let Some(input) = row.input() {
+            match action {
+                Action::GbaDown(Btn::A) => return self.start_capture(row),
+                Action::GbaDown(Btn::X) => return self.edit_controls(|c, _| c.remove_last(input)),
+                Action::GbaDown(Btn::Y) => return self.edit_controls(|c, p| c.reset(p, input)),
+                Action::GbaDown(Btn::Left | Btn::Right) => return,
+                _ => {}
+            }
+        }
         if row.binds() {
             match action {
                 Action::GbaDown(Btn::A) => return self.start_capture(row),
@@ -4353,7 +4392,11 @@ impl App {
             Action::GbaDown(Btn::Right) => return self.change_setting(row, true),
             Action::GbaDown(Btn::A) => return self.open_quick_row(row),
             Action::GbaDown(Btn::B) | Action::QuickMenu => {
-                self.phase = match row.parent() {
+                let parent = match row.input() {
+                    Some(_) => Some(QuickRow::controls_of(self.controls_platform)),
+                    None => row.parent(),
+                };
+                self.phase = match parent {
                     Some(row) => Phase::QuickMenu { row },
                     None => Phase::Shelf,
                 };
@@ -4367,6 +4410,15 @@ impl App {
     fn in_game_menu_input(&mut self, row: QuickRow, action: Action) {
         let hidden = self.in_game_hidden();
         let hidden = &hidden[..];
+        if let Some(input) = row.input() {
+            match action {
+                Action::GbaDown(Btn::A) => return self.start_capture(row),
+                Action::GbaDown(Btn::X) => return self.edit_controls(|c, _| c.remove_last(input)),
+                Action::GbaDown(Btn::Y) => return self.edit_controls(|c, p| c.reset(p, input)),
+                Action::GbaDown(Btn::Left | Btn::Right) => return,
+                _ => {}
+            }
+        }
         if row.binds() {
             match action {
                 Action::GbaDown(Btn::A) => return self.start_capture(row),
@@ -4547,6 +4599,21 @@ impl App {
                     self.phase = Phase::QuickMenu { row };
                 }
             }
+            QuickRow::ControlsGb
+            | QuickRow::ControlsGbc
+            | QuickRow::ControlsGba
+            | QuickRow::ControlsWs
+            | QuickRow::ControlsLynx
+            | QuickRow::ControlsGg
+            | QuickRow::ControlsNgp
+            | QuickRow::ControlsTg16
+            | QuickRow::ControlsNds => {
+                self.controls_platform = row.control_system().unwrap_or(Platform::Gb);
+                if let Some(row) = row.child() {
+                    let row = row.shown(&self.hidden_rows())[0];
+                    self.phase = Phase::QuickMenu { row };
+                }
+            }
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
@@ -4644,6 +4711,12 @@ impl App {
             | QuickRow::GameR
             | QuickRow::GameTurboA
             | QuickRow::GameTurboB
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameY1
+            | QuickRow::GameY2
+            | QuickRow::GameY3
+            | QuickRow::GameY4
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -5037,6 +5110,12 @@ impl App {
             | QuickRow::GameR
             | QuickRow::GameTurboA
             | QuickRow::GameTurboB
+            | QuickRow::GameX
+            | QuickRow::GameY
+            | QuickRow::GameY1
+            | QuickRow::GameY2
+            | QuickRow::GameY3
+            | QuickRow::GameY4
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScScreenshot
@@ -5061,6 +5140,15 @@ impl App {
             | QuickRow::Controls
             | QuickRow::ControlsShelf
             | QuickRow::ControlsInGame
+            | QuickRow::ControlsGb
+            | QuickRow::ControlsGbc
+            | QuickRow::ControlsGba
+            | QuickRow::ControlsWs
+            | QuickRow::ControlsLynx
+            | QuickRow::ControlsGg
+            | QuickRow::ControlsNgp
+            | QuickRow::ControlsTg16
+            | QuickRow::ControlsNds
             | QuickRow::LidOff
             | QuickRow::FetchArt
             | QuickRow::Network
@@ -6188,7 +6276,7 @@ impl App {
                 disabled: self.disabled_rows(),
                 // Controls are the same for every game, so from the shelf the
                 // turbo rows keep their own names.
-                ws_buttons: false,
+                controls: self.controls_page(),
                 bound: Some(&self.bound_faces()),
                 description: self.description(*row),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
@@ -6401,7 +6489,7 @@ impl App {
                 description: self.description(row),
                 hidden: &hidden,
                 disabled: &[],
-                ws_buttons: self.ws_buttons(),
+                controls: self.controls_page(),
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 achievements: [None; 3],
                 clock: None,
@@ -6613,10 +6701,28 @@ impl App {
         let Some(faces) = &self.quick_menu_faces else {
             return;
         };
-        let [back, change, open, resume, _, set, clear, reset] = match self.legends_light() {
-            true => faces.legend_light,
-            false => faces.legend,
-        };
+        let [back, change, open, resume, _, set, clear, reset, add, remove, default] =
+            match self.legends_light() {
+                true => faces.legend_light,
+                false => faces.legend,
+            };
+        if let Some(input) = row.input() {
+            let mut legends = vec![back];
+            if !self.page_is_default(row) {
+                legends.push(default);
+            }
+            if self
+                .controls_of(self.controls_page())
+                .bindings(input)
+                .next()
+                .is_some()
+            {
+                legends.push(remove);
+            }
+            legends.push(add);
+            self.draw_spread_legends(&legends, y, 1.0, out);
+            return;
+        }
         if row.binds() {
             let legends = match self.page_is_default(row) {
                 true => vec![back, clear, set],

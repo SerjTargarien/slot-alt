@@ -137,9 +137,8 @@ pub use quick_menu::{
     prompt_legends, quick_description_face, quick_label_face, quick_legend_faces,
     quick_pointer_face, quick_row_top, quick_row_top_at, quick_scroll, quick_value_face,
     quick_visible, quick_warning_value_face, quick_window, repair_legends, studio_legend,
-    update_legends, ws_turbo_label_faces, QuickMenu, QuickMenuFaces, QuickRow, QuickScroll,
+    update_legends, input_label_faces, input_label_names, QuickMenu, QuickMenuFaces, QuickRow, QuickScroll,
     QuickValue, StudioGlyph, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE,
-    WS_TURBO_LABELS,
 };
 pub use rebuild::{headline_face, rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use receipt::{receipt_blank, receipt_face, ReceiptText};

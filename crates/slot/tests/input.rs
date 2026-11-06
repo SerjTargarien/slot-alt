@@ -113,32 +113,37 @@ fn the_pad_presses_the_console_buttons_bound_to_what_is_held() {
     use slot::input::Pad;
     use slot_input::Action;
     use slot_retro::ButtonMask;
-    use slot_store::{Binding, Controls, Device, GameButton, Modifier};
-    let mut c = Controls::default();
-    c.set_game(GameButton::TurboA, None);
-    c.set_game(GameButton::TurboB, None);
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::{Binding, Device, Modifier, Platform};
+    let gb = Platform::Gb;
+    let mut c = SystemControls::default_for(gb);
+    c.set_row(Input::TurboA, [None; 3]);
+    c.set_row(Input::TurboB, [None; 3]);
     let mut pad = Pad::default();
     pad.apply(Action::GbaDown(Btn::X));
     assert_eq!(
-        pad.mask(&c).0,
+        pad.mask(&c, gb).0,
         0,
         "X reached the game with nothing bound to it"
     );
-    c.set_game(GameButton::A, Binding::plain(Device::X));
-    assert_eq!(pad.mask(&c).0, ButtonMask::A);
+    c.set_row(Input::A, [Binding::plain(Device::X), None, None]);
+    assert_eq!(pad.mask(&c, gb).0, ButtonMask::A);
     pad.apply(Action::GbaDown(Btn::A));
     assert_eq!(
-        pad.mask(&c).0,
+        pad.mask(&c, gb).0,
         ButtonMask::A,
         "A still pressed A after A moved to X"
     );
     pad.apply(Action::GbaUp(Btn::X));
-    assert_eq!(pad.mask(&c).0, 0);
-    c.set_game(GameButton::B, Binding::with(Modifier::Menu, Device::Y));
+    assert_eq!(pad.mask(&c, gb).0, 0);
+    c.set_row(
+        Input::B,
+        [Binding::with(Modifier::Menu, Device::Y), None, None],
+    );
     pad.apply(Action::GbaDown(Btn::Y));
-    assert_eq!(pad.mask(&c).0, 0, "plain Y pressed a MENU+Y binding");
+    assert_eq!(pad.mask(&c, gb).0, 0, "plain Y pressed a MENU+Y binding");
     pad.apply(Action::MenuChordDown(Btn::Y));
-    assert_eq!(pad.mask(&c).0, ButtonMask::B);
+    assert_eq!(pad.mask(&c, gb).0, ButtonMask::B);
 }
 
 #[test]
@@ -146,20 +151,99 @@ fn turbo_a_and_b_fire_from_whatever_they_are_bound_to() {
     use slot::input::Pad;
     use slot_input::Action;
     use slot_retro::ButtonMask;
-    use slot_store::{Binding, Controls, Device, GameButton};
-    let mut c = Controls::default();
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::{Binding, Device, Platform};
+    let gb = Platform::Gb;
+    let mut c = SystemControls::default_for(gb);
     let mut pad = Pad::default();
     pad.apply(Action::GbaDown(Btn::X));
-    assert_eq!(pad.mask(&c).turbo(0).0, ButtonMask::A);
-    assert_eq!(pad.mask(&c).turbo(3).0, 0);
-    assert_eq!(pad.mask(&c).without_turbo().0, 0);
+    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, gb).turbo(3).0, 0);
+    assert_eq!(pad.mask(&c, gb).without_turbo().0, 0);
     pad.apply(Action::GbaUp(Btn::X));
     pad.apply(Action::GbaDown(Btn::Y));
-    assert_eq!(pad.mask(&c).turbo(0).0, ButtonMask::B);
+    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::B);
     pad.apply(Action::GbaUp(Btn::Y));
-    c.set_game(GameButton::TurboA, Binding::plain(Device::L2));
+    c.set_row(Input::TurboA, [Binding::plain(Device::L2), None, None]);
     pad.apply(Action::GbaDown(Btn::X));
-    assert_eq!(pad.mask(&c).turbo(0).0, 0, "X kept turbo A after it moved");
+    assert_eq!(
+        pad.mask(&c, gb).turbo(0).0,
+        0,
+        "X kept turbo A after it moved"
+    );
     pad.apply(Action::GbaDown(Btn::L2));
-    assert_eq!(pad.mask(&c).turbo(0).0, ButtonMask::A);
+    assert_eq!(pad.mask(&c, gb).turbo(0).0, ButtonMask::A);
+}
+
+#[test]
+fn any_of_an_inputs_bindings_presses_it() {
+    use slot::input::Pad;
+    use slot_input::Action;
+    use slot_retro::ButtonMask;
+    use slot_store::controls::{Input, SystemControls};
+    use slot_store::{Binding, Device, Platform};
+    let gb = Platform::Gb;
+    let mut c = SystemControls::default_for(gb);
+    c.add(Input::A, Binding::plain(Device::R2).unwrap());
+    for b in [Btn::A, Btn::R2] {
+        let mut pad = Pad::default();
+        pad.apply(Action::GbaDown(b));
+        assert_eq!(pad.mask(&c, gb).0, ButtonMask::A, "{b:?}");
+    }
+}
+
+#[test]
+fn a_held_chord_wins_over_its_buttons_own_inputs() {
+    use slot::input::Pad;
+    use slot_input::Action;
+    use slot_retro::ButtonMask;
+    use slot_store::controls::SystemControls;
+    use slot_store::Platform;
+    // The WonderSwan's Y1 is L1+Up by default, and its X1 is Up.
+    let ws = Platform::Ws;
+    let c = SystemControls::default_for(ws);
+    let mut pad = Pad::default();
+    pad.apply(Action::GbaDown(Btn::Up));
+    assert_eq!(pad.mask(&c, ws).0, ButtonMask::UP);
+    pad.apply(Action::GbaDown(Btn::L1));
+    assert_eq!(pad.mask(&c, ws).0, ButtonMask::R2, "Y1, and not X1 too");
+    pad.apply(Action::GbaUp(Btn::L1));
+    pad.apply(Action::GbaUp(Btn::Up));
+    pad.apply(Action::GbaDown(Btn::R1));
+    pad.apply(Action::GbaDown(Btn::A));
+    assert_eq!(pad.mask(&c, ws).0, ButtonMask::R, "R1+A is Y2");
+    pad.apply(Action::GbaUp(Btn::R1));
+    assert_eq!(pad.mask(&c, ws).0, ButtonMask::A);
+}
+
+#[test]
+fn every_system_presses_todays_core_buttons_for_todays_presses() {
+    use slot::input::Pad;
+    use slot_input::Action;
+    use slot_retro::ButtonMask;
+    use slot_store::controls::SystemControls;
+    use slot_store::Platform;
+    let press = |platform: Platform, b: Btn| {
+        let mut pad = Pad::default();
+        pad.apply(Action::GbaDown(b));
+        pad.mask(&SystemControls::default_for(platform), platform).0
+    };
+    for platform in Platform::ALL {
+        for (b, bit) in [
+            (Btn::Up, ButtonMask::UP),
+            (Btn::Down, ButtonMask::DOWN),
+            (Btn::Left, ButtonMask::LEFT),
+            (Btn::Right, ButtonMask::RIGHT),
+            (Btn::A, ButtonMask::A),
+            (Btn::B, ButtonMask::B),
+            (Btn::Start, ButtonMask::START),
+        ] {
+            assert_eq!(press(platform, b), bit, "{platform:?} {b:?}");
+        }
+    }
+    assert_eq!(press(Platform::Gb, Btn::L1), 0, "a Game Boy has no L");
+    assert_eq!(press(Platform::Gba, Btn::L1), ButtonMask::L);
+    assert_eq!(press(Platform::Gg, Btn::Select), 0, "it would reset");
+    assert_eq!(press(Platform::Gg, Btn::X), ButtonMask::X, "turbo 2");
+    assert_eq!(press(Platform::Nds, Btn::Y), ButtonMask::Y);
 }

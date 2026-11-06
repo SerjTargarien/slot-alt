@@ -953,7 +953,11 @@ impl Frontend {
             .into_iter()
             .map(|l| l.map(&mut up))
             .collect();
-        let ws_turbo_labels = faces.ws_turbo_labels.map(|l| l.map(&mut up));
+        let input_labels = faces
+            .input_labels
+            .into_iter()
+            .map(|(name, l)| (name, l.map(&mut up)))
+            .collect();
         let pointer = up(faces.quick_pointer);
         let values = faces
             .quick_values
@@ -961,7 +965,7 @@ impl Frontend {
             .map(|v| v.map(&mut up))
             .collect();
         let descriptions = faces.descriptions.map(&mut up);
-        let mut pack_legend = |faces: [UndoFace; 8]| {
+        let mut pack_legend = |faces: [UndoFace; 11]| {
             faces.map(|f| {
                 let (tex, w, _) = up(f);
                 (tex, w)
@@ -1003,7 +1007,7 @@ impl Frontend {
         app.set_delete_shot_faces(delete_shot);
         app.set_quick_menu_faces(QuickMenuFaces {
             labels,
-            ws_turbo_labels,
+            input_labels,
             pointer,
             values,
             legend,
@@ -1472,11 +1476,11 @@ struct UiFaces {
     link_badges: Vec<CartFace>,
     shutdown: Vec<UndoFace>,
     quick_labels: Vec<[UndoFace; 2]>,
-    ws_turbo_labels: [[UndoFace; 2]; 2],
+    input_labels: Vec<(&'static str, [UndoFace; 2])>,
     quick_pointer: UndoFace,
     quick_values: Vec<[UndoFace; 2]>,
-    quick_legend: [UndoFace; 8],
-    quick_legend_light: [UndoFace; 8],
+    quick_legend: [UndoFace; 11],
+    quick_legend_light: [UndoFace; 11],
     descriptions: [UndoFace; 2],
     sockets: Vec<CartFace>,
     chips: Vec<CartFace>,
@@ -1528,7 +1532,7 @@ impl UiFaces {
                 .iter()
                 .map(|r| [false, true].map(|lit| quick_label_face(*r, lit)))
                 .collect(),
-            ws_turbo_labels: slot_ui::ws_turbo_label_faces(),
+            input_labels: slot_ui::input_label_faces(),
             quick_pointer: quick_pointer_face(),
             quick_values: QuickValue::ALL
                 .iter()
@@ -1537,7 +1541,9 @@ impl UiFaces {
             quick_legend: quick_legend_faces(footer_ink(false)),
             quick_legend_light: quick_legend_faces(footer_ink(true)),
             descriptions: [
-                quick_description_face(&["Supports single button and MENU+button."]),
+                quick_description_face(&[
+                    "Up to three: a button, two-button chord or MENU+button.",
+                ]),
                 quick_description_face(&["Supports single button and two button chords."]),
             ],
             sockets: slot_store::Core::choices(slot_store::Platform::Gba)

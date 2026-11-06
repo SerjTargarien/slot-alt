@@ -1,5 +1,6 @@
 use slot_store::controls::{
-    inputs, read_system_controls, write_system_controls, Input, SystemControls, SLOTS,
+    drives, inputs, label, read_system_controls, write_system_controls, Input, SystemControls,
+    SLOTS,
 };
 use slot_store::{write_controls, Binding, Controls, Device, GameButton, Modifier, Platform};
 
@@ -15,14 +16,23 @@ fn chord(a: Device, b: Device) -> Binding {
 fn every_system_moves_with_the_d_pad_and_the_left_stick() {
     for platform in Platform::ALL {
         let c = SystemControls::default_for(platform);
+        let moving = |to: Input| {
+            let input = inputs(platform)
+                .iter()
+                .copied()
+                .find(|i| drives(platform, *i) == to)
+                .expect("an input for each direction");
+            c.row(input)
+        };
         assert_eq!(
-            c.row(Input::Up),
+            moving(Input::Up),
             [Some(plain(Device::Up)), Some(plain(Device::LsUp)), None],
             "{platform:?}"
         );
         assert_eq!(
-            c.row(Input::Left),
-            [Some(plain(Device::Left)), Some(plain(Device::LsLeft)), None]
+            moving(Input::Left),
+            [Some(plain(Device::Left)), Some(plain(Device::LsLeft)), None],
+            "{platform:?}"
         );
     }
 }
@@ -138,7 +148,16 @@ fn upstream_controls_seed_every_system_where_the_user_changed_them() {
     write_controls(d.path(), &upstream).unwrap();
     for platform in [Platform::Gb, Platform::Gba, Platform::Ws, Platform::Ngp] {
         let c = read_system_controls(d.path(), platform);
-        assert_eq!(c.row(Input::A), [Some(plain(Device::R2)), None, None]);
+        let a = match platform {
+            // The Pocket's B Button row is the core's A.
+            Platform::Ngp => Input::B,
+            _ => Input::A,
+        };
+        assert_eq!(
+            c.row(a),
+            [Some(plain(Device::R2)), None, None],
+            "{platform:?}"
+        );
         assert_eq!(
             c.row(Input::Up),
             SystemControls::default_for(platform).row(Input::Up),
@@ -150,5 +169,34 @@ fn upstream_controls_seed_every_system_where_the_user_changed_them() {
         ds.row(Input::X),
         [Binding::with(Modifier::Menu, Device::X), None, None],
         "the DS's X was the Turbo A row"
+    );
+}
+
+#[test]
+fn rows_read_in_each_systems_own_order_and_keep_todays_buttons() {
+    // The Game Gear's Button 1 is the core's B, still on the B button.
+    let gg = SystemControls::default_for(Platform::Gg);
+    assert_eq!(label(Platform::Gg, Input::A), "Button 1");
+    assert_eq!(drives(Platform::Gg, Input::A), Input::B);
+    assert_eq!(gg.row(Input::A), [Some(plain(Device::B)), None, None]);
+    assert!(
+        !inputs(Platform::Gg).contains(&Input::Select),
+        "Select resets it"
+    );
+    // The WonderSwan's X pad runs up, right, down, left down its page.
+    let ws = SystemControls::default_for(Platform::Ws);
+    let pad = [Input::Up, Input::Down, Input::Left, Input::Right];
+    assert_eq!(
+        pad.map(|i| label(Platform::Ws, i)),
+        ["X1", "X2", "X3", "X4"]
+    );
+    assert_eq!(
+        ws.row(Input::Down),
+        [
+            Some(plain(Device::Right)),
+            Some(plain(Device::LsRight)),
+            None
+        ],
+        "X2 is right"
     );
 }

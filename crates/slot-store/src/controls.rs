@@ -118,20 +118,39 @@ impl Input {
     }
 }
 
-/// The inputs a system has, in the order its page shows them.
+/// The inputs a system has.
 pub fn inputs(platform: Platform) -> &'static [Input] {
     use Input::*;
     match platform {
-        Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp | Platform::Tg16 => {
+        Platform::Gb | Platform::Gbc | Platform::Tg16 => {
             &[Up, Down, Left, Right, A, B, Select, Start, TurboA, TurboB]
         }
+        // Select resets the Game Gear, and the Pocket has none.
+        Platform::Gg | Platform::Ngp => &[Up, Down, Left, Right, A, B, Start, TurboA, TurboB],
         Platform::Gba | Platform::Gbav | Platform::Lynx => &[
             Up, Down, Left, Right, A, B, Select, Start, L, R, TurboA, TurboB,
         ],
         Platform::Ws => &[
-            Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Select, Start, TurboA, TurboB,
+            Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start, TurboA, TurboB,
         ],
         Platform::Nds => &[Up, Down, Left, Right, A, B, X, Y, L, R, Select, Start],
+    }
+}
+
+/// The standard input whose core button a system's input drives. Pages list inputs in
+/// one order for every system, so where a system's own names would read out of order
+/// there, its rows drive other buttons: the Game Gear's Button 1 and the Pocket's A are
+/// the core's B, and the WonderSwan's X1-X4 run round its pad (up, right, down, left).
+pub fn drives(platform: Platform, input: Input) -> Input {
+    match (platform, input) {
+        (Platform::Gg | Platform::Ngp, Input::A) => Input::B,
+        (Platform::Gg | Platform::Ngp, Input::B) => Input::A,
+        (Platform::Gg | Platform::Ngp, Input::TurboA) => Input::TurboB,
+        (Platform::Gg | Platform::Ngp, Input::TurboB) => Input::TurboA,
+        (Platform::Ws, Input::Down) => Input::Right,
+        (Platform::Ws, Input::Left) => Input::Down,
+        (Platform::Ws, Input::Right) => Input::Left,
+        (_, input) => input,
     }
 }
 
@@ -257,7 +276,7 @@ fn default_row(platform: Platform, input: Input) -> Row {
     let chord = |m, d| Binding::pair(m, d).expect("a chord");
     let one = |b| [Some(b), None, None];
     let two = |a, b| [Some(a), Some(b), None];
-    match input {
+    match drives(platform, input) {
         // Movement: the D-pad and the left stick.
         Input::Up => two(plain(Device::Up), plain(Device::LsUp)),
         Input::Down => two(plain(Device::Down), plain(Device::LsDown)),
@@ -327,7 +346,7 @@ fn seeded(platform: Platform, upstream: &Controls) -> SystemControls {
     let mut c = SystemControls::default_for(platform);
     let stock = Controls::default();
     for &input in inputs(platform) {
-        let Some(g) = input.upstream() else {
+        let Some(g) = drives(platform, input).upstream() else {
             continue;
         };
         if upstream.game(g) != stock.game(g) {
@@ -340,4 +359,101 @@ fn seeded(platform: Platform, upstream: &Controls) -> SystemControls {
 /// Whether a binding uses a modifier that's another button (a chord, such as L1+Up).
 pub fn is_chord(binding: Binding) -> bool {
     matches!(binding.modifier, Some(Modifier::Button(_)))
+}
+
+/// What an input is called on a system's page, after that system's own buttons (as
+/// slotPlus's SYSTEMS.md lays them out).
+pub fn label(platform: Platform, input: Input) -> &'static str {
+    match (platform, input) {
+        (Platform::Ws, Input::Up) => "X1",
+        (Platform::Ws, Input::Down) => "X2",
+        (Platform::Ws, Input::Left) => "X3",
+        (Platform::Ws, Input::Right) => "X4",
+        (Platform::Gg, Input::A) => "Button 1",
+        (Platform::Gg, Input::B) => "Button 2",
+        (Platform::Gg, Input::TurboA) => "Turbo 1",
+        (Platform::Gg, Input::TurboB) => "Turbo 2",
+        (Platform::Ngp, Input::Start) => "Option",
+        (Platform::Tg16, Input::B) => "Button II",
+        (Platform::Tg16, Input::A) => "Button I",
+        (Platform::Tg16, Input::Start) => "Run",
+        (Platform::Tg16, Input::TurboB) => "Turbo II",
+        (Platform::Tg16, Input::TurboA) => "Turbo I",
+        (Platform::Lynx, Input::L) => "Option 1",
+        (Platform::Lynx, Input::R) => "Option 2",
+        (Platform::Lynx, Input::Start) => "Pause",
+        (_, Input::Up) => "Up",
+        (_, Input::Down) => "Down",
+        (_, Input::Left) => "Left",
+        (_, Input::Right) => "Right",
+        (_, Input::A) => "A Button",
+        (_, Input::B) => "B Button",
+        (_, Input::X) => "X Button",
+        (_, Input::Y) => "Y Button",
+        (_, Input::L) => "L Button",
+        (_, Input::R) => "R Button",
+        (_, Input::Select) => "Select",
+        (_, Input::Start) => "Start",
+        (_, Input::TurboA) => "Turbo A",
+        (_, Input::TurboB) => "Turbo B",
+        (_, Input::Y1) => "Y1",
+        (_, Input::Y2) => "Y2",
+        (_, Input::Y3) => "Y3",
+        (_, Input::Y4) => "Y4",
+    }
+}
+
+/// The systems with a controls page, in the order the page lists them.
+pub const SYSTEMS: [Platform; 9] = [
+    Platform::Gb,
+    Platform::Gbc,
+    Platform::Gba,
+    Platform::Ws,
+    Platform::Lynx,
+    Platform::Gg,
+    Platform::Ngp,
+    Platform::Tg16,
+    Platform::Nds,
+];
+
+/// Every system's controls (`Gbav` shares the GBA's).
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct AllControls {
+    sets: [SystemControls; SYSTEMS.len()],
+}
+
+impl Default for AllControls {
+    fn default() -> Self {
+        AllControls {
+            sets: SYSTEMS.map(SystemControls::default_for),
+        }
+    }
+}
+
+fn at(platform: Platform) -> usize {
+    let platform = match platform {
+        Platform::Gbav => Platform::Gba,
+        p => p,
+    };
+    SYSTEMS.iter().position(|p| *p == platform).unwrap_or(0)
+}
+
+impl AllControls {
+    pub fn read(root: &Path) -> AllControls {
+        AllControls {
+            sets: SYSTEMS.map(|p| read_system_controls(root, p)),
+        }
+    }
+
+    pub fn get(&self, platform: Platform) -> &SystemControls {
+        &self.sets[at(platform)]
+    }
+
+    pub fn get_mut(&mut self, platform: Platform) -> &mut SystemControls {
+        &mut self.sets[at(platform)]
+    }
+
+    pub fn write(&self, root: &Path, platform: Platform) -> std::io::Result<()> {
+        write_system_controls(root, platform, self.get(platform))
+    }
 }

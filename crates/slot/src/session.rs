@@ -370,16 +370,19 @@ impl Session {
 
     fn sync_pad(&mut self) {
         if let Some(emu) = &self.emu {
-            let mut mask = self.pad.mask(&self.app.controls());
-            // Systems without shoulder buttons: L and R never reach their core.
-            if matches!(
-                self.app.playing_platform(),
-                Platform::Gb | Platform::Gbc | Platform::Gg | Platform::Ngp | Platform::Tg16
-            ) {
-                mask.0 &= !(slot_retro::ButtonMask::L | slot_retro::ButtonMask::R);
-            }
+            // The playing system's own controls (design/controls.md). A system without
+            // shoulders has no L or R input, so they never reach its core.
+            let platform = self.app.playing_platform();
+            let mask = self.pad.mask(self.app.controls_of(platform), platform);
             let mask = match self.app.core() {
-                Core::Cygne => mask.wonderswan_for(self.ws_layout()),
+                // A horizontal game's second pad is in its bindings; a game played upright
+                // still turns the buttons in code (orientation isn't bindable yet).
+                Core::Cygne => match self.ws_layout() {
+                    WsLayout::Horizontal => {
+                        slot_retro::ButtonMask(mask.0 & !slot_retro::ButtonMask::SELECT)
+                    }
+                    layout => self.pad.raw().wonderswan_for(layout),
+                },
                 Core::Lynx if self.lynx_select => mask.without_select(),
                 // Gearsystem takes SELECT as a console reset, which the Game
                 // Gear does not have.

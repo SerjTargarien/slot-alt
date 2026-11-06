@@ -6,9 +6,10 @@ use common::{app_playing_in, clocked, tmp_root_with_carts, write_gb_cart};
 use slot::app::{App, Phase};
 use slot::session::Session;
 use slot_input::{Action, Btn, Millis, RawEvent};
+use slot_store::controls::{read_system_controls, Input, Row, SystemControls};
 use slot_store::{
-    read_carousel, read_controls, read_shortcuts, write_carousel, write_shortcuts, Binding,
-    CarouselAction, CarouselKeys, Controls, Device, GameButton, Modifier, Shortcut, ShortcutKeys,
+    read_carousel, read_shortcuts, write_carousel, write_shortcuts, Binding, CarouselAction,
+    CarouselKeys, Device, Modifier, Platform, Shortcut, ShortcutKeys,
 };
 use slot_ui::{QuickRow, Toast};
 use tempfile::TempDir;
@@ -51,6 +52,24 @@ fn bind(a: &mut App, presses: &[RawEvent]) {
     assert!(!a.capturing(), "still waiting after {presses:?}");
 }
 
+/// A press and its release, which is how a single button binds.
+fn tap_bind(b: Btn) -> [RawEvent; 2] {
+    [RawEvent::Down(b), RawEvent::Up(b)]
+}
+
+/// The playing system's bindings for an input.
+fn row_of(a: &App, input: Input) -> Row {
+    a.controls_of(a.playing_platform()).row(input)
+}
+
+fn plain(d: Device) -> Option<Binding> {
+    Binding::plain(d)
+}
+
+fn default_row(platform: Platform, input: Input) -> Row {
+    SystemControls::default_for(platform).row(input)
+}
+
 fn playing(stem: &str) -> (TempDir, App) {
     let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
     let a = app_playing_in(d.path(), stem);
@@ -58,11 +77,15 @@ fn playing(stem: &str) -> (TempDir, App) {
 }
 
 #[test]
-fn a_console_button_binds_to_the_next_press_and_stays_on_its_row() {
+fn a_console_button_adds_the_next_press_and_stays_on_its_row() {
     let (_d, mut a) = playing("Emerald");
+    assert_eq!(a.playing_platform(), Platform::Gba);
     in_game_at(&mut a, QuickRow::GameA);
-    bind(&mut a, &[RawEvent::Down(Btn::X)]);
-    assert_eq!(a.controls().game(GameButton::A), Binding::plain(Device::X));
+    bind(&mut a, &tap_bind(Btn::X));
+    assert_eq!(
+        row_of(&a, Input::A),
+        [plain(Device::A), plain(Device::X), None]
+    );
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
 }
 
@@ -72,50 +95,63 @@ fn holding_menu_binds_menu_and_the_button() {
     in_game_at(&mut a, QuickRow::GameB);
     bind(&mut a, &[RawEvent::Down(Btn::Menu), RawEvent::Down(Btn::Y)]);
     assert_eq!(
-        a.controls().game(GameButton::B),
-        Binding::with(Modifier::Menu, Device::Y)
+        row_of(&a, Input::B),
+        [
+            plain(Device::B),
+            Binding::with(Modifier::Menu, Device::Y),
+            None
+        ]
     );
 }
 
 #[test]
-fn select_is_a_plain_button_on_controls() {
+fn a_console_button_binds_two_buttons_held_together() {
     let (_d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameStart);
-    bind(&mut a, &[RawEvent::Down(Btn::Select)]);
+    bind(
+        &mut a,
+        &[RawEvent::Down(Btn::L1), RawEvent::Down(Btn::Select)],
+    );
     assert_eq!(
-        a.controls().game(GameButton::Start),
-        Binding::plain(Device::Select)
+        row_of(&a, Input::Start),
+        [
+            plain(Device::Start),
+            Binding::pair(Device::L1, Device::Select),
+            None
+        ]
     );
 }
 
 #[test]
-fn x_clears_a_row_and_left_and_right_do_nothing() {
+fn x_removes_the_last_binding_and_left_and_right_do_nothing() {
     let (_d, mut a) = playing("Emerald");
-    in_game_at(&mut a, QuickRow::GameA);
+    in_game_at(&mut a, QuickRow::GameUp);
     press(&mut a, Btn::Right);
     press(&mut a, Btn::Left);
-    assert_eq!(a.controls(), Controls::default());
+    assert_eq!(row_of(&a, Input::Up), default_row(Platform::Gba, Input::Up));
     press(&mut a, Btn::X);
-    assert_eq!(a.controls().game(GameButton::A), None);
+    assert_eq!(row_of(&a, Input::Up), [plain(Device::Up), None, None]);
+    press(&mut a, Btn::X);
+    press(&mut a, Btn::X);
+    assert_eq!(row_of(&a, Input::Up), [None, None, None]);
 }
 
 #[test]
-fn y_asks_before_resetting_the_buttons_and_b_keeps_them() {
+fn y_puts_the_row_back_at_once_and_saves_it() {
     let (d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameA);
-    bind(&mut a, &[RawEvent::Down(Btn::X)]);
+    bind(&mut a, &tap_bind(Btn::X));
+    in_game_at(&mut a, QuickRow::GameR);
+    press(&mut a, Btn::X);
     in_game_at(&mut a, QuickRow::GameA);
     press(&mut a, Btn::Y);
-    assert!(a.reset_prompt());
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::B);
-    assert!(!a.reset_prompt());
+    assert!(!a.reset_prompt(), "a row resets without asking");
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
-    assert_eq!(a.controls().game(GameButton::A), Binding::plain(Device::X));
-    assert_eq!(
-        read_controls(d.path()).game(GameButton::A),
-        Binding::plain(Device::X)
-    );
+    assert_eq!(row_of(&a, Input::A), default_row(Platform::Gba, Input::A));
+    assert_eq!(row_of(&a, Input::R), [None, None, None], "only that row");
+    let saved = read_system_controls(d.path(), Platform::Gba);
+    assert_eq!(saved.row(Input::A), default_row(Platform::Gba, Input::A));
+    assert_eq!(saved.row(Input::R), [None, None, None]);
 }
 
 #[test]
@@ -125,26 +161,6 @@ fn y_does_nothing_while_the_buttons_are_the_defaults() {
     press(&mut a, Btn::Y);
     assert!(!a.reset_prompt());
     assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
-}
-
-#[test]
-fn a_on_the_reset_prompt_resets_every_button_and_nothing_else() {
-    let (d, mut a) = playing("Emerald");
-    in_game_at(&mut a, QuickRow::GameA);
-    bind(&mut a, &[RawEvent::Down(Btn::X)]);
-    in_game_at(&mut a, QuickRow::GameR);
-    press(&mut a, Btn::X);
-    let mut keys = ShortcutKeys::default();
-    keys.set(Shortcut::SaveState, None);
-    write_shortcuts(d.path(), &keys).expect("write shortcuts");
-    in_game_at(&mut a, QuickRow::GameA);
-    press(&mut a, Btn::Y);
-    press(&mut a, Btn::A);
-    assert!(!a.reset_prompt());
-    assert_eq!(a.in_game_menu(), Some(QuickRow::GameA));
-    assert_eq!(a.controls(), Controls::default());
-    assert_eq!(read_controls(d.path()), Controls::default());
-    assert_eq!(read_shortcuts(d.path()), keys);
 }
 
 #[test]
@@ -184,24 +200,22 @@ fn reset_all_on_the_shortcut_and_shelf_pages_resets_only_that_page() {
 }
 
 #[test]
-fn a_change_in_game_is_saved_at_once_for_every_game() {
+fn a_change_in_game_is_saved_at_once_for_every_game_of_that_system() {
     let (d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameA);
-    bind(&mut a, &[RawEvent::Down(Btn::X)]);
+    bind(&mut a, &tap_bind(Btn::X));
+    let added = [plain(Device::A), plain(Device::X), None];
     assert_eq!(
-        read_controls(d.path()).game(GameButton::A),
-        Binding::plain(Device::X)
+        read_system_controls(d.path(), Platform::Gba).row(Input::A),
+        added
     );
     write_gb_cart(&d, "Tetris", "TETRIS");
-    for stem in ["Fusion", "Tetris"] {
-        assert_eq!(
-            app_playing_in(d.path(), stem)
-                .controls()
-                .game(GameButton::A),
-            Binding::plain(Device::X),
-            "{stem}"
-        );
-    }
+    assert_eq!(row_of(&app_playing_in(d.path(), "Fusion"), Input::A), added);
+    assert_eq!(
+        row_of(&app_playing_in(d.path(), "Tetris"), Input::A),
+        default_row(Platform::Gb, Input::A),
+        "a Game Boy game keeps its own"
+    );
 }
 
 #[test]
@@ -224,6 +238,7 @@ fn a_game_boy_has_no_l_or_r_rows() {
     let hidden = a.in_game_hidden();
     assert!(hidden.contains(&QuickRow::GameL));
     assert!(hidden.contains(&QuickRow::GameR));
+    assert!(hidden.contains(&QuickRow::GameY1) && hidden.contains(&QuickRow::GameX));
 }
 
 const FRAME: Millis = 16;
@@ -392,29 +407,62 @@ fn in_game_buttons_are_set_from_the_main_menu_and_reach_a_game() {
     tap(&mut s, &mut now, Btn::Up);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsInGame));
     tap(&mut s, &mut now, Btn::A);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsGb));
+    tap(&mut s, &mut now, Btn::A);
     assert_eq!(s.app().quick_menu(), Some(QuickRow::GameUp));
-    assert_eq!(
-        QuickRow::GameUp.shown(&s.app().hidden_rows()),
-        QuickRow::CONTROLS
-    );
-    for _ in 0..QuickRow::GameA.position(&[]) {
+    let shown = QuickRow::GameUp.shown(&s.app().hidden_rows());
+    assert_eq!(shown.len(), 10, "a Game Boy's ten inputs: {shown:?}");
+    let to_a = QuickRow::GameA.position(&s.app().hidden_rows());
+    for _ in 0..to_a {
         tap(&mut s, &mut now, Btn::Down);
     }
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::GameA));
     tap(&mut s, &mut now, Btn::A);
     tap(&mut s, &mut now, Btn::Y);
     assert!(!s.app().capturing());
+    let added = [plain(Device::A), plain(Device::Y), None];
     assert_eq!(
-        read_controls(d.path()).game(GameButton::A),
-        Binding::plain(Device::Y)
+        read_system_controls(d.path(), Platform::Gb).row(Input::A),
+        added
     );
     tap(&mut s, &mut now, Btn::B);
-    assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsInGame));
-    assert_eq!(
-        app_playing_in(d.path(), "Tetris")
-            .controls()
-            .game(GameButton::A),
-        Binding::plain(Device::Y)
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsGb));
+    assert_eq!(row_of(&app_playing_in(d.path(), "Tetris"), Input::A), added);
+}
+
+#[test]
+fn each_system_has_its_own_page_and_back_returns_to_it() {
+    let d = shelf_card();
+    let (mut s, mut now) = on_shelf(d.path());
+    tap(&mut s, &mut now, Btn::Menu);
+    for _ in 0..QuickRow::Controls.position(&[]) {
+        tap(&mut s, &mut now, Btn::Down);
+    }
+    tap(&mut s, &mut now, Btn::A);
+    tap(&mut s, &mut now, Btn::Up);
+    tap(&mut s, &mut now, Btn::A);
+    for _ in 0..QuickRow::ControlsWs.position(&[]) {
+        tap(&mut s, &mut now, Btn::Down);
+    }
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsWs));
+    tap(&mut s, &mut now, Btn::A);
+    let hidden = s.app().hidden_rows();
+    assert!(
+        !hidden.contains(&QuickRow::GameY1),
+        "the WonderSwan's Y pad"
     );
+    assert!(hidden.contains(&QuickRow::GameSelect));
+    tap(&mut s, &mut now, Btn::X);
+    assert_eq!(
+        read_system_controls(d.path(), Platform::Ws).row(Input::Up),
+        [plain(Device::Up), None, None]
+    );
+    assert_eq!(
+        read_system_controls(d.path(), Platform::Gb).row(Input::Up),
+        default_row(Platform::Gb, Input::Up)
+    );
+    tap(&mut s, &mut now, Btn::B);
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ControlsWs));
 }
 
 #[test]
@@ -428,17 +476,19 @@ fn turbo_b_moves_off_y_from_the_in_game_page() {
     tap(&mut s, &mut now, Btn::A);
     tap(&mut s, &mut now, Btn::Up);
     tap(&mut s, &mut now, Btn::A);
-    for _ in 0..QuickRow::GameTurboB.position(&[]) {
+    tap(&mut s, &mut now, Btn::A);
+    for _ in 0..QuickRow::GameTurboB.position(&s.app().hidden_rows()) {
         tap(&mut s, &mut now, Btn::Down);
     }
     assert_eq!(s.app().quick_menu(), Some(QuickRow::GameTurboB));
+    tap(&mut s, &mut now, Btn::X);
     tap(&mut s, &mut now, Btn::A);
     assert!(s.app().capturing());
     tap(&mut s, &mut now, Btn::L2);
     assert!(!s.app().capturing());
     assert_eq!(
-        read_controls(d.path()).game(GameButton::TurboB),
-        Binding::plain(Device::L2)
+        read_system_controls(d.path(), Platform::Gb).row(Input::TurboB),
+        [plain(Device::L2), None, None]
     );
 }
 
@@ -493,13 +543,18 @@ fn a_shortcut_binds_one_button_on_its_release() {
 }
 
 #[test]
-fn a_console_button_still_binds_on_the_press() {
+fn a_console_button_waits_for_a_second_press_or_the_release() {
     let (_d, mut a) = playing("Emerald");
     in_game_at(&mut a, QuickRow::GameA);
     press(&mut a, Btn::A);
     a.capture_input(RawEvent::Down(Btn::L1));
-    assert!(!a.capturing(), "a console button waited for a second press");
-    assert_eq!(a.controls().game(GameButton::A), Binding::plain(Device::L1));
+    assert!(a.capturing(), "it may be the first of two");
+    a.capture_input(RawEvent::Up(Btn::L1));
+    assert!(!a.capturing());
+    assert_eq!(
+        row_of(&a, Input::A),
+        [plain(Device::A), plain(Device::L1), None]
+    );
 }
 
 #[test]
@@ -529,8 +584,14 @@ fn a_shelf_key_pair_switches_shelves_only_with_both_held() {
 fn a_shortcut_pair_reaches_the_gestures_as_a_pair() {
     let mut keys = ShortcutKeys::default();
     keys.set(Shortcut::SaveState, Binding::pair(Device::R1, Device::L1));
-    let table =
-        slot::input::Table::new(&Controls::default(), &keys, &CarouselKeys::default(), true);
+    let table = slot::input::Table::new(
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
+        &keys,
+        &CarouselKeys::default(),
+        true,
+    );
     assert!(table.entries().iter().any(|e| e.chord
         == slot_input::Chord {
             modifier: Some(slot_input::Mod::Button(Btn::L1)),
@@ -574,8 +635,14 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
     );
     keys.set(Shortcut::FastForward, Binding::plain(Device::L2));
     keys.set(Shortcut::Rewind, Binding::plain(Device::R2));
-    let table =
-        slot::input::Table::new(&Controls::default(), &keys, &CarouselKeys::default(), true);
+    let table = slot::input::Table::new(
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
+        &keys,
+        &CarouselKeys::default(),
+        true,
+    );
     for row in [
         QuickRow::ScPaletteBack,
         QuickRow::ScPaletteNext,
@@ -589,8 +656,14 @@ fn a_start_pair_clashes_only_with_a_single_on_start() {
         );
     }
     keys.set(Shortcut::Rewind, Binding::plain(Device::Start));
-    let table =
-        slot::input::Table::new(&Controls::default(), &keys, &CarouselKeys::default(), true);
+    let table = slot::input::Table::new(
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
+        &keys,
+        &CarouselKeys::default(),
+        true,
+    );
     assert!(
         table.clash(QuickRow::ScRewind).is_some(),
         "START alone does block a START pair"
@@ -602,8 +675,14 @@ fn an_unordered_pair_still_clashes_with_a_single_on_either_button() {
     let mut keys = ShortcutKeys::default();
     keys.set(Shortcut::SaveState, Binding::pair(Device::L1, Device::R1));
     keys.set(Shortcut::Rewind, Binding::plain(Device::R1));
-    let table =
-        slot::input::Table::new(&Controls::default(), &keys, &CarouselKeys::default(), true);
+    let table = slot::input::Table::new(
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
+        &keys,
+        &CarouselKeys::default(),
+        true,
+    );
     assert_eq!(table.clash(QuickRow::ScSave), Some(QuickRow::ScRewind));
 }
 
@@ -680,8 +759,14 @@ fn a_shelf_key_led_by_start_needs_start_first() {
         CarouselAction::Favorite,
         Binding::pair(Device::Start, Device::A),
     );
-    let table =
-        slot::input::Table::new(&Controls::default(), &ShortcutKeys::default(), &keys, true);
+    let table = slot::input::Table::new(
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
+        &ShortcutKeys::default(),
+        &keys,
+        true,
+    );
     let shelf = || {
         let mut g = slot_input::Gestures::new();
         g.set_entries(table.entries());
@@ -809,7 +894,9 @@ fn with_turbo_off_its_rows_are_hidden_and_never_flagged() {
 #[test]
 fn select_x_in_game_is_the_screenshot_action() {
     let table = slot::input::Table::new(
-        &Controls::default(),
+        &SystemControls::default_for(Platform::Gb),
+        Platform::Gb,
+        true,
         &ShortcutKeys::default(),
         &CarouselKeys::default(),
         true,

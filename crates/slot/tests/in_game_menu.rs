@@ -100,8 +100,15 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
         QuickRow::UndoLoad,
         QuickRow::UndoReset,
     ];
+    // A system's missing controls rows are hidden too; see the controls tests.
+    let hidden = |a: &App| -> Vec<QuickRow> {
+        a.in_game_hidden()
+            .into_iter()
+            .filter(|r| r.input().is_none())
+            .collect()
+    };
     assert_eq!(
-        a.in_game_hidden(),
+        hidden(&a),
         [
             &[
                 QuickRow::Palette,
@@ -116,7 +123,7 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
     );
     a.set_palette_live(true);
     assert_eq!(
-        a.in_game_hidden(),
+        hidden(&a),
         [
             &[
                 QuickRow::Bezel,
@@ -650,18 +657,18 @@ fn menu_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(100 + i), 80, 40), (id(130 + i), 80, 40)])
+            .map(|i| [(id(1000 + i), 80, 40), (id(1500 + i), 80, 40)])
             .collect(),
-        ws_turbo_labels: [
-            [
-                (TexId::from_raw(3000), 200, 40),
-                (TexId::from_raw(3001), 200, 40),
-            ],
-            [
-                (TexId::from_raw(3002), 200, 40),
-                (TexId::from_raw(3003), 200, 40),
-            ],
-        ],
+        input_labels: slot_ui::input_label_names()
+            .into_iter()
+            .enumerate()
+            .map(|(k, n)| {
+                (
+                    n,
+                    [(id(3000 + 2 * k), 200, 40), (id(3001 + 2 * k), 200, 40)],
+                )
+            })
+            .collect(),
         pointer: (id(700), 16, 40),
         values: Vec::new(),
         legend: [
@@ -673,6 +680,9 @@ fn menu_faces(a: &mut App) {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         legend_light: [
             (id(400), 70),
@@ -683,6 +693,9 @@ fn menu_faces(a: &mut App) {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
@@ -851,7 +864,7 @@ fn drawn(a: &App, id: usize) -> bool {
 fn at_turbo_a(a: &mut App) {
     go_to(a, QuickRow::PlayControls);
     press(a, Btn::A);
-    for _ in 0..12 {
+    for _ in 0..QuickRow::CONTROLS.len() {
         if a.in_game_menu() == Some(QuickRow::GameTurboA) {
             break;
         }
@@ -861,8 +874,17 @@ fn at_turbo_a(a: &mut App) {
     frames(a, 30);
 }
 
+/// The lit face of a controls row's name, in `menu_faces`.
+fn lit_name(name: &str) -> usize {
+    let k = slot_ui::input_label_names()
+        .iter()
+        .position(|n| *n == name)
+        .unwrap_or_else(|| panic!("no row is called {name}"));
+    3001 + 2 * k
+}
+
 #[test]
-fn a_wonderswan_game_names_the_turbo_rows_after_x_and_y() {
+fn a_wonderswan_game_names_its_rows_after_its_own_pads() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let ws = d.path().join("Games/WS");
     std::fs::create_dir_all(&ws).unwrap();
@@ -884,23 +906,27 @@ fn a_wonderswan_game_names_the_turbo_rows_after_x_and_y() {
         a.update(1.0 / 60.0);
     }
     assert_eq!(a.playing_platform(), Platform::Ws);
-    assert!(a.ws_buttons());
     menu_faces(&mut a);
-    at_turbo_a(&mut a);
-    let turbo_a = QuickRow::GameTurboA.index();
-    assert!(drawn(&a, 3001), "X Button, lit, is drawn");
-    assert!(drawn(&a, 3002), "Y Button is drawn");
-    assert!(!drawn(&a, 130 + turbo_a), "Turbo A is not");
+    go_to(&mut a, QuickRow::PlayControls);
+    press(&mut a, Btn::A);
+    frames(&mut a, 30);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::GameUp));
+    assert!(drawn(&a, lit_name("X1")), "Up is the WonderSwan's X1");
+    assert!(!drawn(&a, lit_name("Up")));
+    let hidden = a.in_game_hidden();
+    assert!(!hidden.contains(&QuickRow::GameY1), "it has a Y pad");
+    assert!(hidden.contains(&QuickRow::GameSelect), "and no Select");
 }
 
 #[test]
 fn a_game_boy_advance_game_keeps_turbo_a_and_turbo_b() {
     let (_d, mut a) = playing();
-    assert!(!a.ws_buttons());
     menu_faces(&mut a);
     at_turbo_a(&mut a);
-    assert!(drawn(&a, 130 + QuickRow::GameTurboA.index()));
-    assert!(!drawn(&a, 3001) && !drawn(&a, 3002));
+    assert!(drawn(&a, lit_name("Turbo A")));
+    let hidden = a.in_game_hidden();
+    assert!(hidden.contains(&QuickRow::GameY1) && hidden.contains(&QuickRow::GameX));
+    assert!(!hidden.contains(&QuickRow::GameL), "a GBA has L and R");
 }
 
 fn cursor_on_a_shown_row(a: &App) {

@@ -1,5 +1,6 @@
 use slot_input::{anywhere, Action, Contexts, Entry};
-use slot_store::{Binding, CarouselAction, CarouselKeys, Controls, Modifier, ShortcutKeys};
+use slot_store::controls::{inputs, Input, SystemControls};
+use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
 use super::bind::{chord, shortcut_action};
@@ -14,53 +15,57 @@ struct Row {
 
 pub struct Table {
     rows: Vec<Row>,
+    stretches: bool,
 }
 
 impl Table {
+    /// The bindings in play: one system's controls (`stretches` says whether its games
+    /// take the Stretch shortcuts), the shortcuts and the shelf's keys.
     pub fn new(
-        controls: &Controls,
+        controls: &SystemControls,
+        platform: Platform,
+        stretches: bool,
         shortcuts: &ShortcutKeys,
         carousel: &CarouselKeys,
         turbo: bool,
     ) -> Table {
-        let rows = QuickRow::ALL
-            .into_iter()
-            .filter_map(|row| {
-                if let Some(g) = row.game_button() {
-                    let turbo_row = matches!(row, QuickRow::GameTurboA | QuickRow::GameTurboB);
-                    if turbo_row && !turbo {
-                        return None;
-                    }
-                    return controls.game(g).map(|binding| Row {
-                        row,
-                        binding,
-                        action: None,
-                        contexts: Contexts::GAME,
-                    });
-                }
-                if let Some(s) = row.shortcut() {
-                    let action = shortcut_action(s);
-                    return shortcuts.get(s).map(|binding| Row {
-                        row,
-                        binding,
-                        action: Some(action),
-                        contexts: match (anywhere(action), binding.modifier) {
-                            (false, _) => Contexts::GAME,
-                            (true, None) => Contexts::GAME.with(Contexts::SHELF),
-                            (true, Some(_)) => Contexts::ALL,
-                        },
-                    });
-                }
-                let a = row.carousel_action()?;
-                carousel.get(a).map(|binding| Row {
+        let game = inputs(platform)
+            .iter()
+            .filter(|i| turbo || !matches!(i, Input::TurboA | Input::TurboB))
+            .flat_map(|&input| {
+                controls.bindings(input).map(move |binding| Row {
+                    row: QuickRow::of_input(input),
+                    binding,
+                    action: None,
+                    contexts: Contexts::GAME,
+                })
+            });
+        let rest = QuickRow::ALL.into_iter().filter_map(|row| {
+            if let Some(s) = row.shortcut() {
+                let action = shortcut_action(s);
+                return shortcuts.get(s).map(|binding| Row {
                     row,
                     binding,
-                    action: Some(shelf_action(a)),
-                    contexts: Contexts::SHELF,
-                })
+                    action: Some(action),
+                    contexts: match (anywhere(action), binding.modifier) {
+                        (false, _) => Contexts::GAME,
+                        (true, None) => Contexts::GAME.with(Contexts::SHELF),
+                        (true, Some(_)) => Contexts::ALL,
+                    },
+                });
+            }
+            let a = row.carousel_action()?;
+            carousel.get(a).map(|binding| Row {
+                row,
+                binding,
+                action: Some(shelf_action(a)),
+                contexts: Contexts::SHELF,
             })
-            .collect();
-        Table { rows }
+        });
+        Table {
+            rows: game.chain(rest).collect(),
+            stretches,
+        }
     }
 
     pub fn entries(&self) -> Vec<Entry> {
@@ -76,29 +81,36 @@ impl Table {
             .collect()
     }
 
+    /// Another row sharing one of this row's bindings. A system's inputs are checked
+    /// against its own inputs and the shortcuts; the Stretch shortcuts only where that
+    /// system stretches.
     pub fn clash(&self, row: QuickRow) -> Option<QuickRow> {
-        let mine = self.rows.iter().find(|r| r.row == row)?;
         let console = |r: &Row| r.action.is_none();
-        self.rows
-            .iter()
-            .filter(|r| r.row != row && r.contexts.meets(mine.contexts))
-            .filter(|r| !apart(mine.row, r.row))
-            .find(|r| {
-                r.binding == mine.binding
-                    || (!console(mine)
-                        && !console(r)
-                        && (overlaps(mine.binding, r.binding) || overlaps(r.binding, mine.binding)))
-            })
-            .map(|r| r.row)
+        self.rows.iter().filter(|m| m.row == row).find_map(|mine| {
+            self.rows
+                .iter()
+                .filter(|r| r.row != row && r.contexts.meets(mine.contexts))
+                .filter(|r| !self.apart(mine.row, r.row))
+                .find(|r| {
+                    r.binding == mine.binding
+                        || (!console(mine)
+                            && !console(r)
+                            && (overlaps(mine.binding, r.binding)
+                                || overlaps(r.binding, mine.binding)))
+                })
+                .map(|r| r.row)
+        })
     }
 }
 
-/// Rows that never apply to the same game: Stretch On and Off work only in Game Boy
-/// games, and the L and R game buttons only in GBA games.
-fn apart(a: QuickRow, b: QuickRow) -> bool {
-    let game_boy = |r| matches!(r, QuickRow::ScStretchOn | QuickRow::ScStretchOff);
-    let gba = |r| matches!(r, QuickRow::GameL | QuickRow::GameR);
-    (game_boy(a) && gba(b)) || (gba(a) && game_boy(b))
+impl Table {
+    /// Rows that never apply in the same game: the Stretch shortcuts and the inputs of a
+    /// system that doesn't stretch.
+    fn apart(&self, a: QuickRow, b: QuickRow) -> bool {
+        let stretch = |r: QuickRow| matches!(r, QuickRow::ScStretchOn | QuickRow::ScStretchOff);
+        let input = |r: QuickRow| r.input().is_some();
+        !self.stretches && ((stretch(a) && input(b)) || (input(a) && stretch(b)))
+    }
 }
 
 fn shelf_action(a: CarouselAction) -> Action {

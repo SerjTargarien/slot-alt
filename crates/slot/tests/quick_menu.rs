@@ -899,16 +899,16 @@ fn fake_faces(a: &mut App) {
         labels: (0..QuickRow::ALL.len())
             .map(|i| [(id(1000 + i), 200, 40), (id(1500 + i), 200, 40)])
             .collect(),
-        ws_turbo_labels: [
-            [
-                (TexId::from_raw(3000), 200, 40),
-                (TexId::from_raw(3001), 200, 40),
-            ],
-            [
-                (TexId::from_raw(3002), 200, 40),
-                (TexId::from_raw(3003), 200, 40),
-            ],
-        ],
+        input_labels: slot_ui::input_label_names()
+            .into_iter()
+            .enumerate()
+            .map(|(k, n)| {
+                (
+                    n,
+                    [(id(3000 + 2 * k), 200, 40), (id(3001 + 2 * k), 200, 40)],
+                )
+            })
+            .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
             .map(|i| [(id(2000 + i), 60, 40), (id(2100 + i), 60, 40)])
@@ -922,6 +922,9 @@ fn fake_faces(a: &mut App) {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         legend_light: [
             (id(400), 70),
@@ -932,6 +935,9 @@ fn fake_faces(a: &mut App) {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
@@ -1362,19 +1368,19 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             .enumerate()
             .map(|(i, r)| {
                 let w = slot_ui::quick_label_face(*r, true).w;
-                [(id(1000 + i), w, 40), (id(1100 + i), w, 40)]
+                [(id(1000 + i), w, 40), (id(1500 + i), w, 40)]
             })
             .collect(),
-        ws_turbo_labels: [
-            [
-                (TexId::from_raw(3000), 200, 40),
-                (TexId::from_raw(3001), 200, 40),
-            ],
-            [
-                (TexId::from_raw(3002), 200, 40),
-                (TexId::from_raw(3003), 200, 40),
-            ],
-        ],
+        input_labels: slot_ui::input_label_names()
+            .into_iter()
+            .enumerate()
+            .map(|(k, n)| {
+                (
+                    n,
+                    [(id(3000 + 2 * k), 200, 40), (id(3001 + 2 * k), 200, 40)],
+                )
+            })
+            .collect(),
         pointer: (id(700), 32, 48),
         values: QuickValue::ALL
             .iter()
@@ -1393,6 +1399,9 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         legend_light: [
             (id(400), 70),
@@ -1403,6 +1412,9 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             (id(405), 75),
             (id(406), 95),
             (id(407), 90),
+            (id(408), 80),
+            (id(409), 95),
+            (id(412), 100),
         ],
         descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
@@ -1419,7 +1431,7 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             }
             open_at(&mut a, row);
             let out = frame(&a);
-            let [lx, _, lw, _] = placed(&out, 1100 + row.index()).expect("the lit label");
+            let [lx, _, lw, _] = placed(&out, 1500 + row.index()).expect("the lit label");
             let label_ends = lx + lw - MENU_PAD as f32;
             let lit_value = QuickValue::ALL
                 .iter()
