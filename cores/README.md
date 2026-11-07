@@ -1,7 +1,7 @@
 # Core map
 
 The emulator cores Slot² runs, where each comes from, and how current it is. Checked on
-2026-11-06 against GitHub, slotPlus's release, and the card in the RGB20SX.
+2026-11-06 against GitHub (upstream counts 2026-11-07), slotPlus's release, and the card in the RGB20SX.
 
 ## At a glance
 
@@ -13,10 +13,10 @@ The emulator cores Slot² runs, where each comes from, and how current it is. Ch
 | Game Boy, Game Boy Color | mGBA (`mgba`), pick and link play | as above | | |
 | WonderSwan (Color) | Beetle Cygne (`cygne`), Slot²'s build | [libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro) | `4b01295`, 2026-07-31 | none |
 | Atari Lynx | Beetle Lynx (`lynx`) | [libretro/beetle-lynx-libretro](https://github.com/libretro/beetle-lynx-libretro) | `fcdefcf`, 2026-04-20 | none |
-| Game Gear | Gearsystem (`gearsystem`) | [drhelius/Gearsystem](https://github.com/drhelius/Gearsystem) | `517ddaa`, 3.9.22, 2026-10-11 | 56 commits, releases 3.9.23 and 3.9.24 |
+| Game Gear | Gearsystem (`gearsystem`) | [drhelius/Gearsystem](https://github.com/drhelius/Gearsystem) | `517ddaa`, 3.9.22, 2026-10-11 | 57 commits, releases 3.9.23 and 3.9.24 |
 | NeoGeo Pocket (Color) | Beetle NeoPop (`ngp`) | [libretro/beetle-ngp-libretro](https://github.com/libretro/beetle-ngp-libretro) | `a50d5ac`, 2026-06-14 | none |
 | TurboGrafx-16 | Beetle PCE Fast (`pce`) | [libretro/beetle-pce-fast-libretro](https://github.com/libretro/beetle-pce-fast-libretro) | `3f946f2`, 2026-10-02 | 2 commits (translations) |
-| Nintendo DS | DSperate (`dsperate`) | [beebono/DSperate](https://github.com/beebono/DSperate) through [thwonp/dsperate-lr](https://github.com/thwonp/dsperate-lr) | `ddf2910`, v3.0.5, 2026-10-21; wrapper `093d50f`, 2026-10-27 | 87 commits, v3.3.0; wrapper 11 commits, v3.3.0-lr.1 |
+| Nintendo DS | DSperate (`dsperate`) | [beebono/DSperate](https://github.com/beebono/DSperate) through [thwonp/dsperate-lr](https://github.com/thwonp/dsperate-lr) | `ddf2910`, v3.0.5, 2026-10-21; wrapper `093d50f`, 2026-10-27 | 94 commits, v3.3.0; wrapper 11 commits, v3.3.0-lr.1 |
 
 "Default" is what a game runs on until another core is picked for it (the cart studio's
 chip, saved per game in `Config/selected_core.txt`). The Game Boy's default is the card's
@@ -134,7 +134,7 @@ flags and patch as usual.
 - **Pin:** `517ddaa`, release 3.9.22 (2026-10-11). Built with LTO. No patches.
 - **Upstream since:** 3.9.23 (2026-10-24) and 3.9.24 (2026-10-30): mostly the desktop app
   (OpenGL, vsync, file dialogs), and "audio rate control" and bug fixes that may reach the
-  core. 56 commits in all.
+  core. 57 commits in all (2026-11-07).
 - **In Slot²:** Select never reaches it, since Gearsystem takes it as a console reset.
 
 ### Beetle NeoPop: NeoGeo Pocket and Pocket Color
@@ -159,7 +159,8 @@ flags and patch as usual.
   GCC they were made with), Vulkan, SDL, Wi-Fi and RetroAchievements left out.
 - **Patch (1):** `wrapper-0001-frameskip`, slotPlus's frameskip: whole display periods
   skipped while the audio runs behind, at most two in a row.
-- **Upstream since (87 commits, v3.0.6 to v3.3.0, 2026-10-31 to 11-04):** accuracy fixes
+- **Upstream since (87 commits, v3.0.6 to v3.3.0, 2026-10-31 to 11-04; 94 by 2026-11-07,
+  no newer release):** accuracy fixes
   (Zoo Keeper, Picross DS Korean, Electroplankton, IPC timing, steadier 3D textures);
   analog sticks for games with Circle Pad patches; save states that no longer freeze
   Dragon Quest IX; GBA cartridges in slot 2, the Rumble Pak and the Guitar Grip; and a
