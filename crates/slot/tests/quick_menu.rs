@@ -2231,3 +2231,53 @@ fn back_from_the_ds_screen_page_returns_to_screen() {
     press(&mut a, Btn::B);
     assert_eq!(a.quick_menu(), Some(QuickRow::ScreenNds));
 }
+
+#[test]
+fn every_shelf_row_with_a_value_changes_with_left_and_right() {
+    // The structure pass: `change_setting` ends in a catch-all, so this is what checks that
+    // a row showing a value the user can change is one Left and Right reach.
+    // Rows whose value isn't theirs to change (read-outs), or that change one step and
+    // can't come back by Right alone, are named here.
+    let read_only = [QuickRow::DateTime, QuickRow::About, QuickRow::RommStatus];
+    let in_game = [
+        &QuickRow::PLAY[..],
+        &QuickRow::SETTINGS,
+        &QuickRow::PLAY_SCREEN,
+    ];
+    let mut checked = 0;
+    for row in QuickRow::ALL {
+        if row.opens()
+            || row.binds()
+            || read_only.contains(&row)
+            || in_game.iter().any(|p| p.contains(&row))
+        {
+            continue;
+        }
+        let (_d, mut a, _) = on_carousel();
+        let Some(before) = a.quick_value(row) else {
+            continue;
+        };
+        let reachable =
+            std::iter::successors(Some(row), |r| r.parent()).all(|r| !a.hidden_rows().contains(&r));
+        if !reachable {
+            continue;
+        }
+        open_at(&mut a, row);
+        press(&mut a, Btn::Right);
+        let after = a.quick_value(row);
+        if after == Some(before) {
+            press(&mut a, Btn::Right);
+        }
+        assert_ne!(
+            a.quick_value(row),
+            Some(before),
+            "{row:?} shows {before:?} but Right never changes it"
+        );
+        checked += 1;
+    }
+    eprintln!("checked {checked} rows");
+    assert!(
+        checked >= 40,
+        "only {checked} rows were reached: the test checks too little"
+    );
+}

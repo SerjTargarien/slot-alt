@@ -156,10 +156,16 @@ set on 2026-11-06).
       and that the DS's Stretch row had no shortcuts (given them, at the user's word): Back on the shelf's DS Screen page closed
       the menu, and a WonderSwan or TurboGrafx-16 game could hold a Game Boy palette its
       file can't keep.
-   2. One source per fact: the `QuickRow` enum and `ALL` from one list (a small macro);
+   2. One source per fact. Done 2026-11-07: the `QuickRow` enum and `ALL` come from one
+      list (`quick_rows!` in `quick_menu.rs`); the three long "every other row" lists in
+      `app.rs` are wildcard arms (447 lines), with
+      `every_shelf_row_with_a_value_changes_with_left_and_right` checking what the
+      compiler did (43 rows). Waiting on the user's call about sharing the port back:
       per-system settings as one record per system rather than `shader_gba`,
-      `shader_gb`... fields; the three ~190-row "every other row" lists in `app.rs` gone.
-      Our own additions first, upstream's structure later.
+      `shader_gb`... fields, which would make upstream's `slot.state` changes hard to
+      take (since `f1f6ef9` the fork is +45,000/-1,900 lines in the crates, mostly added
+      code; the conflicts are in `app.rs`, `quick_menu.rs`, `slot_state.rs`,
+      `session.rs`).
    3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
       per-game layer, the menus.
    4. `/code-review` on each diff before a commit.
