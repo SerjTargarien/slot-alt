@@ -21,6 +21,7 @@ WPA_SUPPLICANT="${AGS_WPA_SUPPLICANT:-wpa_supplicant}"
 WPA_CLI="${AGS_WPA_CLI:-wpa_cli}"
 IP="${AGS_IP:-ip}"
 RFKILL="${AGS_RFKILL:-rfkill}"
+IW="${AGS_IW:-iw}"
 UDHCPC="${AGS_UDHCPC:-udhcpc}"
 UPTIME="${AGS_UPTIME:-/proc/uptime}"
 CTRL_DIR="${AGS_CTRL_DIR:-/var/run/wpa_supplicant}"
@@ -69,13 +70,36 @@ wifi_up() {
 }
 
 supplicant_stop() {
-	if $WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1; then
-		s=0
-		while [ -e "$1/$2" ] && [ "$s" -lt 8 ]; do
-			sleep 0.25 2>/dev/null || sleep 1
-			s=$((s + 1))
-		done
-	elif [ -e "$1/$2" ]; then
+	# Slot²: wpa_supplicant leaves on terminate without answering, and wpa_cli waited out
+	# its 10 s for the reply on every link (2026-11-07). It's asked in the background, and
+	# stopping is done once the supplicant's socket is gone. With no socket, nothing waits.
+	if [ ! -e "$1/$2" ]; then
+		$WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1
+		return 0
+	fi
+	$WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1 &
+	cli=$!
+	s=0
+	while [ -e "$1/$2" ] && kill -0 "$cli" 2>/dev/null && [ "$s" -lt 40 ]; do
+		sleep 0.25 2>/dev/null || sleep 1
+		s=$((s + 1))
+	done
+	if kill -0 "$cli" 2>/dev/null; then
+		kill "$cli" 2>/dev/null
+		wait "$cli" 2>/dev/null
+		asked=yes
+	elif wait "$cli"; then
+		asked=yes
+	else
+		asked=
+	fi
+	# Told to go, it gets the 2 s it always had; a socket nobody answered on is stale.
+	s=0
+	while [ -n "$asked" ] && [ -e "$1/$2" ] && [ "$s" -lt 8 ]; do
+		sleep 0.25 2>/dev/null || sleep 1
+		s=$((s + 1))
+	done
+	if [ -e "$1/$2" ]; then
 		trace "$2: stale socket removed"
 		/bin/rm -f "$1/$2"
 	fi
@@ -85,8 +109,15 @@ supplicant_stop() {
 link_clear() {
 	supplicant_stop "$RUN/wpa_ap" wlan1
 	$IP addr flush dev wlan1 2>/dev/null || true
+	# Slot²: a host on wlan0 (a chip with one interface), as link_host noted.
+	if [ "$(cat "$RUN/slotlink-ap.if" 2>/dev/null)" = wlan0 ]; then
+		supplicant_stop "$RUN/wpa_ap" wlan0
+		$IP addr del "$LINK_HOST_IP" dev wlan0 2>/dev/null || true
+	fi
+	/bin/rm -f "$RUN/slotlink-ap.if"
 	/bin/rm -f "$RUN/slotlink-ap.conf"
 	wifi_stop
+	trace "home Wi-Fi stopped"
 	if [ -f "$RUN/slotlink-sta.conf" ]; then
 		supplicant_stop "$CTRL_DIR" wlan0
 		$IP addr flush dev wlan0 2>/dev/null || true
@@ -123,10 +154,23 @@ link_host() {
 	trace_attempt "host: asked"
 	link_clear
 	wifi_up
-	wait_dev wlan1 4 || {
-		trace "host: no wlan1, interfaces: $(interfaces)"
-		return 1
-	}
+	# Slot²: a chip with one interface (the RGB20SX's RTL8723DS) has no wlan1 and hosts on
+	# wlan0, which the link has to itself (link_clear stopped home Wi-Fi), at 2.4 GHz
+	# unless its phy lists 5 GHz.
+	ap=wlan1
+	freq="$LINK_FREQ"
+	if ! wait_dev wlan1 4; then
+		[ -d "$NET/wlan0" ] || {
+			trace "host: no wlan0 or wlan1, interfaces: $(interfaces)"
+			return 1
+		}
+		ap=wlan0
+		trace "host: no wlan1, hosting on wlan0"
+		if [ "$freq" -gt 3000 ] && ! $IW phy 2>/dev/null | grep -q ' 5[0-9][0-9][0-9]\.0 MHz'; then
+			trace "host: $freq MHz is out of reach, hosting on 2437"
+			freq=2437
+		fi
+	fi
 	command -v "$WPA_SUPPLICANT" >/dev/null 2>&1 || {
 		trace "host: no wpa_supplicant"
 		return 1
@@ -142,7 +186,7 @@ link_host() {
 		echo 'network={'
 		echo "	ssid=\"$LINK_SSID\""
 		echo '	mode=2'
-		echo "	frequency=$LINK_FREQ"
+		echo "	frequency=$freq"
 		echo '	key_mgmt=WPA-PSK'
 		echo '	proto=RSN'
 		echo '	pairwise=CCMP'
@@ -151,19 +195,29 @@ link_host() {
 	} > "$RUN/slotlink-ap.conf"
 	/bin/chmod 600 "$RUN/slotlink-ap.conf"
 
-	$IP link set wlan1 up 2>/dev/null || true
-	if ! $WPA_SUPPLICANT -B -i wlan1 -c "$RUN/slotlink-ap.conf" -Dnl80211 >"$RUN/slotlink-sup.err" 2>&1; then
+	echo "$ap" > "$RUN/slotlink-ap.if"
+	$IP link set "$ap" up 2>/dev/null || true
+	if ! $WPA_SUPPLICANT -B -i "$ap" -c "$RUN/slotlink-ap.conf" -Dnl80211 >"$RUN/slotlink-sup.err" 2>&1; then
 		trace "host: wpa_supplicant failed: $(tr '\n' ' ' < "$RUN/slotlink-sup.err" | sed 's/ $//')"
 		/bin/rm -f "$RUN/slotlink-sup.err"
 		return 1
 	fi
 	/bin/rm -f "$RUN/slotlink-sup.err"
-	link_wait "$RUN/wpa_ap" wlan1 "$LINK_WAIT_S" 0 "" || {
-		trace "host: wlan1 never came up in ${LINK_WAIT_S}s"
+	link_wait "$RUN/wpa_ap" "$ap" "$LINK_WAIT_S" 0 "" || {
+		trace "host: $ap never came up in ${LINK_WAIT_S}s"
 		return 1
 	}
-	$IP addr add "$LINK_HOST_IP" dev wlan1 2>/dev/null || true
+	$IP addr add "$LINK_HOST_IP" dev "$ap" 2>/dev/null || true
+	power_save_off "$ap"
 	trace "host: addressed"
+}
+
+# Slot²: a link's radio stays awake. Base² turns power saving on for home Wi-Fi, and a
+# link interface that keeps it sends the game's state at ~16 KB/s (2026-11-07). Where
+# there's no iw (BaseOS), the driver's own setting stands.
+power_save_off() {
+	$IW dev "$1" set power_save off 2>/dev/null && trace "$1: power save off"
+	return 0
 }
 
 link_sta_conf() {
@@ -211,6 +265,7 @@ link_join() {
 		trace "join: attempt $attempt on ${freq:-every channel}"
 		if link_wait "$CTRL_DIR" wlan0 "$bound" "$LINK_RESCAN" "$freq"; then
 			$IP addr add "$LINK_PEER_IP" dev wlan0 2>/dev/null || true
+			power_save_off wlan0
 			trace "join: addressed"
 			return 0
 		fi
@@ -259,6 +314,7 @@ wifi_stop() {
 		/bin/rm -f "$RUN/udhcpc.wlan0.pid"
 	fi
 	[ -f "$WIFI_MARK" ] || return 0
+	trace "home Wi-Fi: stopping its supplicant"
 	supplicant_stop "$CTRL_DIR" wlan0
 	$IP addr flush dev wlan0 2>/dev/null || true
 	/bin/rm -f "$WIFI_MARK"

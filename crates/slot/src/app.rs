@@ -3577,6 +3577,15 @@ impl App {
         self.sync_link_badge();
     }
 
+    /// Slot²: the other side is heard again. A link ends after `LINK_LOST_MS` of silence
+    /// in a row; lost was never cleared, so any hiccup ended it (2026-11-07).
+    pub fn peer_back(&mut self) {
+        if let Some(session) = self.link.as_mut().filter(|s| s.lost_at.is_some()) {
+            session.lost_at = None;
+            self.sync_link_badge();
+        }
+    }
+
     pub fn bios_mismatch(&mut self) {
         if !self.link_active() {
             return;

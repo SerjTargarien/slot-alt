@@ -129,6 +129,23 @@ says what it has, and Slot² hides what it hasn't and picks defaults from what i
 
 ### Phase 4: link play both ways
 
+**Progress (2026-11-07):** Tetris links both ways on the devices.
+- **The RGB20SX hosts** on wlan0 when there's no wlan1 (`card/System/slotlink.sh`;
+  Base²'s wpa_supplicant has AP mode), at 2437 if its phy lists no 5 GHz.
+- **Starting took 10 s more than it should** on both devices: `wpa_cli terminate` waited
+  out its 10 s for a reply wpa_supplicant never sends. Now ~2.3 s.
+- **Joins dropped 3 s in** (always the RG34XX joining): upstream's cable counted the
+  wait for the host's game as silence (60 frames, then 2 s) and never cleared "lost".
+  Now silence counts once the other side has been heard (10 s while starting), and a
+  link heard again isn't ended (`Cable::quiet`, `App::peer_back`).
+- The game's state took 14-25 s to send (405 KB at ~16-30 KB/s), now 2.5-5 s. Power
+  saving off on a joining wlan0 (`iw`, where there is one); hosting on wlan0 the chip
+  doesn't take the setting.
+- The card's shell tests (`card/test-*.sh`) now run with `tools/slotsq/test.sh`.
+
+Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have
+it), and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
+
 1. The channel setting (Network page, card-wide): Default, then 2.4 GHz 1, 6, 11, then
    5 GHz 36-48 and 149-165 where the chip has them (RG34XX). Slot² passes it to
    `slotlink.sh` as `AGS_LINK_FREQ`; Default sets nothing. Both chips' tables were read

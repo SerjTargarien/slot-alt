@@ -320,6 +320,45 @@ fn a_peer_lost_during_the_hold_closes_the_screen_and_breaks_the_badge() {
     assert_eq!(app.link_badge(), slot_ui::LinkBadge::JoinedLost);
 }
 
+/// Slot²: a link that goes quiet and comes back within the 2 s isn't ended: lost was never
+/// cleared, so any hiccup ended the link 2 s later (the RG34XX's starts, 2026-11-07).
+#[test]
+fn a_peer_heard_again_before_the_timeout_keeps_the_link() {
+    let (mut app, _d) = playing_on(Core::Gpsp);
+    app.apply(Action::GameMenu);
+    let port = common::free_port();
+    let far = std::thread::spawn(move || TcpLink::host("127.0.0.1", port).expect("host"));
+    std::thread::sleep(Duration::from_millis(150));
+    app.start_link(
+        fake_starter(move |_, _| TcpLink::join("127.0.0.1", port)),
+        1,
+    );
+    settle(&mut app);
+    let _far = far.join().expect("host thread");
+    app.peer_lost();
+    assert_eq!(app.link_badge(), slot_ui::LinkBadge::JoinedLost);
+    let now = app.now();
+    app.tick_ms(now + LINK_LOST_MS / 2);
+    app.peer_back();
+    assert_eq!(
+        app.link_badge(),
+        slot_ui::LinkBadge::Joined,
+        "the badge stayed broken"
+    );
+    let now = app.now();
+    app.tick_ms(now + LINK_LOST_MS);
+    app.update(1.0 / 60.0);
+    assert!(app.link_active(), "a link heard again was ended anyway");
+    app.peer_lost();
+    let now = app.now();
+    app.tick_ms(now + LINK_LOST_MS);
+    app.update(1.0 / 60.0);
+    assert!(
+        !app.link_active(),
+        "a link quiet for the whole timeout lived on"
+    );
+}
+
 #[test]
 fn b_during_the_radio_step_does_not_hand_the_game_back_early() {
     let (mut app, _d) = playing_on(Core::Gpsp);

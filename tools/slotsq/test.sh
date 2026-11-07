@@ -7,7 +7,8 @@
 #   sh tools/slotsq/test.sh CRATE ...    those crates (slot, slot-ui, slot-store, ...)
 #
 # Every test runs, failures and all, and the run fails only on failures not listed in
-# tools/slotsq/known-failures. The full output is kept in logs/test.log.
+# tools/slotsq/known-failures. The full output is kept in logs/test.log. The card's shell
+# tests (card/test-*.sh) run first when the card changed, and in a full run.
 
 set -eu
 
@@ -28,7 +29,7 @@ changed() {
 case "${1:-}" in
 "")
 	crates="$(changed)"
-	[ -n "$crates" ] || {
+	[ -n "$crates" ] || git status --porcelain -- card | grep -q . || {
 		echo "nothing changed since the last commit"
 		exit 0
 	}
@@ -38,6 +39,22 @@ case "${1:-}" in
 all) crates="$(ls crates)" ;;
 *) crates="$*" ;;
 esac
+
+# The card's scripts have tests of their own, in shell (card/test-*.sh): run whenever the
+# card changed, and in a full run.
+cards=""
+case "${1:-}" in
+all) cards=yes ;;
+"") git status --porcelain -- card | grep -q . && cards=yes ;;
+esac
+if [ -n "$cards" ]; then
+	for t in card/test-*.sh; do
+		sh "$t" || {
+			echo "$t failed"
+			exit 1
+		}
+	done
+fi
 
 args=""
 for c in $crates; do
