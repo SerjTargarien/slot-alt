@@ -229,7 +229,7 @@ fn a_joiner_is_not_armed_until_it_has_restored() {
 /// Slot² (link step 3): a link is quiet only once it's armed, both sides holding the game
 /// (the joiner restored the host's state, the host heard its READY), counted from then.
 /// Upstream counted the joiner's wait for the game as silence, and links the RGB20SX
-/// hosts, whose state takes 6-16 s to arrive, ended 3 s in (2026-11-08). A start that
+/// hosts, whose state takes 6-16 s to arrive, ended 3 s in (2026-11-07). A start that
 /// never arms ends after `START_FRAMES`.
 #[test]
 fn a_link_is_quiet_only_once_both_sides_have_the_game() {
@@ -278,7 +278,7 @@ fn a_link_is_quiet_only_once_both_sides_have_the_game() {
 
 /// Slot² (link step 4): the host's game crosses packed. A Game Boy state is mostly zeros
 /// (Tetris's 202 KB packs to 4.5 KB with gzip); sent as it was, the 405 KB took ~3 s to
-/// a dozing joiner (2026-11-08).
+/// a dozing joiner (2026-11-07).
 #[test]
 fn the_hosts_game_crosses_packed_and_arrives_whole() {
     let mut state = vec![0u8; 405_580];

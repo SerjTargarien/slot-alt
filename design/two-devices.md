@@ -48,7 +48,9 @@ when we want them, not branches to stay mergeable with (the user, 2026-11-07).
 What already matches, from the code survey: without a description file Slot² takes
 upstream's BaseOS paths for the display, the Anbernic buttons, FN (`0x138`), the lid,
 battery and backlight, audio (HDMI's `ahubhdmi` first when on HDMI), the H700 HDMI
-switch, Wi-Fi through `slotlink.sh`, the boot logo, network time (`/usr/bin/timedatectl`
+switch, Wi-Fi through `slotlink.sh`, the boot logo (the user's own Slot² logo,
+`card/System/bootlogo.bmp`, installed on the RG34XX on 2026-11-07; the RGB20SX has no
+`boot-resource` partition, so it shows Base²'s), network time (`/usr/bin/timedatectl`
 is there) and the `8821cs` unload at power-off. 720x480 is the band upstream was laid
 out for; every tall-panel branch (`App::tall()`) takes upstream's way there.
 
@@ -129,7 +131,7 @@ says what it has, and Slot² hides what it hasn't and picks defaults from what i
 
 ### Phase 4: link play both ways
 
-**Progress, rebuilt step by step (2026-11-08).** Yesterday's link changes (`f9a2227`,
+**Progress, rebuilt step by step (2026-11-07).** The day's first link changes (`f9a2227`,
 `dd30214`) made links end about 10 s in and the eject seem stuck (the link had already
 ended, each device playing alone). At the user's request they were reverted
 (`ecaad68`), the baseline checked on the devices (links hold, end, eject), and the
@@ -142,7 +144,7 @@ changes brought back one at a time, each checked on both devices before the next
    joiner restored the state, the host heard its READY), from zero then; 30 s for a start
    that never arms. Upstream counted the joiner's wait for the game as silence, so a
    state slower than ~1 s ended links 3 s in. The cable's own READY signal, not guesses
-   from the masks (yesterday's "heard" and "running" rules both misfired).
+   from the masks (the earlier "heard" and "running" rules both misfired).
 After step 3, both directions hold, end from the menu, and eject on both.
 4. **The host's game crosses packed** (`5af5bf5`): lz4 behind a "SQZ1" mark. Measured
    first (radio loggers, `logs/radio/`): the radio ran at 39-65 Mbit/s, but the RG34XX,
@@ -152,14 +154,14 @@ After step 3, both directions hold, end from the menu, and eject on both.
 5. **A link runs at full clock** (device_app.rs). The emulator paces itself against the
    other device during a link, so the RGB20SX's cap saw easy frames, went down to 600 MHz
    and stayed there; Mario Kart (mGBA) took 15-19 ms a frame and stuttered both ways. At
-   1800 MHz it takes 4-7 ms, 60 fps with no stalls, both ways (2026-11-08); the clock
+   1800 MHz it takes 4-7 ms, 60 fps with no stalls, both ways (2026-11-07); the clock
    drops back when the link ends.
 What's left of the start (~7.7 s from the host connecting to the joiner's READY) is the
 RGB20SX bringing its radio up and the Game Boy boot animation: fine as it is (the user). Not brought back, and not needed so far: clearing "lost" when a
 link recovers, power saving off on a joining wlan0, the card tests in `test.sh`.
 
-The eject "bug" of 2026-11-07 was the link having ended (yesterday's rules), the devices
-playing alone. One refused eject on 2026-11-08 was short holds after a MENU press that
+The first eject "bug" was the link having ended (the earlier rules), the devices
+playing alone. One refused eject after the rebuild was short holds after a MENU press that
 went down for 60 ms and again 20 ms later (a bounce, or a quick double press: a tap and a
 double tap, the quick menu and the switcher); worth watching on the RG34XX.
 
