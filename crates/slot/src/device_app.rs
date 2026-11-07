@@ -270,6 +270,11 @@ pub fn run() {
             let budget = pacer.period.saturating_sub(pacer.margin);
             let (khz, why) = if frontend.launching() {
                 (governor.launching(), " for the launch")
+            } else if frontend.app().link_active() {
+                // Slot² (link step 5): a link runs at full clock. The emulator paces itself
+                // against the other device there, so the cap saw easy frames, went down to
+                // 600 MHz and stayed, Mario Kart taking 15-19 ms a frame (2026-11-08).
+                (governor.launching(), " for the link")
             } else if frontend.leaving() {
                 governor.leaving();
                 (None, "")

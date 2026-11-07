@@ -149,6 +149,11 @@ After step 3, both directions hold, end from the menu, and eject on both.
    joining in its driver's deepest power saving (LPS MAX), took the state at ~1 Mbit/s,
    ~3 s for 405 KB. Packed, it's ~1,900 bytes, and the joiner's first 5 s went from 58-70
    frames waiting to 2-3. A stock slotPlus joiner can't read a Slot² host's state.
+5. **A link runs at full clock** (device_app.rs). The emulator paces itself against the
+   other device during a link, so the RGB20SX's cap saw easy frames, went down to 600 MHz
+   and stayed there; Mario Kart (mGBA) took 15-19 ms a frame and stuttered both ways. At
+   1800 MHz it takes 4-7 ms, 60 fps with no stalls, both ways (2026-11-08); the clock
+   drops back when the link ends.
 What's left of the start (~7.7 s from the host connecting to the joiner's READY) is the
 RGB20SX bringing its radio up and the Game Boy boot animation: fine as it is (the user). Not brought back, and not needed so far: clearing "lost" when a
 link recovers, power saving off on a joining wlan0, the card tests in `test.sh`.
@@ -159,7 +164,8 @@ went down for 60 ms and again 20 ms later (a bounce, or a quick double press: a 
 double tap, the quick menu and the switcher); worth watching on the RG34XX.
 
 Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have it),
-and Pokémon trades (gpSP) and Mario Kart (mGBA). Power saving on a joiner adds delay to each
+and Pokémon trades (gpSP). Once, after hosting Mario Kart, the RG34XX's home Wi-Fi stayed
+off (its log ends at "down", no "warm") until a restart; not seen since. Power saving on a joiner adds delay to each
 packet; with the state packed, play is smooth from the start, so it can wait. The plan:
 
 1. The channel setting (Network page, card-wide): Default, then 2.4 GHz 1, 6, 11, then
