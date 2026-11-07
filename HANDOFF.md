@@ -220,8 +220,9 @@ phase 4).
 3. **Link play both ways (design/two-devices.md, phase 4).** Rebuilt step by step on
    2026-11-08 after a revert (`ecaad68`): the faster Wi-Fi stop, the RGB20SX hosting on
    wlan0, and silence counted once the link is armed (`dc2e9da`, `dbb8ffb`, `0866d3a`).
-   Both directions hold, end and eject. Next: the slow state (5-7.5 s), the channel
-   setting, then Pokémon and Mario Kart. Change one thing at a time and check it on
+   Both directions hold, end and eject; the host's game crosses packed (`5af5bf5`,
+   ~1.9 KB for Tetris), so starts are smooth. Next: Pokémon and Mario Kart links, then
+   the channel setting. Change one thing at a time and check it on
    both devices before the next (the user, 2026-11-08). The history:
    **First link (2026-11-07).** Tetris on mGBA, the RG34XX (BaseOS
    1.4.0, stock slotPlus) hosting on channel 6 and the RGB20SX joining: both play, no

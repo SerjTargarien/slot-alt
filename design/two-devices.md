@@ -143,8 +143,14 @@ changes brought back one at a time, each checked on both devices before the next
    that never arms. Upstream counted the joiner's wait for the game as silence, so a
    state slower than ~1 s ended links 3 s in. The cable's own READY signal, not guesses
    from the masks (yesterday's "heard" and "running" rules both misfired).
-After step 3, both directions hold, end from the menu, and eject on both. The state takes
-5-7.5 s to send (405 KB). Not brought back, and not needed so far: clearing "lost" when a
+After step 3, both directions hold, end from the menu, and eject on both.
+4. **The host's game crosses packed** (`5af5bf5`): lz4 behind a "SQZ1" mark. Measured
+   first (radio loggers, `logs/radio/`): the radio ran at 39-65 Mbit/s, but the RG34XX,
+   joining in its driver's deepest power saving (LPS MAX), took the state at ~1 Mbit/s,
+   ~3 s for 405 KB. Packed, it's ~1,900 bytes, and the joiner's first 5 s went from 58-70
+   frames waiting to 2-3. A stock slotPlus joiner can't read a Slot² host's state.
+What's left of the start (~7.7 s from the host connecting to the joiner's READY) is the
+RGB20SX bringing its radio up and the Game Boy boot animation: fine as it is (the user). Not brought back, and not needed so far: clearing "lost" when a
 link recovers, power saving off on a joining wlan0, the card tests in `test.sh`.
 
 The eject "bug" of 2026-11-07 was the link having ended (yesterday's rules), the devices
@@ -153,8 +159,8 @@ went down for 60 ms and again 20 ms later (a bounce, or a quick double press: a 
 double tap, the quick menu and the switcher); worth watching on the RG34XX.
 
 Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have it),
-the slow state (5-7.5 s; the RG34XX joins with its driver's deepest power saving, LPS MAX),
-and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
+and Pokémon trades (gpSP) and Mario Kart (mGBA). Power saving on a joiner adds delay to each
+packet; with the state packed, play is smooth from the start, so it can wait. The plan:
 
 1. The channel setting (Network page, card-wide): Default, then 2.4 GHz 1, 6, 11, then
    5 GHz 36-48 and 149-165 where the chip has them (RG34XX). Slot² passes it to
