@@ -1,6 +1,6 @@
-# Handover: Base² and Slot² on the Powkiddy RGB20SX
+# Handover: Base² and Slot² on the RGB20SX and the RG34XX
 
-Last updated 2026-11-06. Read this first. Older detail is in
+Last updated 2026-11-07. Read this first. Older detail is in
 [history/handoff-2026-11-05.md](history/handoff-2026-11-05.md).
 
 ## The two halves
@@ -25,22 +25,37 @@ Last updated 2026-11-06. Read this first. Older detail is in
   `e9c035d`. Fold `slotsq-plus` into it and push when the user asks.
 - No release until Base² and Slot² are stable and feature complete.
 
-## The device
+## The devices
 
-- Dev card in slot 1 runs Base²; the ROCKNIX card in slot 2 is the recovery (swap it into
-  slot 1 to boot ROCKNIX and read the dev card).
-- SSH: `ssh -o UserKnownHostsFile=~/.ssh/known_hosts_basesq root@192.168.1.72`.
-- The card's `System/` holds Slot²'s build and slotPlus's nine cores from its release
-  `v1.14.0-plus2.6` (`System/premerge/` and `System/slot.premerge` are the pre-merge ones).
-- A `basesq-dev` file at the card's root keeps Wi-Fi (and SSH) up in games. Remove it
-  for battery runs.
+Both are development devices, aiming at the same player-facing features
+([design/two-devices.md](design/two-devices.md)). One build runs on both.
+
+- **Powkiddy RGB20SX** (RK3566, 720x720, two sticks), running **Base²**. Dev card in slot 1;
+  the ROCKNIX card in slot 2 is the recovery (swap it into slot 1 to boot ROCKNIX and read
+  the dev card). SSH: `ssh -o UserKnownHostsFile=~/.ssh/known_hosts_basesq
+  root@192.168.1.72`. Its `System/` holds Slot²'s build and slotPlus's cores from release
+  `v1.14.0-plus2.6`, but Beetle Cygne, ours (`System/premerge/` and `System/slot.premerge`
+  are the pre-merge ones).
+- **Anbernic RG34XX** (H700, 720x480, no sticks), running **BaseOS 1.4.0**. SSH: `ssh -o
+  UserKnownHostsFile=~/.ssh/known_hosts_rg35xx root@192.168.1.75` (ask before writing to
+  it). Its card is a fresh BaseOS install with test games, easy to make again. Its
+  `System/` matches the RGB20SX's, with our `launch_frontend.sh` (stock's kept as
+  `launch_frontend.sh.stock`), stock slotPlus's binary kept as `slot.prev`, and stock
+  Cygne as `cygne_libretro.so.slotplus`. BaseOS respawns slot when it exits.
+- On both, a `basesq-dev` file at the card's root keeps Wi-Fi (and SSH) up in games
+  (`SLOT_WIFI_KEEP`). Remove it for battery runs. Never print `Config/wifi.conf`.
 
 ## Working
 
 - Base²: `os/dev.sh` (see [os/README.md](os/README.md)).
 - Slot²: `tools/slotsq/dev.sh build | deploy | restart | logs NAME | shot NAME |
-  capture NAME VAR=x`. Deploy and restart only once the user is on the shelf: a restart
-  ends a game in play.
+  capture NAME VAR=x`, on the RGB20SX unless `DEVICE=rg34xx`. Deploy and restart only
+  once the user is on the shelf: a restart ends a game in play. A deploy clears
+  `/run/slot.env`, so on the RGB20SX follow it with `dev.sh restart AGS_LINK_FREQ=2437`
+  until its Base² image carries the link channel.
+- The build links against Debian bullseye's glibc 2.31 (`tools/slotsq/sysroot.sh`, once,
+  into `vendor/`), so it runs on BaseOS too; `dev.sh build` refuses a binary that needs
+  more.
 - Measurements: `SLOT_TRACE_POWER=1` in `/run/slot.env`, then
   `python3 -I tools/slotsq/medians.py NAME` on logs saved with `dev.sh logs NAME`.
 - Run commands as `. "$HOME/.cargo/env"` first.
@@ -59,6 +74,14 @@ Last updated 2026-11-06. Read this first. Older detail is in
   and GLES2, as on the device. A test checks it starts, since render tests skip quietly
   without it. Frame-time tests are skipped on Linux (the software renderer is no measure).
 - `romm_ui` needs `--features romm`.
+- **Menus on both devices:** `menu_map` walks every menu on both panels, keeps a map per
+  device and their differences in `crates/slot/tests/menu-map/`, and checks rules on
+  every page (a setting shows something, fits, changes with Left/Right, a page fits or
+  scrolls). A menu change fails it until the maps are written again:
+  `SLOT_MENU_MAP=write cargo test -p slot --test tests menu_map`; read the diff.
+- **Flaky under load:** `server_games::purge_…` and `rename_…` (the test server gives no
+  answer, status 0) and `render_screenshot::a_shot_on_…` sometimes fail in a full run and
+  pass alone. Worth fixing.
 - **Cores:** [cores/README.md](cores/README.md) maps every core (source, pin, patches, how
   current it is). Once a day or session, `python3 -I tools/slotsq/cores.py daily` checks
   the map names every pin and reports what upstream published since (only what changed
@@ -133,6 +156,15 @@ Done and checked on the device:
   option test's name, and a test that every shelf row shows a value, which found the
   Game Gear, Pocket, TurboGrafx-16, WonderSwan and Lynx Stretch rows blank on a 4:3
   panel (now hidden there).
+- Two devices ([design/two-devices.md](design/two-devices.md), 2026-11-07): one build
+  for both (glibc 2.31); the RG34XX on BaseOS runs Slot² with upstream's update channel
+  off everywhere; each device's parts (sticks, stick clicks, lid) detected at boot
+  (`parts.rs`, keys in `/etc/slot-device` to override); our 112 commits reviewed against
+  stock slotPlus and checked on the device (two slips fixed: the added systems' bezels
+  on 3:2, an empty in-game Stretch row; menu pages that ran off a 3:2 screen now scroll).
+- Link play between the two (2026-11-07): Tetris linked, the RG34XX hosting on channel 6.
+- The Nintendo DS removed from both (2026-11-07): its layouts suited neither panel and
+  neither has touch.
 - Core options ([design/core-options.md](design/core-options.md)): every core's surveyed;
   the WonderSwan and TurboGrafx-16 palettes and a Sprite Limit row added (its effect not
   yet seen); gpSP at 32 kHz and the Lynx at 60 Hz measured and left as they are; the
@@ -141,12 +173,15 @@ Done and checked on the device:
 
 ## The state now (2026-11-07)
 
-- **Committed:** everything, up to the palettes and the feature-driven shortcuts
-  (`45ecb6e`), on `slotsq-plus`, local only (not pushed). The device runs that build.
-- **On the card:** `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne (slotPlus's
-  is kept as `System/cygne_libretro.so.slotplus`); `Config/selected_core.txt` sets
-  Castlevania - Aria of Sorrow to gpSP; `Config/shortcuts/ws.txt` has the WonderSwan's
-  palette keys (MENU+L2/R2), set while the pages showed the wrong names.
+- **Committed:** everything, up to the menu pages that scroll (`3efc703`), on
+  `slotsq-plus`, local only (not pushed). Both devices run that build.
+- **On the RGB20SX's card:** `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne
+  (slotPlus's kept as `System/cygne_libretro.so.slotplus`); `Config/selected_core.txt`
+  sets Castlevania - Aria of Sorrow to gpSP and Tetris to mGBA; `Config/shortcuts/ws.txt`
+  has the WonderSwan's palette keys (MENU+L2/R2). Its Base² image doesn't set the link
+  channel yet (`os/.../etc/basesq/frontend` does, from the next image).
+- **On the RG34XX's card:** Tetris on mGBA; our launcher, build and Cygne (above).
+- **On both:** the DS's core, games, labels, saves, states and config files deleted.
 - **Cores here:** Docker isn't reachable from this WSL machine and `task` isn't
   installed; cores are cross-compiled through their recipes (cores/README.md, "How they
   are built"). `scp` doesn't work with Base² (no SFTP server): copy files with
@@ -157,19 +192,18 @@ Done and checked on the device:
 
 ## Two devices (2026-11-07)
 
-Both handhelds are development devices, with the same player-facing features wherever the
-hardware allows: the plan, its phases and the differences are in
-[design/two-devices.md](design/two-devices.md). Phases 0 and 1 are done (one build, glibc
-2.31, runs on both); the RG34XX runs Slot² on BaseOS. The DS is removed from both (its
-layouts suited neither panel, neither has touch): its code, art, core, Gamebit platform
-and the card folders slot made for it. Old cards still read (test
-`a_card_from_the_ds_days_keeps_the_rest_and_lets_its_ds_cart_go`); their `Games/NDS`,
-`Config/nds_view.txt` and `System/dsperate_libretro.so` stay until removed by hand.
+The plan is [design/two-devices.md](design/two-devices.md). Done: phases 0 (the RG34XX
+safe to develop on), 1 (one build), 3 (each device's parts), most of 2 (the review
+against stock slotPlus, the menu maps). Left: phase 2's hands-on feature list (saves,
+states, rewind, sleep, HDMI on both), phase 4 (link play both ways) and phase 5 (our own
+Gamebit, which needs bun; our own label database; the structure pass). The fork is ours:
+upstream's features are taken by hand, and keeping upstream mergeable doesn't count.
 
 ## Next, in order
 
 The order is decided with the user at the start of a session; see the list below (last
-set on 2026-11-06).
+set on 2026-11-06; on 2026-11-07 the two-devices plan came first, and link play is its
+phase 4).
 
 1. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
@@ -191,12 +225,15 @@ set on 2026-11-06).
    `slotlink.sh` for wlan0 and Wi-Fi stayed down until a restart; test
    `wifi_ui::the_development_switch_lets_go_while_a_link_starts`). The RG34XX's launcher
    exports the same channel for these tests (`System/launch_frontend.sh.stock` is the
-   original). Next: the RGB20SX hosting (wlan0 at 2.4 GHz when there's no wlan1); the
-   join's 10 s before its first scan (`join: asked` to `wlan0 present`, after
-   `link_clear`); the RG34XX's lag (its log: 13338 samples dropped, 31772 starved in the
-   link; the RGB20SX 323844 starved); Pokémon trades and Mario Kart. Then our own KMS
-   HDMI (the RGB20SX has `HDMI-A-1`) and our own U-Boot.
-4. Bezels at Integer and Fit for the new systems.
+   original; our own `card/System/launch_frontend.sh` now does the same). Next (phase
+   4): a channel setting on the Network page (2.4 GHz 1, 6, 11; 5 GHz where the chip has
+   it), the RGB20SX hosting (wlan0 at 2.4 GHz when there's no wlan1); the join's 10 s
+   before its first scan (`join: asked` to `wlan0 present`, after `link_clear`); the
+   RG34XX's lag (its log: 13338 samples dropped, 31772 starved in the link; the RGB20SX
+   323844 starved); Pokémon trades and Mario Kart. Then our own KMS HDMI (the RGB20SX has
+   `HDMI-A-1`) and our own U-Boot.
+4. Bezels at Integer and Fit for the new systems: only needed now where the picture moves
+   (the square panel, Fit); on a 3:2 panel at Integer slotPlus's bezels show.
 5. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
    Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
    Gearsystem (3.9.24).
@@ -208,6 +245,13 @@ Waiting on a decision or an outside party:
   (2026-11-07, [design/two-devices.md](design/two-devices.md)). New code of Slot²'s own
   still goes in files of its own ([design/checklist.md](design/checklist.md)).
 - One repository or two for Base² and Slot²: open, no hurry (two-devices.md).
+- Stretch on an upright WonderSwan or Lynx game (squashed on a 3:2 panel): likely no
+  Stretch while upright, since Fit does the rest (two-devices.md). Not a priority.
+- The WonderSwan's second pad on the shoulders keeps the default Fast Forward (R2) and
+  Rewind (L2) out of WonderSwan games (the "!" on its controls page): move those two for
+  WonderSwan games, or accept it.
+- A version name for our builds (`SLOT_VERSION`); builds carry their hash and date.
+- Housekeeping: the flaky tests above; four `__pycache__` files tracked in git.
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
   on 2026-11-06. Amber means a game's own value, so it can't also mark the shelf's system;
   it would need another cue.
