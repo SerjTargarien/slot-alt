@@ -144,9 +144,18 @@ set on 2026-11-06).
 1. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
    other's names): stop the same fact being kept in several hand-written lists, which is
    how that bug happened. Cheapest first:
-   1. Invariant tests, which change no code: every row on exactly one page, each page's
-      rows saying they are on it, every system with its pages (as
-      `every_row_is_at_its_own_place_in_all` checks the row order).
+   1. Invariant tests (built 2026-11-07): `crates/slot-ui/tests/invariants.rs` (every row
+      on its own page and on exactly one page list, each list the page of its rows, a
+      label for every row, every page reachable, a page's first row opened, Back leading
+      to the row that opened a page, the system page lists lined up with their systems,
+      each system's features matching its Screen rows) and
+      `crates/slot-store/tests/invariants.rs` (every `slot.state` field written and read,
+      each system's Screen settings set and read alone, a game with its own everything
+      read back, file names used once). Exceptions are named in the tests (the shared
+      shortcut list; the shared system controls and shortcut pages). They found two bugs,
+      and that the DS's Stretch row had no shortcuts (given them, at the user's word): Back on the shelf's DS Screen page closed
+      the menu, and a WonderSwan or TurboGrafx-16 game could hold a Game Boy palette its
+      file can't keep.
    2. One source per fact: the `QuickRow` enum and `ALL` from one list (a small macro);
       per-system settings as one record per system rather than `shader_gba`,
       `shader_gb`... fields; the three ~190-row "every other row" lists in `app.rs` gone.

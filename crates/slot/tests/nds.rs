@@ -386,3 +386,33 @@ fn the_stylus_shows_the_touch_screen_when_the_shelf_or_the_game_says_so() {
     );
     let _ = d;
 }
+
+#[test]
+fn the_stretch_shortcuts_fill_one_screen_as_the_games_own() {
+    let (d, mut a) = playing_ds_square();
+    a.set_ds_view(DsView {
+        layout: DsLayout::Stacked,
+        ..a.ds_view()
+    });
+    a.apply(Action::StretchOn);
+    assert!(
+        slot_store::games::read_game(d.path(), Platform::Nds, "Kart")
+            .screen
+            .stretched
+            .is_none(),
+        "Stretch is One Screen's only, so both screens ignore it"
+    );
+    a.set_ds_view(DsView {
+        layout: DsLayout::Single,
+        ..a.ds_view()
+    });
+    let before = a.ds_parts().0.dst;
+    a.apply(Action::StretchOn);
+    assert_eq!(a.ds_parts().0.dst, [0.0, 0.0, 720.0, 720.0], "stretched");
+    assert_ne!(a.ds_parts().0.dst, before);
+    let own = slot_store::games::read_game(d.path(), Platform::Nds, "Kart").screen;
+    assert_eq!(own.stretched, Some(true), "the game's own");
+    assert!(!slot_store::read_slot_state(d.path()).stretched_nds);
+    a.apply(Action::StretchOff);
+    assert_eq!(a.ds_parts().0.dst, before);
+}

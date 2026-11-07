@@ -17,6 +17,7 @@ mod extra_carts;
 mod guide;
 mod house_label;
 mod hud;
+mod invariants;
 mod icon;
 mod keyboard;
 mod label;

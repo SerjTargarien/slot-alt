@@ -558,7 +558,11 @@ fn a_system_gets_a_features_shortcuts_with_the_feature() {
             assert!(has_feature(platform, f), "{platform:?} {s:?}");
         }
     }
-    assert!(own(Platform::Nds).is_empty());
+    assert_eq!(
+        own(Platform::Nds),
+        [Shortcut::StretchOn, Shortcut::StretchOff],
+        "the DS's Stretch, since 2026-11-07"
+    );
     assert!(
         own(Platform::Tg16).contains(&Shortcut::PaletteNext),
         "it has palettes"
@@ -567,8 +571,8 @@ fn a_system_gets_a_features_shortcuts_with_the_feature() {
     let d = shelf_card();
     let (s, _) = on_shelf(d.path());
     assert!(
-        s.app().hidden_rows().contains(&QuickRow::ShortcutsNds),
-        "the DS has no shortcuts of its own, so no page"
+        !s.app().hidden_rows().contains(&QuickRow::ShortcutsNds),
+        "the DS has shortcuts of its own now, so its page shows"
     );
 }
 
@@ -633,7 +637,7 @@ fn a_system_shortcut_is_listened_for_only_in_its_systems_games() {
             &SystemControls::default_for(platform),
             platform,
             &keys,
-            &slot_store::shortcuts::SystemShortcuts::from(&keys),
+            &slot_store::shortcuts::SystemShortcuts::for_system(platform, &keys),
             &CarouselKeys::default(),
         )
         .entries()
@@ -650,7 +654,14 @@ fn a_system_shortcut_is_listened_for_only_in_its_systems_games() {
     assert!(gb.contains(&Action::StretchOn));
     let nds = actions(Platform::Nds);
     assert!(!nds.contains(&Action::ColourCorrectionToggle));
-    assert!(!nds.contains(&Action::StretchOn));
+    assert!(
+        !nds.contains(&Action::StretchOn),
+        "the DS has Stretch, but its keys start unbound"
+    );
+    assert!(slot_store::shortcuts::has(
+        Platform::Nds,
+        Shortcut::StretchOn
+    ));
     assert!(nds.contains(&Action::SaveState));
 }
 

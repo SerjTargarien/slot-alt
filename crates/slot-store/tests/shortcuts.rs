@@ -21,8 +21,9 @@ fn each_system_has_the_general_shortcuts_and_only_its_own() {
     }
     assert!(has(Platform::Gbav, SunlightUp));
     assert!(!has(Platform::Gbc, PaletteNext));
-    assert!(!has(Platform::Nds, StretchOn));
-    assert!(own(Platform::Nds).is_empty());
+    // The DS's Stretch fills the screen in One Screen, and has its shortcuts since
+    // 2026-11-07.
+    assert_eq!(own(Platform::Nds), [StretchOn, StretchOff]);
     assert!(own(Platform::Gba).contains(&SunlightDown));
 }
 

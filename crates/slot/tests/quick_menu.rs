@@ -2222,3 +2222,12 @@ fn the_shelfs_sprite_limit_is_every_games_and_says_where_it_works() {
     assert_eq!(a.quick_value(QuickRow::SpriteLimit), Some(QuickValue::Off));
     assert!(!read_slot_state(d.path()).sprite_limit);
 }
+
+#[test]
+fn back_from_the_ds_screen_page_returns_to_screen() {
+    // Found by the structure pass's invariants: Back here closed the whole menu.
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::NdsLayout);
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenNds));
+}

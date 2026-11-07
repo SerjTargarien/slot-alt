@@ -915,7 +915,9 @@ impl QuickRow {
             QuickRow::GgShader => Some(QuickRow::ScreenGg),
             QuickRow::NgpShader => Some(QuickRow::ScreenNgp),
             QuickRow::Tg16Shader => Some(QuickRow::ScreenTg16),
-            QuickRow::NdsShader => Some(QuickRow::ScreenNds),
+            // The DS's page starts with its Layout row (2026-11-06): found by the
+            // structure pass, Back closed the menu from here while this said NdsShader.
+            QuickRow::NdsLayout => Some(QuickRow::ScreenNds),
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),

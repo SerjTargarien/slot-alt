@@ -266,7 +266,13 @@ impl ScreenOverrides {
         *self = ScreenOverrides {
             shader: own(&now.shader, &system.shader),
             colour_correction: own(&now.colour_correction, &system.colour_correction),
-            palette: own(&now.palette, &system.palette),
+            // A system whose palette is its core's has no Game Boy palette of its own
+            // (the file's one `palette=` line is the core's there): found by the
+            // structure pass's round trip.
+            palette: match system.core_palette.is_empty() {
+                true => own(&now.palette, &system.palette),
+                false => None,
+            },
             core_palette: own(&now.core_palette, &system.core_palette),
             bezel: own(&now.bezel, &system.bezel),
             scale: own(&now.scale, &system.scale),

@@ -4136,6 +4136,15 @@ impl App {
         self.carousel
     }
 
+    /// Slot²: the Stretch shortcuts in a DS game, which act where its Stretch row is: in
+    /// the One Screen layout on a tall panel. The value is the game's own.
+    fn set_ds_stretch(&mut self, on: bool) {
+        if !self.tall() || self.ds_view.layout != DsLayout::Single {
+            return;
+        }
+        self.edit_game(|a| a.set_stretched(Platform::Nds, on));
+    }
+
     fn set_picture(&mut self, mode: VideoMode) {
         if self.stretch_switch() {
             let platform = self.playing_platform();
@@ -4835,6 +4844,12 @@ impl App {
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
             Phase::Playing { .. } => match action {
+                // Slot²: the DS's Stretch is its own (it fills the screen in One Screen).
+                Action::StretchOn | Action::StretchOff
+                    if self.playing_platform() == Platform::Nds =>
+                {
+                    self.set_ds_stretch(action == Action::StretchOn)
+                }
                 Action::StretchOn if stretches(self.playing_platform()) => {
                     self.set_picture(VideoMode::Stretch)
                 }
@@ -13304,8 +13319,9 @@ fn game_value_row(row: QuickRow) -> bool {
     )
 }
 
+/// Whether a system has the Stretch shortcuts (`features`, one place for it).
 fn stretches(platform: Platform) -> bool {
-    !matches!(platform.hardware(), Platform::Gba | Platform::Nds)
+    slot_store::features::has_feature(platform, slot_store::features::Feature::Stretch)
 }
 
 fn stretch_value(stretch: Stretch) -> QuickValue {

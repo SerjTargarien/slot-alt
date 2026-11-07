@@ -72,6 +72,9 @@ shortcut pages were lists written by hand.
   TurboGrafx-16's Palette Back/Next.
 - Palette Back/Next in a WonderSwan (mono) or TurboGrafx-16 game step the game's own
   palette, as the in-game Palette row does, and the toast names it.
+- The DS has Stretch On/Off too (asked for on 2026-11-07, after the invariant tests showed
+  its Stretch row had none), unbound until set. They act where its Stretch row is: in a
+  game in the One Screen layout on a tall panel, as the game's own.
 - Found on the device the same day: the system pages showed each other's names (the
   WonderSwan's page was labelled TurboGrafx-16, the Game Gear's WonderSwan). Reordering
   the pages on 2026-11-06 had moved them in `QuickRow::ALL` but not in the enum, and a
