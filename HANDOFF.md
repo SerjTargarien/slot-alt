@@ -118,6 +118,17 @@ Done and checked on the device:
 - Cores mapped in [cores/README.md](cores/README.md): slotPlus's v1.14.0-plus2.6 builds,
   but Beetle Cygne, Slot²'s own build since 2026-11-06 (patched for the LCD icons,
   cross-compiled here).
+- The structure pass (2026-11-07, [design/checklist.md](design/checklist.md)): invariant
+  tests for the menu (`crates/slot-ui/tests/invariants.rs`) and the store
+  (`crates/slot-store/tests/invariants.rs`); the menu's rows from one list (`quick_rows!`);
+  the long "every other row" lists in `app.rs` gone, with a test in their place;
+  Slot²'s own code in files of its own (`app/games.rs`, `app/game_keys.rs`,
+  `app/core_options.rs`, `session/ws.rs`); render tests that wait for the game rather
+  than a fixed time; `cores/options.json`, against which every option Slot² sets is
+  checked; `tools/slotsq/fmt.sh`; names that say what they do. It found and fixed: the
+  shortcut pages showing each other's names, Back on the DS Screen page closing the menu,
+  a game file unable to keep a palette the model allowed, and the DS's Stretch without
+  shortcuts.
 - Core options ([design/core-options.md](design/core-options.md)): every core's surveyed;
   the WonderSwan and TurboGrafx-16 palettes and a Sprite Limit row added (its effect not
   yet seen); gpSP at 32 kHz and the Lynx at 60 Hz measured and left as they are; the
@@ -145,51 +156,7 @@ Done and checked on the device:
 The order is decided with the user at the start of a session; see the list below (last
 set on 2026-11-06).
 
-1. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
-   other's names): stop the same fact being kept in several hand-written lists, which is
-   how that bug happened. Cheapest first:
-   1. Invariant tests (built 2026-11-07): `crates/slot-ui/tests/invariants.rs` (every row
-      on its own page and on exactly one page list, each list the page of its rows, a
-      label for every row, every page reachable, a page's first row opened, Back leading
-      to the row that opened a page, the system page lists lined up with their systems,
-      each system's features matching its Screen rows) and
-      `crates/slot-store/tests/invariants.rs` (every `slot.state` field written and read,
-      each system's Screen settings set and read alone, a game with its own everything
-      read back, file names used once). Exceptions are named in the tests (the shared
-      shortcut list; the shared system controls and shortcut pages). They found two bugs,
-      and that the DS's Stretch row had no shortcuts (given them, at the user's word): Back on the shelf's DS Screen page closed
-      the menu, and a WonderSwan or TurboGrafx-16 game could hold a Game Boy palette its
-      file can't keep.
-   2. One source per fact. Done 2026-11-07: the `QuickRow` enum and `ALL` come from one
-      list (`quick_rows!` in `quick_menu.rs`); the three long "every other row" lists in
-      `app.rs` are wildcard arms (447 lines), with
-      `every_shelf_row_with_a_value_changes_with_left_and_right` checking what the
-      compiler did (43 rows). Waiting on the user's call about sharing the port back:
-      per-system settings as one record per system rather than `shader_gba`,
-      `shader_gb`... fields, which would make upstream's `slot.state` changes hard to
-      take (since `f1f6ef9` the fork is +45,000/-1,900 lines in the crates, mostly added
-      code; the conflicts are in `app.rs`, `quick_menu.rs`, `slot_state.rs`,
-      `session.rs`).
-   Also done 2026-11-07: names that no longer said what they did (`palette_label`,
-   `shortcuts::feature_of`), two more invariants (every in-game setting the game's own or
-   named as every game's; every feature with shortcuts and a system), the checklist, and
-   `tools/slotsq/fmt.sh`. Slot²'s own code out of upstream's files into its own (2026-11-07):
-   `app/games.rs` (the per-game layer), `app/game_keys.rs` (a game's own shortcut keys),
-   `app/core_options.rs` (the core palettes, the sprite limit) and `session/ws.rs`
-   (WonderSwan orientation), each an `impl` block of the same type; the DS view stays in
-   `app.rs`, being slotPlus's and ours together. The render tests that waited a fixed few
-   seconds for a game to start now wait for it to be playing (`common::until_playing`,
-   a minute at most): two full runs and a run with every core busy passed. And `cores/options.json`
-   (`tools/slotsq/core_options.py`, every option each pinned core declares, with our
-   patches'), which `every_option_slot_sets_is_one_its_core_declares` checks every option
-   Slot² sets against: a misspelt key or value fails (tried with `enabled` for Gearsystem's
-   `Enabled`). Regenerate it after a pin or patch changes.
-   3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
-      per-game layer, the menus.
-   4. `/code-review` on each diff before a commit.
-   Steps 2 and 3 rewrite upstream's code, which makes taking upstream slot's updates
-   harder; step 1 doesn't.
-2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+1. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
    2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
@@ -197,21 +164,26 @@ set on 2026-11-06).
    the game or the context change). In menus it's worse (every system's bezel folder, a
    table per controls row drawn). Separately: the shelf waits for cart faces while
    scrolling. Upstream's code: worth offering upstream.
-3. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
+2. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
    try there: the cores' own filters ([design/core-options.md](design/core-options.md),
    6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler). Also from there: gpSP
    at 32768 Hz sounded unplayable, and even good runs report starved samples.
-4. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+3. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
-5. Bezels at Integer and Fit for the new systems.
-6. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
+4. Bezels at Integer and Fit for the new systems.
+5. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
    against today's, timed, before anything else on DS speed
    ([cores/README.md](cores/README.md)).
-7. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
+6. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
    Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
    Gearsystem (3.9.24).
 
 Waiting on a decision or an outside party:
+- The rest of the structure pass, parked (2026-11-07) because it would make upstream's
+  updates hard to take, until the user decides whether to share the port back:
+  per-system settings as one record per system (`shader_gba`, `shader_gb`... fields),
+  and splitting upstream's `app.rs` by topic. Meanwhile new code of Slot²'s own goes in
+  files of its own ([design/checklist.md](design/checklist.md)).
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
   on 2026-11-06. Amber means a game's own value, so it can't also mark the shelf's system;
   it would need another cue.
