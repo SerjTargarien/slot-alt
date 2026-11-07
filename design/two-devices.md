@@ -171,8 +171,15 @@ What had slipped in:
   the same day: they show where the picture is still slotPlus's (a 3:2 panel at
   Integer), test `scale::an_added_systems_bezel_shows_where_its_picture_is_slotpluss`.
 - **Stretch on an upright WonderSwan or Lynx game** fills 720x480, squashed (checked on
-  the device); stock never stretched upright games. To decide: ignore Stretch while
-  upright, or fill the height only.
+  the device); stock never stretched upright games. Not a priority. Filling the height
+  only is what Fit already does (the user), so the likely rule is no Stretch while
+  upright; or rules for when Stretch is offered at all, rather than letting everything
+  stretch every way.
+- **An empty Stretch row in game** for the added systems on the 3:2 panel (the user saw it
+  on the NeoGeo Pocket): the shelf hid those rows there, the in-game page didn't. Fixed:
+  it hides the row when it has no value, and test
+  `scale::every_in_game_screen_row_shown_has_a_value` checks every in-game Screen row of
+  every system on both panels.
 
 Meant for every device, and different from stock on the RG34XX: no turbo (X and Y free),
 the Game Boy's Stretch on MENU+L1/R1, the WonderSwan's second pad on the shoulders (its

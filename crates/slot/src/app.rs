@@ -1580,7 +1580,11 @@ impl App {
         if self.scale_choices(self.playing_platform()).len() < 2 {
             hidden.push(QuickRow::Scale);
         }
-        if self.stretch_choices(platform).len() < 2 && !self.stretch_switch() {
+        // Slot²: nor where its system's own row has no value here (the added systems' Stretch
+        // on a 3:2 panel, which the shelf hides too; found on the RG34XX, 2026-11-07).
+        if (self.stretch_choices(platform).len() < 2 && !self.stretch_switch())
+            || self.quick_value(QuickRow::Stretch).is_none()
+        {
             hidden.push(QuickRow::Stretch);
         }
         // slotPlus's other cores have no frame blending to pick.

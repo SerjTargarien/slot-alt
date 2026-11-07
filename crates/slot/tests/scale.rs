@@ -762,3 +762,28 @@ fn an_added_systems_bezel_shows_where_its_picture_is_slotpluss() {
     }
     assert!(fits_moved >= 3, "Fit moved only {fits_moved} pictures");
 }
+
+/// Slot²: a row the in-game Screen page shows has a value to show, for every system on both
+/// panels. The added systems' Stretch row showed empty on the RG34XX's 3:2 panel
+/// (2026-11-07): the shelf hid it there, the in-game page didn't.
+#[test]
+fn every_in_game_screen_row_shown_has_a_value() {
+    for panel in [(720, 480), (720, 720)] {
+        for platform in Platform::ALL {
+            let (_d, a) = playing(platform, panel, SlotState::default());
+            let hidden = a.in_game_hidden();
+            // The Bezel row shows the bezel's own picture rather than a value.
+            for row in QuickRow::PLAY_SCREEN
+                .into_iter()
+                .filter(|r| *r != QuickRow::Bezel)
+            {
+                if !hidden.contains(&row) {
+                    assert!(
+                        a.quick_value(row).is_some(),
+                        "{platform:?} at {panel:?}: {row:?} is shown with no value"
+                    );
+                }
+            }
+        }
+    }
+}
