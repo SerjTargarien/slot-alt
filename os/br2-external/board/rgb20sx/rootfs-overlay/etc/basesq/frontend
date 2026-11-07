@@ -32,6 +32,11 @@ case "$(uname -r)" in
 *) export SLOT_FN_ADC=/sys/bus/iio/devices/iio:device0/in_voltage0_raw ;;
 esac
 
+# Link play: the RTL8723DS is 2.4 GHz only, and slotlink.sh's join first looks on
+# AGS_LINK_FREQ (5745, a 5 GHz channel, unless set). The host is told 2437 (channel 6) too.
+# /run/slot.env below can still change it.
+export AGS_LINK_FREQ=2437
+
 # Development: with a basesq-dev file on the card, slot keeps Wi-Fi up in games too, so
 # SSH stays reachable. Remove it for battery runs.
 [ -f "$SD/basesq-dev" ] && export SLOT_WIFI_KEEP=1

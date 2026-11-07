@@ -175,8 +175,19 @@ set on 2026-11-06).
    try there: the cores' own filters ([design/core-options.md](design/core-options.md),
    6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler). Also from there: gpSP
    at 32768 Hz sounded unplayable, and even good runs report starved samples.
-3. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
-   `HDMI-A-1`); our own U-Boot.
+3. **Link play: first link working (2026-11-07).** Tetris on mGBA, the RG34XX (BaseOS
+   1.4.0, stock slotPlus) hosting on channel 6 and the RGB20SX joining: both play, no
+   stalls, a bit of lag on the RG34XX. Two fixes made it work: Base²'s launcher sets
+   `AGS_LINK_FREQ=2437` (the join looked on 5745 first, a channel the RTL8723DS can't
+   use), and slot no longer takes Wi-Fi back while a link starts (`SLOT_WIFI_KEEP` fought
+   `slotlink.sh` for wlan0 and Wi-Fi stayed down until a restart; test
+   `wifi_ui::the_development_switch_lets_go_while_a_link_starts`). The RG34XX's launcher
+   exports the same channel for these tests (`System/launch_frontend.sh.stock` is the
+   original). Next: the RGB20SX hosting (wlan0 at 2.4 GHz when there's no wlan1); the
+   join's 10 s before its first scan (`join: asked` to `wlan0 present`, after
+   `link_clear`); the RG34XX's lag (its log: 13338 samples dropped, 31772 starved in the
+   link; the RGB20SX 323844 starved); Pokémon trades and Mario Kart. Then our own KMS
+   HDMI (the RGB20SX has `HDMI-A-1`) and our own U-Boot.
 4. Bezels at Integer and Fit for the new systems.
 5. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
    against today's, timed, before anything else on DS speed

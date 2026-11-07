@@ -137,6 +137,50 @@ fn the_development_switch_keeps_it_in_a_game() {
     assert!(a.wifi().held);
 }
 
+/// Slot²: the link script takes wlan0 for itself while a link starts. Taking slot's Wi-Fi
+/// back then (the development switch wants it in a game) fights the script for wlan0: on
+/// the RGB20SX on 2026-11-07 the join never found the host and Wi-Fi stayed down until a
+/// restart. Once the start is over, Wi-Fi is taken back.
+#[test]
+fn the_development_switch_lets_go_while_a_link_starts() {
+    use slot::link_radio::{LinkRole, RadioFail};
+    use slot::link_start::LinkStarter;
+    let _g = serial();
+    let (_d, mut a, log) = on_shelf();
+    a.set_wifi_keep(true);
+    settle(&mut a);
+    a.apply(Action::Insert);
+    frames(&mut a, 2);
+    settle(&mut a);
+    assert!(a.wifi().held);
+    let (nobody, waiting) = std::sync::mpsc::channel::<()>();
+    let starter = LinkStarter::spawn_with(
+        Box::new(move |_, _| {
+            let _ = waiting.recv();
+            Err(RadioFail::NoHost)
+        }),
+        Box::new(|| {}),
+        LinkRole::Join,
+        0,
+        Box::new(|_, _| Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "test"))),
+    );
+    a.start_link(starter, 1);
+    settle(&mut a);
+    assert!(!a.wifi().held, "taken back while the link starts");
+    let starts = count(&log, "start");
+    settle(&mut a);
+    assert_eq!(count(&log, "start"), starts);
+    drop(nobody);
+    let bail = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while matches!(a.game_menu(), Some(slot::app::GameMenu::Working { .. })) {
+        assert!(std::time::Instant::now() < bail, "the start never ended");
+        a.update(1.0 / 60.0);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    settle(&mut a);
+    assert!(a.wifi().held, "not taken back once the start was over");
+}
+
 #[test]
 fn the_development_switch_still_lets_sleep_release_it() {
     let _g = serial();

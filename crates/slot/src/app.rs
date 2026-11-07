@@ -7986,8 +7986,10 @@ impl App {
     }
 
     fn wifi_wanted(&self) -> bool {
+        // Slot²: nor while a link starts, when the link script has wlan0 to itself.
+        let link = self.link_active() || self.starting.is_some();
         if self.achievements_hold_wifi()
-            && !self.link_active()
+            && !link
             && !self.shutting_down()
             && !self.state.wifi_off
             && self.has_saved()
@@ -8007,7 +8009,7 @@ impl App {
                 | Phase::Unwrap { .. }
         ) && self.seated_cart().is_none();
         (screen || self.wifi_keep)
-            && !self.link_active()
+            && !link
             && !self.shutting_down()
             && !self.state.wifi_off
             && (self.has_saved()

@@ -18,10 +18,10 @@ The emulator cores Slot² runs, where each comes from, and how current it is. Ch
 | TurboGrafx-16 | Beetle PCE Fast (`pce`) | [libretro/beetle-pce-fast-libretro](https://github.com/libretro/beetle-pce-fast-libretro) | `3f946f2`, 2026-10-02 | 2 commits (translations) |
 | Nintendo DS | DSperate (`dsperate`) | [beebono/DSperate](https://github.com/beebono/DSperate) through [thwonp/dsperate-lr](https://github.com/thwonp/dsperate-lr) | `ddf2910`, v3.0.5, 2026-10-21; wrapper `093d50f`, 2026-10-27 | 94 commits, v3.3.0; wrapper 11 commits, v3.3.0-lr.1 |
 
-"Default" is what a game runs on until another core is picked for it (the cart studio's
-chip, saved per game in `Config/selected_core.txt`). The Game Boy's default is the card's
-choice, `gb_core` in `slot.state`: Gambatte unless set. Link play runs on mGBA only; a Game
-Boy game on Gambatte is told it needs mGBA.
+"Default" is what a game runs on until another core is picked for it (START on the
+shelf opens the cart to its chip, saved per game in `Config/selected_core.txt`). The Game
+Boy's default is the card's choice, `gb_core` in `slot.state`: Gambatte unless set. Link
+play runs on mGBA only; a Game Boy game on Gambatte is told it needs mGBA.
 
 ## Where the files on the card come from
 
