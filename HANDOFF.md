@@ -117,24 +117,21 @@ Done and checked on the device:
 - Every core's options surveyed ([design/core-options.md](design/core-options.md)), and the
   shelf's GBA Frame Blending says gpSP has no ghosting (it mixes instead).
 
-## The state at the end of 2026-11-06
+## The state now (2026-11-07)
 
-- **Committed:** everything up to the core options survey (`674cde0`), on `slotsq-plus`,
-  local only (not pushed).
-- **Built, tested, not committed:** the WonderSwan and TurboGrafx-16 palettes (the working
-  tree: `slot_store::core_palette`, `palette_ws`/`palette_tg16` in `slot.state`, the
-  `WsPalette`/`Tg16Palette` rows, the game's own `palette=`). The full test run passes but
-  for the known label failure. The device build in `target/` has them; the device does not.
-- **On the device:** the build with the GBA Frame Blending note (`bbb6ee0`), and on the
-  card `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne (slotPlus's is kept as
-  `System/cygne_libretro.so.slotplus`). `Config/selected_core.txt` sets Castlevania - Aria
-  of Sorrow to gpSP.
+- **Committed:** everything, up to the palettes and the feature-driven shortcuts
+  (`45ecb6e`), on `slotsq-plus`, local only (not pushed). The device runs that build.
+- **On the card:** `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne (slotPlus's
+  is kept as `System/cygne_libretro.so.slotplus`); `Config/selected_core.txt` sets
+  Castlevania - Aria of Sorrow to gpSP; `Config/shortcuts/ws.txt` has the WonderSwan's
+  palette keys (MENU+L2/R2), set while the pages showed the wrong names.
 - **Cores here:** Docker isn't reachable from this WSL machine and `task` isn't
   installed; cores are cross-compiled through their recipes (cores/README.md, "How they
   are built"). `scp` doesn't work with Base² (no SFTP server): copy files with
-  `ssh ... 'cat > path' < file`.
-- **Tests:** the two `render_screenshot` tests can fail in a loaded full run (they wait
-  four seconds of wall time for a game to start) and pass when run again.
+  `ssh ... 'cat > path' < file`. The scratchpad in `/tmp` doesn't survive a restart of
+  WSL; `vendor/` keeps the pinned sources that were fetched.
+- **Tests:** a few render tests wait on wall time (`render_screenshot`, two
+  `render_native` bezel tests) and can fail in a loaded full run; they pass run again.
 
 ## Next, in order
 
@@ -143,13 +140,28 @@ set on 2026-11-06).
 
 1. **Core options** ([design/core-options.md](design/core-options.md), chosen
    2026-11-06), in this order:
-   1. The WonderSwan and TurboGrafx-16 palettes: built and tested here, **not yet
-      deployed**. Deploy with the user on the shelf, check, commit.
+   1. The WonderSwan and TurboGrafx-16 palettes, with Palette Back/Next on both through
+      the feature table: built and checked on the device (2026-11-07).
    2. A Sprite Limit row (Gameplay; gpSP, Gearsystem and PCE Fast have it): planned in the
       design note.
    3. Lynx at 60 Hz and gpSP at 32 kHz: a `SLOT_CORE_OPTIONS` variable to try options
       without a build, then measure on the device and set them if they help.
-2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+2. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
+   other's names): stop the same fact being kept in several hand-written lists, which is
+   how that bug happened. Cheapest first:
+   1. Invariant tests, which change no code: every row on exactly one page, each page's
+      rows saying they are on it, every system with its pages (as
+      `every_row_is_at_its_own_place_in_all` checks the row order).
+   2. One source per fact: the `QuickRow` enum and `ALL` from one list (a small macro);
+      per-system settings as one record per system rather than `shader_gba`,
+      `shader_gb`... fields; the three ~190-row "every other row" lists in `app.rs` gone.
+      Our own additions first, upstream's structure later.
+   3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
+      per-game layer, the menus.
+   4. `/code-review` on each diff before a commit.
+   Steps 2 and 3 rewrite upstream's code, which makes taking upstream slot's updates
+   harder; step 1 doesn't.
+3. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
    2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
@@ -157,16 +169,16 @@ set on 2026-11-06).
    the game or the context change). In menus it's worse (every system's bezel folder, a
    table per controls row drawn). Separately: the shelf waits for cart faces while
    scrolling. Upstream's code: worth offering upstream.
-3. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
+4. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
    try there: the cores' own filters ([design/core-options.md](design/core-options.md),
    6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler).
-4. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+5. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
-5. Bezels at Integer and Fit for the new systems.
-6. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
+6. Bezels at Integer and Fit for the new systems.
+7. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
    against today's, timed, before anything else on DS speed
    ([cores/README.md](cores/README.md)).
-7. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
+8. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
    Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
    Gearsystem (3.9.24).
 
