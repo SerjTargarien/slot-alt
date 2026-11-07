@@ -75,12 +75,14 @@ Each phase ends checked on both devices. Nothing is written to the RG34XX before
 
 ### Phase 1: one build for both
 
-1. Link against Debian bullseye's arm64 glibc (2.31, as upstream): a sysroot of its
-   `libc6`, `libc6-dev` and `libgcc` packages, downloaded once into `vendor/` (Docker
-   isn't reachable here, and zig isn't installed). One binary then runs on both (2.35
-   and 2.44).
-2. `dev.sh build` refuses a binary needing more than `GLIBC_2.31` (`readelf -V`), so this
-   can't come back unnoticed.
+1. **Done (2026-11-07):** linked against Debian bullseye's arm64 glibc 2.31, as upstream:
+   `tools/slotsq/sysroot.sh` fetches `libc6`, `libc6-dev`, `linux-libc-dev` and
+   `libgcc-s1` (pinned by checksum, from archive.debian.org) into
+   `vendor/sysroot-bullseye`. Ubuntu's cross gcc looks in its own glibc 2.39 first, so
+   `dev.sh build` puts the sysroot first with `-B`. The build needs glibc 2.30 at most,
+   as stock slotPlus's; BaseOS's loader accepted it (`ld.so --verify`), and it runs on
+   both.
+2. **Done:** `dev.sh build` (and `deploy`) refuses a binary needing more than glibc 2.31.
 3. One build profile for both (upstream's `device` profile, fat LTO, or our `release`),
    decided on measured start time and frame time.
 4. The same `System/` on both: `slot`, the nine cores (Cygne ours), the scripts, `web/`.
@@ -88,8 +90,12 @@ Each phase ends checked on both devices. Nothing is written to the RG34XX before
 
 ### Phase 2: first Slot² on the RG34XX, and the audit
 
-1. Deploy, boot, read the log line (`device BaseOS: Fbdev display, Anbernic buttons...`).
-2. Check the phantom stick (item 4 above) before anything else.
+1. **Done (2026-11-07):** the RG34XX runs Slot² (our launcher, build and Beetle Cygne;
+   stock's kept as `.stock`, `.prev` and `.slotplus`): `device BaseOS: Fbdev display,
+   Anbernic buttons`, panel and canvas 720x480, first frame at 633 ms, a rumble motor on
+   `event1`. Its `System/` matches the RGB20SX's but for `fsck.exfat` (BaseOS's).
+2. The phantom stick: the shelf stayed still for 6 s on its own; still to check in menus
+   and games.
 3. Go through the feature list below on both devices, one system at a time; each line
    ends as same, adapted, or a Difference.
 4. Render tests at 720x480 for Slot²'s own pages (shortcut pages, a game's own values in
@@ -166,6 +172,7 @@ Same / Adapted / Difference, per device. Player-facing only.
 | 5 GHz link channels | no | yes | the RTL8723DS is 2.4 GHz only |
 | HDMI out | not yet (roadmap) | yes | Base²'s KMS HDMI isn't written |
 | CPU clock cap | yes | no | Base²'s description; to try on H700 |
+| Rumble | yes | yes (`motor event1`) | |
 | The OS: boot, sleep, updates | Base² | BaseOS | Base² is RK3566 only for now |
 
 ## Open, no hurry

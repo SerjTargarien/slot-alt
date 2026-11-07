@@ -39,9 +39,38 @@ on_basesq() {
 	ssh -o BatchMode=yes -o UserKnownHostsFile="$KNOWN" "$BASESQ" "$@"
 }
 
+# One build for both devices: linked against Debian bullseye's glibc 2.31
+# (tools/slotsq/sysroot.sh), so it runs on BaseOS 1.4.0 (2.35) as on Base² (2.44).
+SYSROOT="$REPO/vendor/sysroot-bullseye/root"
+GLIBC_MAX=2.31
+
 build() {
 	cd "$REPO"
-	cargo build --release --target "$TARGET" -p slot --no-default-features --features device
+	[ -d "$SYSROOT" ] || {
+		echo "no $SYSROOT: run tools/slotsq/sysroot.sh" >&2
+		exit 1
+	}
+	# --sysroot alone isn't enough: Ubuntu's cross gcc looks in its own glibc 2.39
+	# (/usr/aarch64-linux-gnu/lib) first, startup files too. -B puts the sysroot first.
+	libs="-B$SYSROOT/usr/lib/aarch64-linux-gnu/ -B$SYSROOT/lib/aarch64-linux-gnu/"
+	flags="--sysroot=$SYSROOT $libs"
+	link=""
+	for f in $flags; do link="$link -C link-arg=$f"; done
+	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="$link" \
+		CFLAGS_aarch64_unknown_linux_gnu="$flags" \
+		CXXFLAGS_aarch64_unknown_linux_gnu="$flags" \
+		cargo build --release --target "$TARGET" -p slot --no-default-features --features device
+	glibc_check
+}
+
+# Refuses a binary that needs a newer glibc than both devices have.
+glibc_check() {
+	need="$(aarch64-linux-gnu-readelf -V "$BIN" | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -V | tail -1)"
+	if [ "$(printf '%s\n%s\n' "$need" "$GLIBC_MAX" | sort -V | tail -1)" != "$GLIBC_MAX" ]; then
+		echo "slot needs glibc $need, more than $GLIBC_MAX: it wouldn't start on BaseOS" >&2
+		exit 1
+	fi
+	echo "slot needs glibc $need at most"
 }
 
 # Restarts slot with VAR=value pairs for this start only: the frontend sources
@@ -68,6 +97,7 @@ deploy() {
 		echo "no $BIN: run tools/slotsq/dev.sh build" >&2
 		exit 1
 	}
+	glibc_check
 	# Through ssh, not scp: Base² has no SFTP server.
 	on_basesq "cat > $CARD/System/slot.new" < "$BIN"
 	want="$(md5sum < "$BIN" | cut -d' ' -f1)"
