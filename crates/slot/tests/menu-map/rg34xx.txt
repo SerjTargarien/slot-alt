@@ -5,7 +5,6 @@ General >
   Recents: Hide
   Game Titles: Hide
   Cart Slot: Default
-  Lid Power Off: 1 min
   Date & Time: (its own face)
   Wi-Fi: (its own face) >
     Wi-Fi: On
@@ -121,28 +120,28 @@ Controls >
       Stretch Off: MENU+R1
   In-Game >
     Game Boy >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       A Button: A
       B Button: B
       Select: SELECT
       Start: START
     Game Boy Color >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       A Button: A
       B Button: B
       Select: SELECT
       Start: START
     Game Boy Advance >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       A Button: A
       B Button: B
       Select: SELECT
@@ -150,23 +149,23 @@ Controls >
       L Button: L1
       R Button: R1
     WonderSwan >
-      X1: UP · LS UP
-      X2: RIGHT · LS RIGHT
-      X3: DOWN · LS DOWN
-      X4: LEFT · LS LEFT
-      Y1: !RS UP · L2
-      Y2: RS RIGHT · R1
-      Y3: !RS DOWN · R2
-      Y4: RS LEFT · L1
+      X1: UP
+      X2: RIGHT
+      X3: DOWN
+      X4: LEFT
+      Y1: !L2
+      Y2: R1
+      Y3: !R2
+      Y4: L1
       A Button: A
       B Button: B
       Start: START
       Rotate: SELECT
     Atari Lynx >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       A Button: A
       B Button: B
       Select: SELECT
@@ -174,26 +173,26 @@ Controls >
       Option 1: L1
       Option 2: R1
     Game Gear >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       Button 1: B
       Button 2: A
       Start: START
     NeoGeo Pocket >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       A Button: B
       B Button: A
       Option: START
     TurboGrafx-16 >
-      Up: UP · LS UP
-      Down: DOWN · LS DOWN
-      Left: LEFT · LS LEFT
-      Right: RIGHT · LS RIGHT
+      Up: UP
+      Down: DOWN
+      Left: LEFT
+      Right: RIGHT
       Button I: A
       Button II: B
       Select: SELECT
@@ -220,10 +219,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: A
     B Button: B
     Select: SELECT
@@ -269,10 +268,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: A
     B Button: B
     Select: SELECT
@@ -321,10 +320,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: A
     B Button: B
     Select: SELECT
@@ -371,10 +370,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: A
     B Button: B
     Select: SELECT
@@ -420,14 +419,14 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    X1: UP · LS UP
-    X2: RIGHT · LS RIGHT
-    X3: DOWN · LS DOWN
-    X4: LEFT · LS LEFT
-    Y1: !RS UP · L2
-    Y2: RS RIGHT · R1
-    Y3: !RS DOWN · R2
-    Y4: RS LEFT · L1
+    X1: UP
+    X2: RIGHT
+    X3: DOWN
+    X4: LEFT
+    Y1: !L2
+    Y2: R1
+    Y3: !R2
+    Y4: L1
     A Button: A
     B Button: B
     Start: START
@@ -472,10 +471,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: A
     B Button: B
     Select: SELECT
@@ -521,10 +520,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     Button 1: B
     Button 2: A
     Start: START
@@ -566,10 +565,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     A Button: B
     B Button: A
     Option: START
@@ -611,10 +610,10 @@ Settings >
     Load State on Insert: On
     Save State on Eject: On
   Controls >
-    Up: UP · LS UP
-    Down: DOWN · LS DOWN
-    Left: LEFT · LS LEFT
-    Right: RIGHT · LS RIGHT
+    Up: UP
+    Down: DOWN
+    Left: LEFT
+    Right: RIGHT
     Button I: A
     Button II: B
     Select: SELECT

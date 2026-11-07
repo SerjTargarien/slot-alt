@@ -22,6 +22,19 @@ pub fn layout() -> Layout {
     }
 }
 
+/// Slot²: the sticks the device has (bit 0 the left, bit 1 the right; `parts.rs`). Axes of
+/// a stick it doesn't have are ignored, as upstream ignored them on models without one.
+static STICKS: AtomicU8 = AtomicU8::new(0b11);
+
+pub fn set_sticks(left: bool, right: bool) {
+    STICKS.store(u8::from(left) | u8::from(right) << 1, Ordering::Relaxed);
+}
+
+fn sticks() -> [bool; 2] {
+    let bits = STICKS.load(Ordering::Relaxed);
+    [bits & 1 != 0, bits & 2 != 0]
+}
+
 pub const EVENT_BYTES: usize = 24;
 
 pub const EV_SYN: u16 = 0x00;
@@ -76,6 +89,7 @@ pub fn stick_codes(layout: Layout) -> &'static [u16] {
 /// menus and the shelf follow it.
 pub struct Hat {
     layout: Layout,
+    sticks: [bool; 2],
     hat: [i32; 2],
     stick: [[i32; 2]; 2],
     travel: [[(i32, i32); 2]; 2],
@@ -93,12 +107,19 @@ impl Hat {
     pub fn new(layout: Layout) -> Self {
         Hat {
             layout,
+            sticks: sticks(),
             hat: [0; 2],
             stick: [[0; 2]; 2],
             travel: [[STICK_TRAVEL; 2]; 2],
             steers: false,
             down: Vec::new(),
         }
+    }
+
+    /// Slot²: which sticks this reader takes (the device's, `set_sticks`, unless told).
+    pub fn with_sticks(mut self, sticks: [bool; 2]) -> Self {
+        self.sticks = sticks;
+        self
     }
 
     /// An axis's travel as the kernel reports it, from its lowest to its highest value.
@@ -117,7 +138,8 @@ impl Hat {
             ABS_HAT0X => self.hat[0] = ev.value.signum(),
             ABS_HAT0Y => self.hat[1] = ev.value.signum(),
             code => {
-                let Some((s, a)) = stick_axis(self.layout, code) else {
+                let Some((s, a)) = stick_axis(self.layout, code).filter(|(s, _)| self.sticks[*s])
+                else {
                     return Vec::new();
                 };
                 self.stick[s][a] = tilt(ev.value, self.travel[s][a], self.stick[s][a]);
@@ -336,7 +358,11 @@ fn wanted_node(device: &Path, layout: Layout) -> bool {
     let lid = cap("sw").is_ok_and(|sw| has_bit(&sw, SW_LID));
     // A joystick with no buttons of its own (the RGB20SX's ADC sticks).
     let abs = cap("abs").unwrap_or_default();
-    let sticks = stick_codes(layout).iter().any(|code| has_bit(&abs, *code));
+    let present = sticks();
+    let sticks = stick_codes(layout)
+        .iter()
+        .filter(|code| stick_axis(layout, **code).is_some_and(|(s, _)| present[s]))
+        .any(|code| has_bit(&abs, *code));
     lid || sticks || wanted(layout).iter().any(|bit| has_bit(&keys, *bit))
 }
 

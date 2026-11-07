@@ -727,6 +727,8 @@ pub struct App {
     wifi_held: bool,
     wifi_keep: bool,
     self_update: bool,
+    /// Slot²: what the device has (`parts.rs`): everything until the device says.
+    parts: crate::parts::Parts,
     wifi_boot_blocked: bool,
     wifi_probe: Option<(PathBuf, Millis)>,
     core_stale: bool,
@@ -924,6 +926,7 @@ impl App {
             wifi_held: false,
             wifi_keep: false,
             self_update: true,
+            parts: crate::parts::Parts::ALL,
             wifi_boot_blocked: false,
             wifi_probe: None,
             core_stale: false,
@@ -2207,6 +2210,10 @@ impl App {
         if !own {
             hidden.push(QuickRow::WallpaperTint);
         }
+        // Slot²: Lid Power Off only on a device with a lid.
+        if !self.parts.lid {
+            hidden.push(QuickRow::LidOff);
+        }
         // Not greyed out but gone while RetroAchievements is switched off in this build.
         if !crate::ACHIEVEMENTS {
             hidden.push(QuickRow::Achievements);
@@ -3430,9 +3437,11 @@ impl App {
     fn bound_text(&self, row: QuickRow) -> String {
         let text = match row.input() {
             Some(input) => {
+                // Slot²: a binding to a part the device lacks stays in the file, unshown.
                 let set: Vec<String> = self
                     .controls_of(self.controls_page())
                     .bindings(input)
+                    .filter(|b| self.parts.can_press(b))
                     .map(|b| Binding::text(Some(b)))
                     .collect();
                 match set.is_empty() {
@@ -3440,7 +3449,7 @@ impl App {
                     false => set.join(BINDING_GAP),
                 }
             }
-            None => Binding::text(self.binding_of(row)),
+            None => Binding::text(self.binding_of(row).filter(|b| self.parts.can_press(b))),
         };
         match self.clash(row) {
             Some(_) => format!("{CLASH_MARK}{text}"),
@@ -7740,6 +7749,15 @@ impl App {
 
     /// Off where an upstream build couldn't run (hardware.rs `SELF_UPDATE`): no "Check for
     /// updates" row, and no check.
+    /// Slot²: what the device has, detected at boot (`parts.rs`).
+    pub fn set_parts(&mut self, parts: crate::parts::Parts) {
+        self.parts = parts;
+    }
+
+    pub fn parts(&self) -> crate::parts::Parts {
+        self.parts
+    }
+
     pub fn set_self_update(&mut self, on: bool) {
         self.self_update = on;
     }

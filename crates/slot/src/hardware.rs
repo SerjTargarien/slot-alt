@@ -40,6 +40,12 @@ pub struct Hardware {
     /// slot may offer upstream's updates. Off where an upstream build couldn't drive the
     /// device.
     pub self_update: bool,
+    /// Slot²: what the device has, where detection gets it wrong (`parts.rs`): unset,
+    /// slot detects it.
+    pub left_stick: Option<bool>,
+    pub right_stick: Option<bool>,
+    pub stick_clicks: Option<bool>,
+    pub lid: Option<bool>,
 }
 
 impl Hardware {
@@ -57,6 +63,10 @@ impl Hardware {
             // from it replaces Slot² and deletes the files of ours it doesn't list
             // (design/two-devices.md). A description can still turn it on.
             self_update: false,
+            left_stick: None,
+            right_stick: None,
+            stick_clicks: None,
+            lid: None,
         }
     }
 
@@ -84,6 +94,10 @@ impl Hardware {
             wifi: flag("WIFI", base.wifi),
             boot_logo: flag("BOOT_LOGO", base.boot_logo),
             self_update: flag("SELF_UPDATE", base.self_update),
+            left_stick: get("LEFT_STICK").and_then(|v| parse_flag(&v)),
+            right_stick: get("RIGHT_STICK").and_then(|v| parse_flag(&v)),
+            stick_clicks: get("STICK_CLICKS").and_then(|v| parse_flag(&v)),
+            lid: get("LID").and_then(|v| parse_flag(&v)),
         }
     }
 
@@ -96,6 +110,14 @@ impl Hardware {
             _ => {}
         }
         self
+    }
+}
+
+fn parse_flag(value: &str) -> Option<bool> {
+    match value {
+        "1" | "yes" | "true" => Some(true),
+        "0" | "no" | "false" => Some(false),
+        _ => None,
     }
 }
 

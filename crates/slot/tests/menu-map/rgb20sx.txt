@@ -5,7 +5,6 @@ General >
   Recents: Hide
   Game Titles: Hide
   Cart Slot: Default
-  Lid Power Off: 1 min
   Date & Time: (its own face)
   Wi-Fi: (its own face) >
     Wi-Fi: On

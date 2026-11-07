@@ -178,6 +178,14 @@ pub fn run() {
     if hw.buttons == slot::hardware::Buttons::Gamepad {
         slot::input::evdev::set_layout(slot::input::evdev::Layout::Gamepad);
     }
+    // Slot²: what the device has (parts.rs). Its sticks are read only if it has them, so
+    // set before the input devices open.
+    let model = slot::baseos::var("BASEOS_TARGET");
+    let parts = slot::parts::detect(std::path::Path::new("/sys"), hw.buttons, model.as_deref())
+        .with_overrides(hw);
+    eprintln!("slot: parts: {}", parts.report());
+    slot::input::evdev::set_sticks(parts.left_stick, parts.right_stick);
+    frontend.app_mut().set_parts(parts);
     let mut input = DeviceInput::open(&root);
     // Only where the kernel drops the FN key (`FN_ADC`). A kernel that reports it would
     // see FN twice.

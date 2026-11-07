@@ -60,6 +60,17 @@ key keeps what upstream slot does on BaseOS; a missing file means BaseOS.
 | `WIFI` | `1`: the frontend runs Wi-Fi | `1` | `1` |
 | `BOOT_LOGO` | `1`: the frontend refreshes BaseOS's boot logo | `1` | `0` |
 | `SELF_UPDATE` | `1`: offer the upstream frontend's updates (and BaseOS's) | `0` (upstream's is `1`) | `0` |
+| `LEFT_STICK`, `RIGHT_STICK`, `STICK_CLICKS`, `LID` | `1` or `0`: override what the frontend detects | detected | detected |
+
+What the device has (Slot², `crates/slot/src/parts.rs`) is detected, and the four keys
+above exist only for a device whose kernel says wrong:
+- **Sticks and their clicks:** with `gamepad`, from what the input devices report
+  (`ABS_X`/`ABS_Y`, `ABS_RX`/`ABS_RY`, `BTN_THUMBL`/`BTN_THUMBR`). With `anbernic`, from
+  upstream's list of models with a left stick, by `BASEOS_TARGET` (their kernel reports
+  stick axes on models without one); no right stick or clicks.
+- **A lid:** an input device with `SW_LID`, or a `hallkey` file under a power supply.
+- A device without a part hides what needs it (Lid Power Off), ignores its axes, and doesn't
+  show bindings to it; they stay in the card's files for a device that has it.
 
 ## What the OS provides
 

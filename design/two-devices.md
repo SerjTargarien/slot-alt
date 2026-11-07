@@ -103,6 +103,16 @@ Each phase ends checked on both devices. Nothing is written to the RG34XX before
 
 ### Phase 3: what the device has, as data
 
+**Done (2026-11-07), as "detect, with keys as overrides"** (the user's choice over keys
+alone: Base² is ours, BaseOS isn't, and detection covers the devices upstream supports as
+upstream does): `crates/slot/src/parts.rs` detects the sticks, their clicks and a lid at
+boot (`slot: parts: ...` in the log), with upstream's list of Anbernic models with a left
+stick, and `LEFT_STICK`, `RIGHT_STICK`, `STICK_CLICKS`, `LID` in `/etc/slot-device` as
+overrides (CONTRACT.md). Without a part: its axes are ignored (the phantom stick can't
+happen), Lid Power Off is hidden, and bindings to it stay in the file unshown. Neither
+device has a lid. The menu maps carry each device's parts. What follows was the plan.
+
+
 The fix for items 4 and 5, and the way every future difference is handled: the device
 says what it has, and Slot² hides what it hasn't and picks defaults from what it has.
 
@@ -233,6 +243,7 @@ Same / Adapted / Difference, per device. Player-facing only.
 | HDMI out | not yet (roadmap) | yes | Base²'s KMS HDMI isn't written |
 | CPU clock cap | yes | no | Base²'s description; to try on H700 |
 | Rumble | yes | yes (`motor event1`) | |
+| Lid Power Off | no | no | neither has a lid (`parts.rs`) |
 | The OS: boot, sleep, updates | Base² | BaseOS | Base² is RK3566 only for now |
 
 ## Open, no hurry

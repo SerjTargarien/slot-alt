@@ -1,45 +1,121 @@
 # What the rg34xx's menus and the rgb20sx's differ in (menu_map.rs)
 
 == In game: Atari Lynx
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx only
 Settings > Screen > Stretch: rgb20sx only
 
 == In game: Game Boy
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx "None", rgb20sx "AGS-102"
 Settings > Screen > Scale: rg34xx "Integer", rgb20sx "SP Screen"
 Settings > Screen > Stretch: rg34xx "Classic", rgb20sx "Off"
 
 == In game: Game Boy Advance
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rgb20sx only
 Settings > Screen > Scale: rgb20sx only
 
 == In game: Game Boy Advance Video
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rgb20sx only
 Settings > Screen > Scale: rgb20sx only
 
 == In game: Game Boy Color
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx "None", rgb20sx "AGS-102"
 Settings > Screen > Scale: rg34xx "Integer", rgb20sx "SP Screen"
 Settings > Screen > Stretch: rg34xx "Classic", rgb20sx "Off"
 
 == In game: Game Gear
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx only
 Settings > Screen > Stretch: rgb20sx only
 
 == In game: NeoGeo Pocket
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx only
 Settings > Screen > Stretch: rgb20sx only
 
 == In game: TurboGrafx-16
+Settings > Controls > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > Up: rg34xx "UP", rgb20sx "UP · LS UP"
 Settings > Screen > Bezel: rg34xx only
 Settings > Screen > Scale: rgb20sx only
 Settings > Screen > Stretch: rgb20sx only
 
 == In game: WonderSwan
+Settings > Controls > X1: rg34xx "UP", rgb20sx "UP · LS UP"
+Settings > Controls > X2: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Settings > Controls > X3: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Settings > Controls > X4: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Settings > Controls > Y1: rg34xx "!L2", rgb20sx "!RS UP · L2"
+Settings > Controls > Y2: rg34xx "R1", rgb20sx "RS RIGHT · R1"
+Settings > Controls > Y3: rg34xx "!R2", rgb20sx "!RS DOWN · R2"
+Settings > Controls > Y4: rg34xx "L1", rgb20sx "RS LEFT · L1"
 Settings > Screen > Bezel: rg34xx only
 Settings > Screen > Stretch: rgb20sx only
 
 == Shelf
+Controls > In-Game > Atari Lynx > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > Atari Lynx > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > Atari Lynx > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > Atari Lynx > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > Game Boy > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > Game Boy > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > Game Boy > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > Game Boy > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > Game Boy Advance > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > Game Boy Advance > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > Game Boy Advance > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > Game Boy Advance > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > Game Boy Color > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > Game Boy Color > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > Game Boy Color > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > Game Boy Color > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > Game Gear > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > Game Gear > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > Game Gear > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > Game Gear > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > NeoGeo Pocket > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > NeoGeo Pocket > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > NeoGeo Pocket > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > NeoGeo Pocket > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > TurboGrafx-16 > Down: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > TurboGrafx-16 > Left: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > TurboGrafx-16 > Right: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > TurboGrafx-16 > Up: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > WonderSwan > X1: rg34xx "UP", rgb20sx "UP · LS UP"
+Controls > In-Game > WonderSwan > X2: rg34xx "RIGHT", rgb20sx "RIGHT · LS RIGHT"
+Controls > In-Game > WonderSwan > X3: rg34xx "DOWN", rgb20sx "DOWN · LS DOWN"
+Controls > In-Game > WonderSwan > X4: rg34xx "LEFT", rgb20sx "LEFT · LS LEFT"
+Controls > In-Game > WonderSwan > Y1: rg34xx "!L2", rgb20sx "!RS UP · L2"
+Controls > In-Game > WonderSwan > Y2: rg34xx "R1", rgb20sx "RS RIGHT · R1"
+Controls > In-Game > WonderSwan > Y3: rg34xx "!R2", rgb20sx "!RS DOWN · R2"
+Controls > In-Game > WonderSwan > Y4: rg34xx "L1", rgb20sx "RS LEFT · L1"
 Screen > Atari Lynx > Bezel: rg34xx only
 Screen > Atari Lynx > Stretch: rgb20sx only
 Screen > Game Boy > Bezel: rg34xx "None", rgb20sx "AGS-102"

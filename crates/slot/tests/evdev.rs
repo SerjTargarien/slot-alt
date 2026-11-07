@@ -450,3 +450,27 @@ fn a_gamepads_stick_clicks_are_l3_and_r3() {
         Some(slot_store::Device::L3)
     );
 }
+
+/// Slot²: a stick the device doesn't have is never read, whatever its axes say. The
+/// RG34XX's ANBERNIC-keys reports ABS_RX (0x03), which the Anbernic layout reads as the
+/// left stick's Y; upstream ignored it on models without a stick (`parts.rs`).
+#[test]
+fn the_axes_of_a_stick_the_device_lacks_are_ignored() {
+    use slot::input::evdev::{Hat, Layout};
+    let mut none = Hat::new(Layout::Anbernic).with_sticks([false, false]);
+    assert!(none.feed(abs(0x03, 4096)).is_empty(), "no left stick");
+    assert!(none.feed(abs(0x02, -4096)).is_empty(), "no left stick");
+    assert_eq!(
+        none.feed(abs(0x11, -1)),
+        vec![RawEvent::Down(Btn::Up)],
+        "the D-pad still"
+    );
+    let mut left = Hat::new(Layout::Anbernic).with_sticks([true, false]);
+    assert_eq!(
+        left.feed(abs(0x03, 4096)),
+        vec![RawEvent::Down(Btn::LsDown)]
+    );
+    let mut gamepad = Hat::new(Layout::Gamepad).with_sticks([true, false]);
+    gamepad.set_travel(0x03, 15, 1023);
+    assert!(gamepad.feed(abs(0x03, 1000)).is_empty(), "no right stick");
+}

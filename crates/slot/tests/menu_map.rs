@@ -11,14 +11,37 @@
 use crate::common::{app_booting_at, tmp_root_with_carts, CLOCK_IS_SET};
 use crate::scale::playing;
 use slot::app::{App, OWN_FACE};
+use slot::parts::Parts;
 use slot_input::{Action, Btn};
 use slot_store::{Platform, SlotState};
 use slot_ui::{QuickRow, QUICK_VALUE_MIN_SCALE};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// The two devices' panels: the RG34XX's 3:2, the RGB20SX's square.
-const DEVICES: [(&str, (u32, u32)); 2] = [("rg34xx", (720, 480)), ("rgb20sx", (720, 720))];
+/// The two devices: the RG34XX's 3:2 panel and no sticks, the RGB20SX's square one with
+/// two sticks and their clicks; neither has a lid (as `parts.rs` detects them).
+const DEVICES: [(&str, (u32, u32), Parts); 2] = [
+    (
+        "rg34xx",
+        (720, 480),
+        Parts {
+            left_stick: false,
+            right_stick: false,
+            stick_clicks: false,
+            lid: false,
+        },
+    ),
+    (
+        "rgb20sx",
+        (720, 720),
+        Parts {
+            left_stick: true,
+            right_stick: true,
+            stick_clicks: true,
+            lid: false,
+        },
+    ),
+];
 
 /// Rows that show nothing at their right by design: actions, and read-outs drawn elsewhere.
 const SHOW_NOTHING: [QuickRow; 0] = [];
@@ -204,7 +227,7 @@ impl Walk {
 }
 
 /// One device's menus: the shelf's, then each system's in a game.
-fn walk(device: &str, panel: (u32, u32)) -> (Vec<(String, Walk)>, Vec<String>) {
+fn walk(device: &str, panel: (u32, u32), parts: Parts) -> (Vec<(String, Walk)>, Vec<String>) {
     let mut sections = Vec::new();
     let mut broken = Vec::new();
 
@@ -219,6 +242,7 @@ fn walk(device: &str, panel: (u32, u32)) -> (Vec<(String, Walk)>, Vec<String>) {
     .unwrap();
     let (mut a, _clock) = app_booting_at(d.path(), CLOCK_IS_SET);
     a.set_panel(panel);
+    a.set_parts(parts);
     a.apply(Action::QuickMenu);
     let mut shelf = Walk {
         in_game: false,
@@ -238,6 +262,7 @@ fn walk(device: &str, panel: (u32, u32)) -> (Vec<(String, Walk)>, Vec<String>) {
             platform,
             a.gb_core(),
         ));
+        a.set_parts(parts);
         a.apply(Action::QuickMenu);
         let mut game = Walk {
             in_game: true,
@@ -345,7 +370,7 @@ fn matches_file(name: &str, text: &str) -> Result<(), String> {
 fn the_menu_maps_of_both_devices_are_as_kept() {
     let walks: Vec<_> = DEVICES
         .iter()
-        .map(|(name, panel)| (*name, walk(name, *panel).0))
+        .map(|(name, panel, parts)| (*name, walk(name, *panel, *parts).0))
         .collect();
     let mut wrong = Vec::new();
     for (name, sections) in &walks {
@@ -366,8 +391,8 @@ fn the_menu_maps_of_both_devices_are_as_kept() {
 #[test]
 fn rules_hold_on_every_page_of_both_devices() {
     let mut broken = Vec::new();
-    for (name, panel) in DEVICES {
-        broken.extend(walk(name, panel).1);
+    for (name, panel, parts) in DEVICES {
+        broken.extend(walk(name, panel, parts).1);
     }
     broken.sort();
     broken.dedup();
