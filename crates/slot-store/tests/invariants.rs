@@ -155,7 +155,8 @@ fn a_game_with_its_own_everything_reads_back_as_itself() {
         let mut game = GameSettings::new(platform, "Game");
         let changed = every_field_changed();
         let system = SlotState::default().screen(platform);
-        game.screen.record(&system, &changed.screen(platform));
+        game.screen
+            .record(platform, &system, &changed.screen(platform));
         game.play
             .record(&SlotState::default().play(), &changed.play());
         game.shortcuts.set(Shortcut::SaveState, None);

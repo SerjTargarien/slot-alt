@@ -47,7 +47,7 @@ impl Session {
 }
 
 /// The core's own turn: Portrait draws the WonderSwan held upright, Landscape wide.
-pub(super) const WS_ROTATE: &str = "wswan_rotate_display";
+pub const WS_ROTATE: &str = "wswan_rotate_display";
 
 /// What the WonderSwan's LCD icons say about how the game is held: upright (bit 1, the
 /// vertical icon) or wide (bit 2), or nothing when neither or both are lit.
@@ -59,7 +59,7 @@ pub(super) fn ws_icon_says(icons: u8) -> Option<bool> {
     }
 }
 
-pub(super) fn ws_rotation(portrait: bool) -> &'static str {
+pub fn ws_rotation(portrait: bool) -> &'static str {
     match portrait {
         true => "portrait",
         false => "landscape",

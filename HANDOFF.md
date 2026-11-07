@@ -128,7 +128,14 @@ Done and checked on the device:
   checked; `tools/slotsq/fmt.sh`; names that say what they do. It found and fixed: the
   shortcut pages showing each other's names, Back on the DS Screen page closing the menu,
   a game file unable to keep a palette the model allowed, and the DS's Stretch without
-  shortcuts.
+  shortcuts. A `/code-review` (medium) of it found eight more, all fixed the same day:
+  `fmt.sh` formatting child modules too (now through stdin, one file alone), a stray doc
+  comment from the move, the per-game palette rule decided by system, the option test
+  calling the real turn and Game Boy Player values, the Sprite Limit note kept and
+  tested beside its cores, the generator stopping loudly without an options table, the
+  option test's name, and a test that every shelf row shows a value, which found the
+  Game Gear, Pocket, TurboGrafx-16, WonderSwan and Lynx Stretch rows blank on a 4:3
+  panel (now hidden there).
 - Core options ([design/core-options.md](design/core-options.md)): every core's surveyed;
   the WonderSwan and TurboGrafx-16 palettes and a Sprite Limit row added (its effect not
   yet seen); gpSP at 32 kHz and the Lynx at 60 Hz measured and left as they are; the

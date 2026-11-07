@@ -621,7 +621,7 @@ fn declared() -> serde_json::Map<String, serde_json::Value> {
 }
 
 #[test]
-fn every_option_slot_sets_is_one_its_core_declares() {
+fn every_option_slot_sets_is_in_the_cores_snapshot() {
     // The structure pass: a misspelt option (`Enabled` for `enabled`) is ignored by the
     // core without a word. Every function that tells a core an option runs here over its
     // inputs, and each key and value is checked against what the core declares at its pin.
@@ -688,10 +688,17 @@ fn every_option_slot_sets_is_one_its_core_declares() {
             }
         }
     }
-    // Set from elsewhere: the Game Boy Player, Sunlight, the WonderSwan's turn
-    // (session/ws.rs), the Lynx's turn (core::lynx_rotation), the core palettes.
-    for v in ["ON", "OFF"] {
-        set.push((Core::Mgba, "mgba_force_gbp".into(), v.into()));
+    // Set from elsewhere, through the same functions and values the code uses: the Game
+    // Boy Player, Sunlight, the WonderSwan's turn (session/ws.rs), the Lynx's turn
+    // (core::lynx_rotation), the core palettes.
+    for on in [false, true] {
+        let (k, v) = slot::core::game_boy_player_option(on);
+        set.push((Core::Mgba, k.into(), v.into()));
+        set.push((
+            Core::Cygne,
+            slot::session::WS_ROTATE.into(),
+            slot::session::ws_rotation(on).into(),
+        ));
     }
     for level in 0..=slot_store::SUNLIGHT_MAX {
         set.push((
@@ -700,11 +707,12 @@ fn every_option_slot_sets_is_one_its_core_declares() {
             level.to_string(),
         ));
     }
-    for v in ["portrait", "landscape"] {
-        set.push((Core::Cygne, "wswan_rotate_display".into(), v.into()));
-    }
-    for v in ["auto", "manual", "0", "90", "180", "270"] {
-        set.push((Core::Lynx, "lynx_rot_screen".into(), v.into()));
+    for v in slot::core::LYNX_ROTATIONS {
+        set.push((
+            Core::Lynx,
+            slot::core::LYNX_ROTATION_OPTION.into(),
+            v.into(),
+        ));
     }
     for (platform, core) in [(Platform::Ws, Core::Cygne), (Platform::Tg16, Core::Pce)] {
         let key = slot_store::core_palette::core_palette_option(platform).unwrap();

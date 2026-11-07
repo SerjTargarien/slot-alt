@@ -974,7 +974,7 @@ impl Session {
                 "slot: lynx: lynx_rot_screen={}, {HANDHELD_TURN_OPTION}={}",
                 setup.core_turn, setup.held
             );
-            emu.set_option("lynx_rot_screen", setup.core_turn);
+            emu.set_option(crate::core::LYNX_ROTATION_OPTION, setup.core_turn);
             emu.set_option(HANDHELD_TURN_OPTION, setup.held);
             self.lynx_held = setup.held;
             self.lynx_select = crate::core::lynx_select_toggles(setup.core_turn);
@@ -1036,7 +1036,7 @@ struct Loaded {
 // Slot²'s own part of the session, in a file of its own (the structure pass).
 mod ws;
 
-use ws::{ws_rotation, WS_ROTATE};
+pub use ws::{ws_rotation, WS_ROTATE};
 
 struct Opening {
     join: Option<JoinHandle<Loaded>>,

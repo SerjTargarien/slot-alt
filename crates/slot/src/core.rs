@@ -231,6 +231,11 @@ pub fn game_boy_player(platform: Platform, rom: &Path) -> bool {
         && !slot_store::header_code(rom).is_some_and(|code| code.starts_with('M'))
 }
 
+/// mGBA's Game Boy Player rumble, on or off.
+pub fn game_boy_player_option(on: bool) -> (&'static str, &'static str) {
+    ("mgba_force_gbp", if on { "ON" } else { "OFF" })
+}
+
 pub fn apply_game_boy_player(
     core: &mut dyn RetroCore,
     which: Core,
@@ -239,7 +244,8 @@ pub fn apply_game_boy_player(
 ) {
     if which == Core::Mgba {
         let on = game_boy_player(platform, rom);
-        core.set_option("mgba_force_gbp", if on { "ON" } else { "OFF" });
+        let (key, value) = game_boy_player_option(on);
+        core.set_option(key, value);
     }
 }
 
@@ -301,6 +307,20 @@ pub fn sprite_option(which: Core, limit: bool) -> Option<(&'static str, &'static
         ),
         _ => return None,
     })
+}
+
+/// The shelf's note under Sprite Limit, naming where it works: kept here beside
+/// `sprite_option`, and tested to name every core that has it (`sprite_core_name`).
+pub const SPRITE_LIMIT_NOTE: &str = "Off lessens flicker. Only in gpSP, Game Gear and TG-16.";
+
+/// How the note names a core that lets the sprite limit be lifted.
+pub fn sprite_core_name(which: Core) -> Option<&'static str> {
+    match which {
+        Core::Gpsp => Some("gpSP"),
+        Core::Gearsystem => Some("Game Gear"),
+        Core::Pce => Some("TG-16"),
+        _ => None,
+    }
 }
 
 /// Whether a core lets the sprite limit be lifted.
@@ -399,8 +419,12 @@ fn lynx_title(stem: &str) -> String {
 /// tells the host the handheld is held turned a quarter anticlockwise, which
 /// draws a turned game one quarter less (so it fills the screen) and turns
 /// the pad to match.
+/// Beetle Lynx's option for the way it turns a game, and every value `lynx_rotation` gives it.
+pub const LYNX_ROTATION_OPTION: &str = "lynx_rot_screen";
+pub const LYNX_ROTATIONS: [&str; 6] = ["auto", "manual", "0", "90", "180", "270"];
+
 pub fn lynx_rotation(root: &Path, stem: &str) -> &'static str {
-    const CHOICES: [&str; 6] = ["auto", "manual", "0", "90", "180", "270"];
+    const CHOICES: [&str; 6] = LYNX_ROTATIONS;
     if let Some(asked) = slot_store::ini::value(root, LYNX_ROTATION_FILE, stem) {
         let asked = asked.trim().to_ascii_lowercase();
         if let Some(choice) = CHOICES.iter().find(|c| **c == asked) {
@@ -489,7 +513,7 @@ pub fn apply_core_options(
         // match. The session sets each game's own turn when it starts, from
         // the rotation chosen for it. SELECT is left unused so nothing else
         // can fight it.
-        core.set_option("lynx_rot_screen", "auto");
+        core.set_option(LYNX_ROTATION_OPTION, "auto");
     }
     if which == Core::Gearsystem {
         // No BIOS: Game Gear games boot straight in, and Gearsystem never
@@ -536,6 +560,27 @@ pub fn apply_core_options(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_sprite_limit_note_names_every_core_that_has_it() {
+        for core in Core::ALL {
+            let named = sprite_core_name(core);
+            assert_eq!(named.is_some(), has_sprite_option(core), "{core:?}");
+            if let Some(name) = named {
+                assert!(
+                    SPRITE_LIMIT_NOTE.contains(name),
+                    "the note leaves out {name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_lynx_turn_the_list_names_is_one_lynx_rotation_gives() {
+        for (_, turn) in LYNX_SIDEWAYS {
+            assert!(LYNX_ROTATIONS.contains(&turn), "{turn}");
+        }
+    }
 
     #[test]
     fn trial_options_go_to_the_core_whose_prefix_they_have() {

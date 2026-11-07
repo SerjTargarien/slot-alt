@@ -2304,7 +2304,11 @@ impl App {
             (QuickRow::WsStretch, Platform::Ws),
             (QuickRow::LynxStretch, Platform::Lynx),
         ] {
-            if self.stretch_choices(platform).len() < 2 && !self.tall() {
+            // On a 4:3 panel only the Game Boy's two stretch the picture two ways; the
+            // others always fill the screen there, so their rows had nothing to show
+            // (found by the code review's value test).
+            let fixed = !matches!(platform, Platform::Gb | Platform::Gbc);
+            if !self.tall() && (fixed || self.stretch_choices(platform).len() < 2) {
                 hidden.push(row);
             }
         }

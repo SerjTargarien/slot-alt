@@ -105,7 +105,7 @@ impl App {
         let (now, play) = (self.state.screen(platform), self.state.play());
         self.state = systems;
         if let Some(game) = &mut self.game {
-            game.screen.record(&system, &now);
+            game.screen.record(platform, &system, &now);
             game.play.record(&shelf, &play);
         }
         self.keep_game();
@@ -204,8 +204,6 @@ impl App {
     }
 }
 
-/// Whether a game of this platform can be stretched (the Stretch shortcuts): not the GBA,
-/// whose Scale has its own full screen, nor the DS, which has screen layouts.
 /// Slot²: a setting a game can have its own value for (design/game-overrides.md).
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub(super) enum GameSetting {

@@ -33,12 +33,12 @@ fn only_what_differs_from_the_system_is_the_games_own() {
     now.shader = Shader::Off;
     now.bezel = BezelPick::None;
     let mut own = ScreenOverrides::default();
-    own.record(&system, &now);
+    own.record(Platform::Gb, &system, &now);
     assert_eq!(own.shader, Some(Shader::Off));
     assert_eq!(own.bezel, Some(BezelPick::None));
     assert_eq!((own.scale, own.palette, own.stretched), (None, None, None));
     assert_eq!(own.apply(&system), now);
-    own.record(&system, &system);
+    own.record(Platform::Gb, &system, &system);
     assert_eq!(own, ScreenOverrides::default());
 }
 

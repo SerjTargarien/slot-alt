@@ -1544,7 +1544,7 @@ impl UiFaces {
                 // Slot²: gpSP has no ghosting, so a gpSP game mixes frames instead.
                 quick_description_face(&["Ghosting is unavailable in gpSP. Falls back to mix."]),
                 // Slot²: the cores that let the sprite limit be lifted.
-                quick_description_face(&["Off lessens flicker. Only in gpSP, Game Gear and TG-16."]),
+                quick_description_face(&[crate::core::SPRITE_LIMIT_NOTE]),
             ],
             sockets: slot_store::Core::choices(slot_store::Platform::Gba)
                 .iter()

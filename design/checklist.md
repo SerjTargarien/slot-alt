@@ -64,7 +64,7 @@ fails.
    (a pending value the session sends).
 3. If the option is new to the core (a pin bump, a patch), regenerate the snapshot:
    `python3 -I tools/slotsq/core_options.py` (`cores/options.json`). *Caught by*
-   `core_options::every_option_slot_sets_is_one_its_core_declares` (a misspelt key or
+   `core_options::every_option_slot_sets_is_in_the_cores_snapshot` (a misspelt key or
    value), once the function that sets it runs in that test.
 4. Check it changes live in the core's source (`check_variables` on
    `GET_VARIABLE_UPDATE`), and try it on the device first with `SLOT_CORE_OPTIONS`

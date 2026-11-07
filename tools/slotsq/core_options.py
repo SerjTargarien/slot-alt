@@ -40,6 +40,13 @@ def tokens(src):
             j = src.find("\n", i)
             i = n if j < 0 else j
             continue
+        if c == "'":
+            # A char literal ('"' among them): skipped, so it isn't taken for a string.
+            j = i + 1
+            while j < n and src[j] != "'":
+                j += 2 if src[j] == "\\" else 1
+            i = j + 1
+            continue
         if c == '"':
             j, buf = i + 1, ""
             while j < n and src[j] != '"':
@@ -69,13 +76,18 @@ def tokens(src):
     return out
 
 
-def libretro_options(src):
-    """A libretro_core_options.h's English table: {key: [values]}."""
+def libretro_options(src, whole=True):
+    """A libretro_core_options.h's English table: {key: [values]}. `whole` is a whole
+    header, which must have the table (a patch's added lines needn't)."""
     toks = tokens(src)
     start = next(
         (k for k, (t, v) in enumerate(toks) if t == "w" and v in ("option_defs_us", "option_v2_definitions_us")),
-        0,
+        None,
     )
+    if start is None:
+        if whole:
+            raise SystemExit("no option_defs_us table: read the header and teach this script its name")
+        start = 0
     opts, k = {}, start
     while k < len(toks):
         t, v = toks[k]
@@ -139,7 +151,7 @@ def main():
         # Options Slot²'s own patches add (cores/<core>/*.patch).
         for patch in sorted((REPO / "cores" / core).glob("*.patch")):
             added = "\n".join(l[1:] for l in patch.read_text().splitlines() if l.startswith("+"))
-            table.setdefault(core, {}).update(libretro_options(added))
+            table.setdefault(core, {}).update(libretro_options(added, whole=False))
             table.setdefault(core, {}).update(variables(added))
     OUT.write_text(json.dumps(table, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     for core in sorted(table):

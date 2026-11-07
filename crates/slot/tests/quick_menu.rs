@@ -2281,3 +2281,53 @@ fn every_shelf_row_with_a_value_changes_with_left_and_right() {
         "only {checked} rows were reached: the test checks too little"
     );
 }
+
+#[test]
+fn every_shelf_row_that_sets_something_shows_its_value() {
+    // The code review of the structure pass: `quick_value` ends in a catch-all, so a new
+    // row that forgets its value compiles and shows a blank. Rows whose value is drawn
+    // from an image of its own rather than `quick_value` are named here.
+    let drawn_from_a_face = [
+        QuickRow::GbPalette,
+        QuickRow::WsPalette,
+        QuickRow::Tg16Palette,
+        QuickRow::Wallpaper,
+        QuickRow::GbaBezel,
+        QuickRow::GbBezel,
+        QuickRow::GbcBezel,
+        QuickRow::WsBezel,
+        QuickRow::LynxBezel,
+        QuickRow::GgBezel,
+        QuickRow::NgpBezel,
+        QuickRow::Tg16Bezel,
+        QuickRow::NdsBezel,
+        QuickRow::RaMode,
+        QuickRow::RommStatus,
+        QuickRow::RommPairedServer,
+    ];
+    let in_game = [
+        &QuickRow::PLAY[..],
+        &QuickRow::SETTINGS,
+        &QuickRow::PLAY_SCREEN,
+    ];
+    let (_d, a, _) = on_carousel();
+    let hidden = a.hidden_rows();
+    let mut checked = 0;
+    for row in QuickRow::ALL {
+        if row.opens()
+            || row.binds()
+            || hidden.contains(&row)
+            || drawn_from_a_face.contains(&row)
+            || in_game.iter().any(|p| p.contains(&row))
+        {
+            continue;
+        }
+        assert!(
+            a.quick_value(row).is_some(),
+            "{row:?} shows no value: give it one in App::quick_value, or name it here \
+             if its value is an image of its own"
+        );
+        checked += 1;
+    }
+    assert!(checked >= 40, "only {checked} rows checked");
+}

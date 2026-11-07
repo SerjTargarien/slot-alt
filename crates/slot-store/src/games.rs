@@ -257,9 +257,9 @@ impl ScreenOverrides {
         }
     }
 
-    /// Keeps as the game's own every value of `now` that isn't `system`'s. A value set
-    /// back to the system's follows the system again.
-    pub fn record(&mut self, system: &Screen, now: &Screen) {
+    /// Keeps as the game's own every value of `now` that isn't `system`'s (the screen of
+    /// `platform`). A value set back to the system's follows the system again.
+    pub fn record(&mut self, platform: Platform, system: &Screen, now: &Screen) {
         fn own<T: PartialEq + Clone>(now: &T, system: &T) -> Option<T> {
             (now != system).then(|| now.clone())
         }
@@ -267,9 +267,9 @@ impl ScreenOverrides {
             shader: own(&now.shader, &system.shader),
             colour_correction: own(&now.colour_correction, &system.colour_correction),
             // A system whose palette is its core's has no Game Boy palette of its own
-            // (the file's one `palette=` line is the core's there): found by the
-            // structure pass's round trip.
-            palette: match system.core_palette.is_empty() {
+            // (the file's one `palette=` line is the core's there), decided by the system
+            // as `read` decides it: found by the structure pass's round trip.
+            palette: match core_palettes(platform).is_empty() {
                 true => own(&now.palette, &system.palette),
                 false => None,
             },

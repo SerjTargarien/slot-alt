@@ -11,7 +11,8 @@ cd "$(dirname "$0")/../.."
 . "$HOME/.cargo/env" 2>/dev/null || true
 
 tmp=$(mktemp)
-trap 'rm -f "$tmp"' EXIT
+out=$(mktemp)
+trap 'rm -f "$tmp" "$out"' EXIT
 changed=$( { git diff --name-only HEAD -- '*.rs'; git ls-files --others --exclude-standard -- '*.rs'; } | sort -u)
 for f in $changed; do
 	[ -f "$f" ] || continue
@@ -23,6 +24,12 @@ for f in $changed; do
 		echo "fmt: left alone, unformatted upstream: $f (format your lines by hand)"
 		continue
 	fi
-	rustfmt --edition 2021 "$f"
-	echo "fmt: $f"
+	# Through stdin: rustfmt given a path also formats every `mod x;` the file declares,
+	# so a changed lib.rs would reflow the whole crate (found by the code review).
+	if rustfmt --edition 2021 --emit stdout < "$f" > "$out" 2>/dev/null; then
+		cmp -s "$out" "$f" || cat "$out" > "$f"
+		echo "fmt: $f"
+	else
+		echo "fmt: rustfmt failed on $f, left as it is"
+	fi
 done
