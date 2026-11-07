@@ -53,7 +53,10 @@ impl Hardware {
             cpu_cap: false,
             wifi: true,
             boot_logo: true,
-            self_update: true,
+            // Slot²: off on BaseOS too. The channel is slotPlus's (and BaseOS's): an update
+            // from it replaces Slot² and deletes the files of ours it doesn't list
+            // (design/two-devices.md). A description can still turn it on.
+            self_update: false,
         }
     }
 

@@ -6,7 +6,8 @@ frontend's internals, and the frontend never names the OS or the device. A chang
 anything below changes both sides, so it changes this file too.
 
 Upstream slot assumes BaseOS on Allwinner H700 handhelds. Slot² adds one thing to that
-contract, the device description (`/etc/slot-device`); without it, it behaves as upstream.
+contract, the device description (`/etc/slot-device`); without it, it behaves as upstream
+but for `SELF_UPDATE` (below).
 
 ## The card
 
@@ -58,7 +59,7 @@ key keeps what upstream slot does on BaseOS; a missing file means BaseOS.
 | `CPU_CAP` | `1`: cap the CPU clock to the frame budget | `0` | `1` |
 | `WIFI` | `1`: the frontend runs Wi-Fi | `1` | `1` |
 | `BOOT_LOGO` | `1`: the frontend refreshes BaseOS's boot logo | `1` | `0` |
-| `SELF_UPDATE` | `1`: offer the upstream frontend's updates | `1` | `0` |
+| `SELF_UPDATE` | `1`: offer the upstream frontend's updates (and BaseOS's) | `0` (upstream's is `1`) | `0` |
 
 ## What the OS provides
 

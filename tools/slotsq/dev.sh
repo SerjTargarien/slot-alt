@@ -13,17 +13,27 @@
 #   sh tools/slotsq/dev.sh capture NAME [VAR=x ...]
 #                                                  restart slot with those variables, then shot
 #
-# BASESQ (default root@192.168.1.72) is the device, checked against ~/.ssh/known_hosts_basesq.
+# DEVICE picks the handheld (design/two-devices.md): rgb20sx (the default; Base²,
+# root@192.168.1.72, ~/.ssh/known_hosts_basesq) or rg34xx (BaseOS, root@192.168.1.75,
+# ~/.ssh/known_hosts_rg35xx). BASESQ still names another address. Both start slot again
+# by themselves when it exits, so a restart is the same on both.
 # Restarting slot stops a game in play: be on the shelf first.
 
 set -eu
 
-BASESQ="${BASESQ:-root@192.168.1.72}"
+DEVICE="${DEVICE:-rgb20sx}"
+case "$DEVICE" in
+rgb20sx) BASESQ="${BASESQ:-root@192.168.1.72}" KNOWN="$HOME/.ssh/known_hosts_basesq" ;;
+rg34xx) BASESQ="${BASESQ:-root@192.168.1.75}" KNOWN="$HOME/.ssh/known_hosts_rg35xx" ;;
+*)
+	echo "DEVICE is rgb20sx or rg34xx, not $DEVICE" >&2
+	exit 2
+	;;
+esac
 TARGET=aarch64-unknown-linux-gnu
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$REPO/target/$TARGET/release/slot"
 CARD=/mnt/sdcard
-KNOWN="$HOME/.ssh/known_hosts_basesq"
 
 on_basesq() {
 	ssh -o BatchMode=yes -o UserKnownHostsFile="$KNOWN" "$BASESQ" "$@"
@@ -58,7 +68,14 @@ deploy() {
 		echo "no $BIN: run tools/slotsq/dev.sh build" >&2
 		exit 1
 	}
-	scp -O -q -o UserKnownHostsFile="$KNOWN" "$BIN" "$BASESQ:$CARD/System/slot.new"
+	# Through ssh, not scp: Base² has no SFTP server.
+	on_basesq "cat > $CARD/System/slot.new" < "$BIN"
+	want="$(md5sum < "$BIN" | cut -d' ' -f1)"
+	got="$(on_basesq "md5sum < $CARD/System/slot.new" | cut -d' ' -f1)"
+	[ "$want" = "$got" ] || {
+		echo "the copy on the device differs from the build" >&2
+		exit 1
+	}
 	on_basesq "cd $CARD/System && cp slot slot.prev && mv slot.new slot && sync"
 	restart
 }
@@ -108,7 +125,7 @@ capture)
 	shot "$name"
 	;;
 *)
-	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
 	exit 2
 	;;
 esac

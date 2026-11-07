@@ -35,6 +35,14 @@ fn missing_keys_keep_what_baseos_does() {
     assert!(hw.wifi);
 }
 
+/// Slot²: slotPlus's update channel would replace Slot² (design/two-devices.md), so
+/// BaseOS, which ships no description, doesn't get it either.
+#[test]
+fn baseos_is_never_offered_upstreams_updates() {
+    assert!(!Hardware::baseos().self_update);
+    assert!(Hardware::parse("SELF_UPDATE=1\n").self_update);
+}
+
 #[test]
 fn slot_fn_adc_turns_the_adc_off_or_moves_it() {
     let adc = || Hardware::parse("FN_ADC=/sys/fn\n");

@@ -13,6 +13,15 @@ LOADER="${AGS_LOADER:-/lib/ld-linux-aarch64.so.1}"
 export SLOT_ROOT="$SD"
 export SLOT_RUN="$RUN"
 
+# Slot²: link play on 2.4 GHz channel 6, which every chip has (the RGB20SX's has no 5 GHz),
+# until the channel is a setting (design/two-devices.md, phase 4). A value set wins.
+export AGS_LINK_FREQ="${AGS_LINK_FREQ:-2437}"
+# Slot²: development, as on Base²: a basesq-dev file at the card's root keeps Wi-Fi (and
+# SSH) up in games, and /run/slot.env holds variables for the next start
+# (tools/slotsq/dev.sh restart VAR=x). /run is a tmpfs, so that never survives a reboot.
+[ -f "$SD/basesq-dev" ] && export SLOT_WIFI_KEEP=1
+[ -f "$RUN/slot.env" ] && . "$RUN/slot.env"
+
 mkdir -p "$LOGS" 2>/dev/null
 for f in slot.log slot.log.1 slot-session.log slot-session.log.1 slot-card.log ags-shutdown-trace.log input-trace.log; do
 	[ -f "$SD/$f" ] && mv -f "$SD/$f" "$LOGS/$f"
