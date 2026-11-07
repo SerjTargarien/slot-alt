@@ -61,8 +61,6 @@ pub struct Cable {
     incoming: Vec<u8>,
     complete: bool,
     peer_ready: bool,
-    /// Slot²: the other side is running: a mask past its first frame has come (`quiet`).
-    heard: bool,
 }
 
 impl Cable {
@@ -79,21 +77,7 @@ impl Cable {
             incoming: Vec::new(),
             complete: false,
             peer_ready: player != 0,
-            heard: false,
         }
-    }
-
-    /// Slot²: whether the other side has gone silent: `QUIET_FRAMES` stalls in a row once
-    /// it runs (its masks past its first frame), `START_FRAMES` while the link is still
-    /// starting (the joiner waiting for the host's game, the host for the joiner to load
-    /// it, seconds over 2.4 GHz). Counted from the start, a link ended 3 s in (the RG34XX,
-    /// 2026-11-07); counted from its first mask, 10 s in (2026-11-08).
-    pub fn quiet(&self) -> bool {
-        let limit = match self.heard {
-            true => QUIET_FRAMES,
-            false => START_FRAMES,
-        };
-        self.stalled >= limit
     }
 
     pub fn primed(&self) -> bool {
@@ -154,9 +138,6 @@ impl Cable {
         let Some((frame, mask)) = decode(buf) else {
             return false;
         };
-        // Its first frame's mask comes while it still loads (the joiner, waiting for the
-        // host's game); past that, it runs (2026-11-08).
-        self.heard |= frame > DELAY;
         if frame < self.frame {
             return false;
         }
@@ -189,7 +170,3 @@ impl Cable {
 }
 
 pub const QUIET_FRAMES: u32 = 60;
-
-/// Slot²: how long a link may take to start before the other side counts as gone: 10 s,
-/// twice the slowest start seen over 2.4 GHz once the radio stopped dozing (2026-11-07).
-pub const START_FRAMES: u32 = 60 * 10;

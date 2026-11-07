@@ -151,9 +151,7 @@ fn a_peer_that_never_speaks_stalls_rather_than_guessing() {
     );
     lonely.set_speed(Speed::Normal);
 
-    // Slot²: a peer never heard is given `START_FRAMES` (10 s) to start.
-    let deadline =
-        Instant::now() + Duration::from_secs(u64::from(slot::cable::START_FRAMES / 60) + 5);
+    let deadline = Instant::now() + Duration::from_secs(5);
     while !lonely.link_lost() {
         assert!(
             Instant::now() < deadline,

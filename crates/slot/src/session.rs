@@ -573,8 +573,6 @@ impl Session {
                 self.bridge_link(|app| app.peer_ended());
             } else if self.emu.as_ref().is_some_and(EmuHandle::link_lost) {
                 self.app.peer_lost();
-            } else {
-                self.app.peer_back();
             }
         }
         if let Some(sfx) = self.app.take_sfx() {

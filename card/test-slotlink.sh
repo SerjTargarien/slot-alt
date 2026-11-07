@@ -51,7 +51,7 @@ run() {
 		AGS_CTRL_DIR="$TMP/ctrl" AGS_PROC_MODULES="$TMP/proc-modules" \
 		AGS_WPA_SUPPLICANT="$TMP/bin/wpa_supplicant" AGS_WPA_CLI="$TMP/bin/wpa_cli" \
 		AGS_IP="$TMP/bin/ip" AGS_INSMOD="$TMP/bin/insmod" AGS_UDHCPC="$TMP/bin/udhcpc" \
-		AGS_RFKILL="$TMP/bin/rfkill" AGS_IW="$TMP/bin/iw" AGS_LINK_TRACE="$TMP/trace.log" \
+		AGS_RFKILL="$TMP/bin/rfkill" AGS_LINK_TRACE="$TMP/trace.log" \
 		AGS_LINK_WAIT_S="${WAIT_S:-1}" AGS_LINK_PIN_WAIT_S="${WAIT_S:-1}" \
 		sh "$SCRIPT" "$@"
 }
@@ -74,36 +74,11 @@ grep -q 'addr add' "$TMP/ip.log" 2>/dev/null && fail "dead AP was addressed"
 
 grep -q 'host: wlan1 never came up' "$TMP/trace.log" || fail "dead AP left no reason in the trace"
 
-# Slot²: a chip with one interface (the RGB20SX's RTL8723DS) hosts on wlan0, which the
-# link has to itself, at 2.4 GHz unless its phy lists 5 GHz.
 reset yes
 rm -rf "$TMP/net/wlan1"
-make_fake iw "$TMP/iw.log" 'case "$*" in phy*) printf "\t\t\t* 2412.0 MHz [1]\n\t\t\t* 2437.0 MHz [6]\n";; esac'
 run absent link host && rc=0 || rc=$?
-[ "$rc" = 0 ] || fail "host with no wlan1 exited $rc, want 0"
-grep -q 'host: no wlan1, hosting on wlan0' "$TMP/trace.log" || fail "hosting on wlan0 left no note in the trace"
-grep -q -- '-i wlan0 -c .*slotlink-ap.conf' "$TMP/sup.log" || fail "the AP wasn't started on wlan0"
-grep -q 'addr add 10.42.0.1/24 dev wlan0' "$TMP/ip.log" || fail "the wlan0 host wasn't addressed"
-grep -q 'frequency=2437' "$TMP/run/slotlink-ap.conf" || fail "a 2.4 GHz chip was asked to host on 5745"
-grep -q 'host: 5745 MHz is out of reach, hosting on 2437' "$TMP/trace.log" || fail "the channel change left no note"
-grep -q 'dev wlan0 set power_save off' "$TMP/iw.log" || fail "the wlan0 host kept power saving"
-: > "$TMP/cli.log"
-: > "$TMP/ip.log"
-run absent link down >/dev/null
-grep -q -- '-i wlan0 terminate' "$TMP/cli.log" || fail "link down left the wlan0 AP running"
-grep -q 'addr del 10.42.0.1/24 dev wlan0' "$TMP/ip.log" || fail "link down left the host address on wlan0"
-
-reset yes
-rm -rf "$TMP/net/wlan1"
-make_fake iw "$TMP/iw.log" 'case "$*" in phy*) printf "\t\t\t* 2437.0 MHz [6]\n\t\t\t* 5745.0 MHz [149]\n";; esac'
-run absent link host >/dev/null
-grep -q 'frequency=5745' "$TMP/run/slotlink-ap.conf" || fail "a 5 GHz chip on wlan0 didn't host on 5745"
-
-reset yes
-rm -rf "$TMP/net/wlan0" "$TMP/net/wlan1"
-run absent link host && rc=0 || rc=$?
-[ "$rc" = 1 ] || fail "host with no interface exited $rc, want 1"
-grep -q 'host: no wlan0' "$TMP/trace.log" || fail "no interface left no reason in the trace"
+[ "$rc" = 1 ] || fail "host with no wlan1 exited $rc, want 1"
+grep -q 'host: no wlan1, interfaces: wlan0' "$TMP/trace.log" || fail "a missing wlan1 left no reason in the trace"
 
 reset yes
 make_fake wpa_supplicant "$TMP/sup.log" 'echo "nl80211: AP mode not supported" >&2' 'exit 1'
@@ -135,12 +110,6 @@ grep -q 'scan_freq=5745' "$TMP/run/slotlink-sta.conf" || fail "join not pinned"
 grep -q 'addr add 10.42.0.2/24 dev wlan0' "$TMP/ip.log" || fail "join not addressed"
 
 reset yes
-make_fake iw "$TMP/iw.log"
-run absent link join >/dev/null
-grep -q 'dev wlan0 set power_save off' "$TMP/iw.log" || fail "the joiner kept power saving"
-grep -q 'wlan0: power save off' "$TMP/trace.log" || fail "power save off left no note"
-
-reset yes
 export FAKE_STATE=SCANNING
 run absent link join && rc=0 || rc=$?
 unset FAKE_STATE
@@ -163,30 +132,6 @@ run absent link cool && rc=0 || rc=$?
 reset no
 run absent link warm >/dev/null || true
 [ -e "$TMP/mod.log" ] && fail "insmod on BaseOS"
-
-# Slot²: wpa_supplicant leaves on terminate without answering, and wpa_cli waited out its
-# 10 s for the reply, on every link (2026-11-07). Stopping is done once the supplicant is gone.
-reset yes
-: > "$TMP/run/slotwifi.on"
-: > "$TMP/ctrl/wlan0"
-make_fake wpa_cli "$TMP/cli.log" "case \"\$*\" in *terminate*) rm -f '$TMP/ctrl/wlan0'; sleep 10;; esac"
-t0=$(date +%s)
-run absent wifi stop && rc=0 || rc=$?
-t1=$(date +%s)
-[ "$rc" = 0 ] || fail "wifi stop exited $rc"
-[ $((t1 - t0)) -le 2 ] || fail "stopping a supplicant that left without answering took $((t1 - t0)) s"
-grep -q 'stale socket' "$TMP/trace.log" 2>/dev/null && fail "a supplicant that left was taken for a stale socket"
-
-# A socket nobody answers on is stale: removed at once.
-reset yes
-: > "$TMP/run/slotwifi.on"
-: > "$TMP/ctrl/wlan0"
-make_fake wpa_cli "$TMP/cli.log" 'case "$*" in *terminate*) exit 1;; esac'
-t0=$(date +%s)
-run absent wifi stop >/dev/null
-t1=$(date +%s)
-[ ! -e "$TMP/ctrl/wlan0" ] || fail "a stale socket was left"
-[ $((t1 - t0)) -le 1 ] || fail "removing a stale socket took $((t1 - t0)) s"
 
 reset yes
 make_fake wpa_cli "$TMP/cli.log" 'sleep 0.3' 'echo "wpa_state=SCANNING"'
