@@ -51,7 +51,7 @@ run() {
 		AGS_CTRL_DIR="$TMP/ctrl" AGS_PROC_MODULES="$TMP/proc-modules" \
 		AGS_WPA_SUPPLICANT="$TMP/bin/wpa_supplicant" AGS_WPA_CLI="$TMP/bin/wpa_cli" \
 		AGS_IP="$TMP/bin/ip" AGS_INSMOD="$TMP/bin/insmod" AGS_UDHCPC="$TMP/bin/udhcpc" \
-		AGS_RFKILL="$TMP/bin/rfkill" AGS_LINK_TRACE="$TMP/trace.log" \
+		AGS_RFKILL="$TMP/bin/rfkill" AGS_IW="$TMP/bin/iw" AGS_LINK_TRACE="$TMP/trace.log" \
 		AGS_LINK_WAIT_S="${WAIT_S:-1}" AGS_LINK_PIN_WAIT_S="${WAIT_S:-1}" \
 		sh "$SCRIPT" "$@"
 }
@@ -74,11 +74,35 @@ grep -q 'addr add' "$TMP/ip.log" 2>/dev/null && fail "dead AP was addressed"
 
 grep -q 'host: wlan1 never came up' "$TMP/trace.log" || fail "dead AP left no reason in the trace"
 
+# Slot²: a chip with one interface (the RGB20SX's RTL8723DS) hosts on wlan0, which the
+# link has to itself, at 2.4 GHz unless its phy lists 5 GHz.
 reset yes
 rm -rf "$TMP/net/wlan1"
+make_fake iw "$TMP/iw.log" 'case "$*" in phy*) printf "\t\t\t* 2412.0 MHz [1]\n\t\t\t* 2437.0 MHz [6]\n";; esac'
 run absent link host && rc=0 || rc=$?
-[ "$rc" = 1 ] || fail "host with no wlan1 exited $rc, want 1"
-grep -q 'host: no wlan1, interfaces: wlan0' "$TMP/trace.log" || fail "a missing wlan1 left no reason in the trace"
+[ "$rc" = 0 ] || fail "host with no wlan1 exited $rc, want 0"
+grep -q 'host: no wlan1, hosting on wlan0' "$TMP/trace.log" || fail "hosting on wlan0 left no note in the trace"
+grep -q -- '-i wlan0 -c .*slotlink-ap.conf' "$TMP/sup.log" || fail "the AP wasn't started on wlan0"
+grep -q 'addr add 10.42.0.1/24 dev wlan0' "$TMP/ip.log" || fail "the wlan0 host wasn't addressed"
+grep -q 'frequency=2437' "$TMP/run/slotlink-ap.conf" || fail "a 2.4 GHz chip was asked to host on 5745"
+grep -q 'host: 5745 MHz is out of reach, hosting on 2437' "$TMP/trace.log" || fail "the channel change left no note"
+: > "$TMP/cli.log"
+: > "$TMP/ip.log"
+run absent link down >/dev/null
+grep -q -- '-i wlan0 terminate' "$TMP/cli.log" || fail "link down left the wlan0 AP running"
+grep -q 'addr del 10.42.0.1/24 dev wlan0' "$TMP/ip.log" || fail "link down left the host address on wlan0"
+
+reset yes
+rm -rf "$TMP/net/wlan1"
+make_fake iw "$TMP/iw.log" 'case "$*" in phy*) printf "\t\t\t* 2437.0 MHz [6]\n\t\t\t* 5745.0 MHz [149]\n";; esac'
+run absent link host >/dev/null
+grep -q 'frequency=5745' "$TMP/run/slotlink-ap.conf" || fail "a 5 GHz chip on wlan0 didn't host on 5745"
+
+reset yes
+rm -rf "$TMP/net/wlan0" "$TMP/net/wlan1"
+run absent link host && rc=0 || rc=$?
+[ "$rc" = 1 ] || fail "host with no interface exited $rc, want 1"
+grep -q 'host: no wlan0' "$TMP/trace.log" || fail "no interface left no reason in the trace"
 
 reset yes
 make_fake wpa_supplicant "$TMP/sup.log" 'echo "nl80211: AP mode not supported" >&2' 'exit 1'

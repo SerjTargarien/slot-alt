@@ -21,6 +21,7 @@ WPA_SUPPLICANT="${AGS_WPA_SUPPLICANT:-wpa_supplicant}"
 WPA_CLI="${AGS_WPA_CLI:-wpa_cli}"
 IP="${AGS_IP:-ip}"
 RFKILL="${AGS_RFKILL:-rfkill}"
+IW="${AGS_IW:-iw}"
 UDHCPC="${AGS_UDHCPC:-udhcpc}"
 UPTIME="${AGS_UPTIME:-/proc/uptime}"
 CTRL_DIR="${AGS_CTRL_DIR:-/var/run/wpa_supplicant}"
@@ -108,6 +109,12 @@ supplicant_stop() {
 link_clear() {
 	supplicant_stop "$RUN/wpa_ap" wlan1
 	$IP addr flush dev wlan1 2>/dev/null || true
+	# Slot²: a host on wlan0 (a chip with one interface), as link_host noted.
+	if [ "$(cat "$RUN/slotlink-ap.if" 2>/dev/null)" = wlan0 ]; then
+		supplicant_stop "$RUN/wpa_ap" wlan0
+		$IP addr del "$LINK_HOST_IP" dev wlan0 2>/dev/null || true
+	fi
+	/bin/rm -f "$RUN/slotlink-ap.if"
 	/bin/rm -f "$RUN/slotlink-ap.conf"
 	wifi_stop
 	trace "home Wi-Fi stopped"
@@ -147,10 +154,23 @@ link_host() {
 	trace_attempt "host: asked"
 	link_clear
 	wifi_up
-	wait_dev wlan1 4 || {
-		trace "host: no wlan1, interfaces: $(interfaces)"
-		return 1
-	}
+	# Slot²: a chip with one interface (the RGB20SX's RTL8723DS) has no wlan1 and hosts on
+	# wlan0, which the link has to itself (link_clear stopped home Wi-Fi), at 2.4 GHz
+	# unless its phy lists 5 GHz.
+	ap=wlan1
+	freq="$LINK_FREQ"
+	if ! wait_dev wlan1 4; then
+		[ -d "$NET/wlan0" ] || {
+			trace "host: no wlan0 or wlan1, interfaces: $(interfaces)"
+			return 1
+		}
+		ap=wlan0
+		trace "host: no wlan1, hosting on wlan0"
+		if [ "$freq" -gt 3000 ] && ! $IW phy 2>/dev/null | grep -q ' 5[0-9][0-9][0-9]\.0 MHz'; then
+			trace "host: $freq MHz is out of reach, hosting on 2437"
+			freq=2437
+		fi
+	fi
 	command -v "$WPA_SUPPLICANT" >/dev/null 2>&1 || {
 		trace "host: no wpa_supplicant"
 		return 1
@@ -166,7 +186,7 @@ link_host() {
 		echo 'network={'
 		echo "	ssid=\"$LINK_SSID\""
 		echo '	mode=2'
-		echo "	frequency=$LINK_FREQ"
+		echo "	frequency=$freq"
 		echo '	key_mgmt=WPA-PSK'
 		echo '	proto=RSN'
 		echo '	pairwise=CCMP'
@@ -175,18 +195,19 @@ link_host() {
 	} > "$RUN/slotlink-ap.conf"
 	/bin/chmod 600 "$RUN/slotlink-ap.conf"
 
-	$IP link set wlan1 up 2>/dev/null || true
-	if ! $WPA_SUPPLICANT -B -i wlan1 -c "$RUN/slotlink-ap.conf" -Dnl80211 >"$RUN/slotlink-sup.err" 2>&1; then
+	echo "$ap" > "$RUN/slotlink-ap.if"
+	$IP link set "$ap" up 2>/dev/null || true
+	if ! $WPA_SUPPLICANT -B -i "$ap" -c "$RUN/slotlink-ap.conf" -Dnl80211 >"$RUN/slotlink-sup.err" 2>&1; then
 		trace "host: wpa_supplicant failed: $(tr '\n' ' ' < "$RUN/slotlink-sup.err" | sed 's/ $//')"
 		/bin/rm -f "$RUN/slotlink-sup.err"
 		return 1
 	fi
 	/bin/rm -f "$RUN/slotlink-sup.err"
-	link_wait "$RUN/wpa_ap" wlan1 "$LINK_WAIT_S" 0 "" || {
-		trace "host: wlan1 never came up in ${LINK_WAIT_S}s"
+	link_wait "$RUN/wpa_ap" "$ap" "$LINK_WAIT_S" 0 "" || {
+		trace "host: $ap never came up in ${LINK_WAIT_S}s"
 		return 1
 	}
-	$IP addr add "$LINK_HOST_IP" dev wlan1 2>/dev/null || true
+	$IP addr add "$LINK_HOST_IP" dev "$ap" 2>/dev/null || true
 	trace "host: addressed"
 }
 
