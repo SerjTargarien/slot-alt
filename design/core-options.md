@@ -1,8 +1,8 @@
 # Core options: what each core offers, what Slot² uses
 
 Status: surveyed with the user's ask on 2026-11-06; chosen the same day ("Chosen"). The
-palettes built and checked on the device (2026-11-07); the sprite limit built; the
-measurements not yet (their plan under "Next" below).
+palettes and the sprite limit built and checked on the device, and the two measurements
+made (both stay as they are), on 2026-11-07. The core options work is done.
 
 ## What the user asked for
 
@@ -272,15 +272,33 @@ Color game; RGB against Composite on a TurboGrafx-16 game; the value kept on reo
 
 ### 3. Lynx at 60 Hz and gpSP at 32 kHz, measured
 
-- A way to try a core option without a build: `SLOT_CORE_OPTIONS="key=value;key=value"`
-  in `/run/slot.env` (`tools/slotsq/dev.sh restart VAR=x`), set after Slot²'s own in
-  `apply_core_options`, logged when it is.
-- gpSP: the same game with `gpsp_sound_rate` 65536 and 32768, `SLOT_TRACE_POWER=1`, logs
-  saved with `dev.sh logs NAME` and compared with `tools/slotsq/medians.py` (core ms a
-  frame). Set 32768 if it's cheaper and sounds the same.
-- Lynx: the same game with `lynx_force_60hz` disabled and enabled, judged by the user for
-  smoothness, and checked for speed (a 60 Hz game must not run slow). Set it if it's
-  smoother at the right speed.
+- A way to try a core option without a build (built 2026-11-07):
+  `SLOT_CORE_OPTIONS=key=value,key=value` (commas, no spaces: `dev.sh restart` writes each
+  variable as a shell line, where `;` would end it), `core::trial_options`. Set after
+  Slot²'s own as the core opens, so they win; a core takes only the keys with its own
+  prefix, so one variable carries several cores'; each logged as `slot: core: trying`.
+  `SLOT_TRACE=1` logs the core's frames a second, mean ms a frame and the CPU clock every
+  few seconds (`emu::CoreTrace`).
+### Measured on the device (2026-11-07): both stay as they are
+
+Each run about a minute in the same place, `SLOT_TRACE=1`, logs in `logs/slot-<run>.log`.
+
+| Run | Core time a frame | Frames a second | Audio starved (samples) | The user |
+|---|---|---|---|---|
+| gpSP, Castlevania, 65536 Hz (`gpsp-65536`) | 2.0 ms | 60 | (as usual) | fine |
+| gpSP, 32768 Hz (`gpsp-32768`) | 1.5 to 1.8 ms | 60 | 8,692 | "extremely bad, unplayable" sound |
+| Lynx, Klax, 75 Hz (`lynx-75`) | 1.4 ms | 75 run, 60 shown (one in five not drawn) | 4,780 | felt better |
+| Lynx, forced 60 Hz (`lynx-60`) | 1.3 to 1.5 ms | 60 | ~680,000 | "noticeably slower" |
+
+- **gpSP stays at 65536 Hz.** 32768 saves about 0.3 ms a frame (under 2 %) for sound the
+  user can't play with. mGBA runs GBA games at the same 32768 Hz and sounds right, so
+  Slot²'s audio path is the less likely cause: gpSP's own 32768 mode at our pin is. Upstream
+  made 32768 its default after our pin (#288), possibly with fixes: try again when gpSP
+  is bumped.
+- **The Lynx stays at 75 Hz.** Forced 60 Hz runs the game at 60 frames a second, so 80 %
+  speed (60/75), and its audio starves. Today's 1.25 frames a present keeps the speed.
+- For the audio diagnosis: even the good runs report starved samples (4,780 on the Lynx,
+  the gpSP baseline similar); worth knowing what that count is made of.
 
 ## Candidates
 

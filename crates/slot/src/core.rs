@@ -264,6 +264,27 @@ pub fn blend_option(which: Core, blending: Blending) -> Option<(&'static str, &'
     })
 }
 
+/// Slot²: core options to try without a build (design/core-options.md, "Next"), from
+/// `SLOT_CORE_OPTIONS`: `key=value` pairs, comma-separated, no spaces (`dev.sh restart`
+/// writes each variable as a shell line). Set after Slot²'s own, so they win; a core takes
+/// only the keys with its own prefix, so one variable can carry several cores'.
+pub const TRIAL_OPTIONS_VAR: &str = "SLOT_CORE_OPTIONS";
+
+pub fn trial_options(which: Core) -> Vec<(String, String)> {
+    std::env::var(TRIAL_OPTIONS_VAR)
+        .map(|v| parse_trial_options(which, &v))
+        .unwrap_or_default()
+}
+
+fn parse_trial_options(which: Core, text: &str) -> Vec<(String, String)> {
+    let prefix = format!("{}_", option_prefix(which));
+    text.split(',')
+        .filter_map(|kv| kv.split_once('='))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+        .filter(|(k, v)| k.starts_with(&prefix) && !v.is_empty())
+        .collect()
+}
+
 /// Slot²: the sprite limit as a core takes it (design/core-options.md): on is the
 /// hardware's per-line limit. Each core asks the other way round ("No Sprite Limit"), and
 /// spells it its own way; mGBA, Gambatte and the Beetle cores but PCE Fast have none.
@@ -515,6 +536,24 @@ pub fn apply_core_options(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn trial_options_go_to_the_core_whose_prefix_they_have() {
+        let text = "gpsp_sound_rate=32768,lynx_force_60hz=enabled, bad,pce_fast_palette=";
+        assert_eq!(
+            parse_trial_options(Core::Gpsp, text),
+            [("gpsp_sound_rate".to_string(), "32768".to_string())]
+        );
+        assert_eq!(
+            parse_trial_options(Core::Lynx, text),
+            [("lynx_force_60hz".to_string(), "enabled".to_string())]
+        );
+        assert!(
+            parse_trial_options(Core::Pce, text).is_empty(),
+            "no value, nothing set"
+        );
+        assert!(parse_trial_options(Core::Mgba, text).is_empty());
+    }
 
     #[test]
     fn the_sprite_limit_is_spelled_per_core_and_inverted() {

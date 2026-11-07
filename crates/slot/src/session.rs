@@ -930,6 +930,11 @@ impl Session {
                 if let Some((key, value)) = sprite {
                     opened.core.set_option(key, value);
                 }
+                // Slot²: options being tried on the device, last so they win.
+                for (key, value) in crate::core::trial_options(core) {
+                    eprintln!("slot: core: trying {key}={value}");
+                    opened.core.set_option(&key, &value);
+                }
                 // A WonderSwan Color game draws its own colours; a mono one and every
                 // TurboGrafx-16 game take the system's palette.
                 let core_palette_live = match platform {

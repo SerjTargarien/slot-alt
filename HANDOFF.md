@@ -114,8 +114,11 @@ Done and checked on the device:
 - Cores mapped in [cores/README.md](cores/README.md): slotPlus's v1.14.0-plus2.6 builds,
   but Beetle Cygne, Slot²'s own build since 2026-11-06 (patched for the LCD icons,
   cross-compiled here).
-- Every core's options surveyed ([design/core-options.md](design/core-options.md)), and the
-  shelf's GBA Frame Blending says gpSP has no ghosting (it mixes instead).
+- Core options ([design/core-options.md](design/core-options.md)): every core's surveyed;
+  the WonderSwan and TurboGrafx-16 palettes and a Sprite Limit row added (its effect not
+  yet seen); gpSP at 32 kHz and the Lynx at 60 Hz measured and left as they are; the
+  shelf's GBA Frame Blending says gpSP has no ghosting. `SLOT_CORE_OPTIONS` tries core
+  options without a build.
 
 ## The state now (2026-11-07)
 
@@ -138,16 +141,7 @@ Done and checked on the device:
 The order is decided with the user at the start of a session; see the list below (last
 set on 2026-11-06).
 
-1. **Core options** ([design/core-options.md](design/core-options.md), chosen
-   2026-11-06), in this order:
-   1. The WonderSwan and TurboGrafx-16 palettes, with Palette Back/Next on both through
-      the feature table: built and checked on the device (2026-11-07).
-   2. A Sprite Limit row (Gameplay; gpSP, Gearsystem and PCE Fast have it): built
-      2026-11-07; the rows checked on the device, the effect not yet seen (no game on the
-      card clearly flickers), assumed working until a flickering game tries it.
-   3. Lynx at 60 Hz and gpSP at 32 kHz: a `SLOT_CORE_OPTIONS` variable to try options
-      without a build, then measure on the device and set them if they help.
-2. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
+1. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
    other's names): stop the same fact being kept in several hand-written lists, which is
    how that bug happened. Cheapest first:
    1. Invariant tests, which change no code: every row on exactly one page, each page's
@@ -162,7 +156,7 @@ set on 2026-11-06).
    4. `/code-review` on each diff before a commit.
    Steps 2 and 3 rewrite upstream's code, which makes taking upstream slot's updates
    harder; step 1 doesn't.
-3. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
+2. **Per-frame diet** (measured 2026-11-06 on the device): in a game, the bezel folder is
    listed on the card 3-5 times a frame (~65 us each, empty or not), the wallpaper folder
    once with a file or per-shelf wallpaper (~62 us), and the shortcut list rebuilt (38 us):
    2-3 % of a frame for nothing. Cache the listings (refresh at boot, after the file server
@@ -170,16 +164,17 @@ set on 2026-11-06).
    the game or the context change). In menus it's worse (every system's bezel folder, a
    table per controls row drawn). Separately: the shelf waits for cart faces while
    scrolling. Upstream's code: worth offering upstream.
-4. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
+3. **Audio misbehaves in general** (reported 2026-11-06): to be diagnosed, then fixed. To
    try there: the cores' own filters ([design/core-options.md](design/core-options.md),
-   6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler).
-5. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
+   6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler). Also from there: gpSP
+   at 32768 Hz sounded unplayable, and even good runs report starved samples.
+4. Link play when the second device arrives; our own KMS HDMI (the RGB20SX has
    `HDMI-A-1`); our own U-Boot.
-6. Bezels at Integer and Fit for the new systems.
-7. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
+5. Bezels at Integer and Fit for the new systems.
+6. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
    against today's, timed, before anything else on DS speed
    ([cores/README.md](cores/README.md)).
-8. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
+7. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
    Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
    Gearsystem (3.9.24).
 
