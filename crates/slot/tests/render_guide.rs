@@ -77,7 +77,8 @@ fn guide_frame(panel: (u32, u32), name: &str) -> (Vec<u8>, Canvas) {
     c.fit(panel);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.4);
     for _ in 0..10 {

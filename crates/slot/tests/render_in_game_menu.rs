@@ -78,7 +78,8 @@ fn the_in_game_menu_darkens_the_game_and_screen_leaves_it_bare() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.1);
     let held = composed(&mut f, &mut c, "held");
@@ -167,7 +168,8 @@ fn the_brightness_rows_render_on_the_screen_page() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.5);
     for btn in [Btn::Down, Btn::A, Btn::A] {
@@ -218,7 +220,8 @@ fn deleting_a_state_asks_with_b_to_keep_and_x_to_delete() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     for ev in [
         RawEvent::Down(Btn::Select),
         RawEvent::Down(Btn::R1),
@@ -269,7 +272,8 @@ fn the_controls_page_renders() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.5);
     for btn in [Btn::Down, Btn::A, Btn::Down, Btn::Down, Btn::A] {
@@ -314,7 +318,8 @@ fn a_games_own_value_is_drawn_in_its_own_ink() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.4);
     for btn in [Btn::Down, Btn::A, Btn::A] {
@@ -358,7 +363,8 @@ fn the_in_game_shortcuts_page_renders_the_systems_own_first() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.4);
     for step in [QuickRow::Settings, QuickRow::PlayShortcuts] {
@@ -394,7 +400,8 @@ fn a_games_own_controls_row_renders_in_its_ink() {
     f.upload_faces(&mut c);
     let mut input = Script(VecDeque::new());
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut input, 4.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1.5);
     tap(&mut f, &mut input, Btn::Menu);
     run_for(&mut f, &mut input, 0.4);
     for step in [QuickRow::Settings, QuickRow::PlayControls] {

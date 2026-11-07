@@ -432,7 +432,8 @@ fn link_screen_on(panel: (u32, u32)) -> Option<Vec<u8>> {
     let mut input = Script(VecDeque::new());
     input.0.push_back(vec![RawEvent::Down(Btn::A)]);
     input.0.push_back(vec![RawEvent::Up(Btn::A)]);
-    run_for(&mut f, &mut input, 4_000);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1_500);
     input.0.push_back(vec![RawEvent::Down(Btn::Select)]);
     input.0.push_back(vec![RawEvent::Down(Btn::Menu)]);
     input.0.push_back(vec![RawEvent::Up(Btn::Menu)]);
@@ -632,7 +633,8 @@ fn gb_game_on(name: &str, panel: (u32, u32), scale: slot_store::Scale) -> Option
     let mut input = Script(VecDeque::new());
     input.0.push_back(vec![RawEvent::Down(Btn::A)]);
     input.0.push_back(vec![RawEvent::Up(Btn::A)]);
-    run_for(&mut f, &mut input, 4000);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1_500);
     f.render(&mut c, panel);
     f.render(&mut c, panel);
     let px = c.read_window(panel);
@@ -877,7 +879,8 @@ fn gb_with_bezel_files(
     let mut input = Script(VecDeque::new());
     input.0.push_back(vec![RawEvent::Down(Btn::A)]);
     input.0.push_back(vec![RawEvent::Up(Btn::A)]);
-    run_for(&mut f, &mut input, 3000);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 1_500);
     f.render(&mut c, (640, 480));
     f.render(&mut c, (640, 480));
     let px = c.read_window((640, 480));

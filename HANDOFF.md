@@ -137,8 +137,8 @@ Done and checked on the device:
   are built"). `scp` doesn't work with Base² (no SFTP server): copy files with
   `ssh ... 'cat > path' < file`. The scratchpad in `/tmp` doesn't survive a restart of
   WSL; `vendor/` keeps the pinned sources that were fetched.
-- **Tests:** a few render tests wait on wall time (`render_screenshot`, two
-  `render_native` bezel tests) and can fail in a loaded full run; they pass run again.
+- **Tests:** the render tests that start a game wait for it to be playing rather than a
+  fixed time (2026-11-07); a loaded run no longer fails them.
 
 ## Next, in order
 
@@ -177,9 +177,10 @@ set on 2026-11-06).
    `app/games.rs` (the per-game layer), `app/game_keys.rs` (a game's own shortcut keys),
    `app/core_options.rs` (the core palettes, the sprite limit) and `session/ws.rs`
    (WonderSwan orientation), each an `impl` block of the same type; the DS view stays in
-   `app.rs`, being slotPlus's and ours together. Next, as their own pieces: the render tests
-   that wait on wall-clock time driven by frames instead; and a checked snapshot of the
-   options each core declares, to catch a misspelt option.
+   `app.rs`, being slotPlus's and ours together. The render tests that waited a fixed few
+   seconds for a game to start now wait for it to be playing (`common::until_playing`,
+   a minute at most): two full runs and a run with every core busy passed. Next: a checked
+   snapshot of the options each core declares, to catch a misspelt option.
    3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
       per-game layer, the menus.
    4. `/code-review` on each diff before a commit.

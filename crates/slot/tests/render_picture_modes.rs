@@ -155,7 +155,8 @@ fn l_widens_the_picture_like_a_gba_and_r_gives_back_the_centred_picture() {
     f.advance(&mut input);
     input.0.push_back(vec![RawEvent::Up(Btn::A)]);
     f.advance(&mut input);
-    run_for(&mut f, &mut input, 5.0);
+    common::until_playing(&mut f, &mut input);
+    run_for(&mut f, &mut input, 2.0);
 
     f.compose(&mut c);
     let actual = c.read_frame();

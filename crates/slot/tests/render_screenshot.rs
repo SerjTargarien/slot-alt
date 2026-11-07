@@ -112,7 +112,12 @@ fn a_shot_is_the_screen_without_the_toast_or_the_tint(window: (u32, u32), name: 
     let mut input = Script(VecDeque::new());
     run_for(&mut f, &mut c, &mut input, window, 0.2);
     tap(&mut f, &mut input, Btn::A);
-    run_for(&mut f, &mut c, &mut input, window, 4.0);
+    common::wait_for("the game to start", || {
+        f.advance(&mut input);
+        f.render(&mut c, window);
+        common::playing(&f)
+    });
+    run_for(&mut f, &mut c, &mut input, window, 1.5);
     for _ in 0..20 {
         select_with(&mut f, &mut input, Btn::Right);
     }

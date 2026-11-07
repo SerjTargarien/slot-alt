@@ -685,3 +685,30 @@ pub fn connect(a: &mut App) {
     }
     assert!(a.wifi_up(), "the fake network did not connect");
 }
+
+/// Slot²: steps (`step` returns whether `what` has happened yet) until it has, however
+/// long that takes, a minute at most. The render tests waited a fixed few seconds for a
+/// game to start and failed when a loaded test run took longer (the structure pass).
+pub fn wait_for(what: &str, mut step: impl FnMut() -> bool) {
+    let until = std::time::Instant::now() + Duration::from_secs(60);
+    while !step() {
+        assert!(
+            std::time::Instant::now() < until,
+            "{what} didn't happen within a minute"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// Whether the frontend's game is playing.
+pub fn playing(f: &slot::frontend::Frontend) -> bool {
+    matches!(f.app().phase(), slot::app::Phase::Playing { .. })
+}
+
+/// Advances `f` until the cart put in is playing.
+pub fn until_playing(f: &mut slot::frontend::Frontend, input: &mut dyn slot_input::InputSource) {
+    wait_for("the game to start", || {
+        f.advance(input);
+        playing(f)
+    });
+}
