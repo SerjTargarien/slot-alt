@@ -69,6 +69,7 @@ mod link_start;
 mod link_ui;
 mod loading_mark;
 mod lynx_video;
+mod menu_map;
 mod menu_repeat;
 mod mgba_gb_link;
 mod mgba_link;

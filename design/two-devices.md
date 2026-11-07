@@ -187,6 +187,26 @@ shoulders read L1, L2, R2, R1 too) which keeps the default Fast Forward and Rewi
 WonderSwan games, vertical WonderSwan games opening upright, Scale rows for the added
 systems, menu columns centred on the rows shown.
 
+## Menus on both devices
+
+`crates/slot/tests/menu_map.rs` (2026-11-07) walks every menu the way a player does, on
+both panels (720x480 for the RG34XX, 720x720 for the RGB20SX): the shelf's, and each
+system's in a game. It keeps:
+
+- **A map per device**, `crates/slot/tests/menu-map/rg34xx.txt` and `rgb20sx.txt`: every
+  page, the rows it shows, what each shows. A menu change fails the test until the maps
+  are written again (`SLOT_MENU_MAP=write cargo test -p slot --test tests menu_map`), so
+  it shows as a readable diff.
+- **`differences.txt`**: what one device's menus have that the other's don't, row by row.
+  On 2026-11-07, only Screen rows differ (Scale, Stretch and Bezel, by panel shape).
+- **Rules on every page**: a setting shows something; what it shows fits beside its name
+  (the drawing's own measure, `slot_ui::quick_value_squeeze`); a value changes with Left
+  or Right and goes back. It catches the empty Stretch row found on the RG34XX.
+
+Not covered: what draws as its own picture (clock, wallpaper, Wi-Fi, RomM; marked
+`(its own face)`), rows that need Wi-Fi, a game's own values, and how anything looks. A
+contact sheet of every page per device is a possible later addition.
+
 ## The feature list (phase 2 fills it)
 
 Same / Adapted / Difference, per device. Player-facing only.

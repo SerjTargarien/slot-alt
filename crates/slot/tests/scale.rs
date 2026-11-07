@@ -48,7 +48,7 @@ fn root_for(platform: Platform) -> TempDir {
     }
 }
 
-fn playing(platform: Platform, panel: (u32, u32), state: SlotState) -> (TempDir, App) {
+pub(crate) fn playing(platform: Platform, panel: (u32, u32), state: SlotState) -> (TempDir, App) {
     let d = root_for(platform);
     write_slot_state(
         d.path(),

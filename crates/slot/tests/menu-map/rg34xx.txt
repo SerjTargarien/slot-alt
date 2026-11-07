@@ -1,0 +1,641 @@
+== Shelf
+General >
+  Theme: Dark
+  Wallpaper: (its own face)
+  Recents: Hide
+  Game Titles: Hide
+  Cart Slot: Default
+  Lid Power Off: 1 min
+  Date & Time: (its own face)
+  Wi-Fi: (its own face) >
+    Wi-Fi: On
+    Network: (its own face)
+Screen >
+  General >
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Game Boy Advance >
+    Shader: Grid
+    Color Correction: Off
+    Frame Blending: Off
+  Game Boy Color >
+    Shader: Simpletex
+    Color Correction: Off
+    Frame Blending: Off
+    Bezel: None
+    Scale: Integer
+    Stretch: Classic
+  Game Boy >
+    Shader: Simpletex
+    Color Correction: Off
+    Frame Blending: Off
+    Palette: Auto
+    Bezel: None
+    Scale: Integer
+    Stretch: Classic
+  WonderSwan >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Palette: Grayscale
+  Atari Lynx >
+    Shader: Grid
+    Bezel: None
+    Scale: Integer
+  Game Gear >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+  NeoGeo Pocket >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+  TurboGrafx-16 >
+    Shader: Grid
+    Bezel: None
+    Palette: RGB
+Gameplay >
+  Fast Forward: 6×
+  Fast Forward Sound: Off
+  Rewind: On
+  Rumble: On
+  Sprite Limit: On
+  Load State on Insert: On
+  Save State on Eject: On
+Controls >
+  Shelf >
+    Previous Shelf: L1
+    Next Shelf: R1
+    Favorite: Y
+    Remove Recent: X
+  Shortcuts >
+    General >
+      Save State: SEL+R1
+      Load State: SEL+L1
+      Reset Game: NONE
+      Rewind: L2
+      Fast Forward: R2
+      FF Toggle: NONE
+      Screenshot: SEL+X
+      Guide: NONE
+      Brightness Down: SEL+DOWN
+      Brightness Up: SEL+UP
+      Blue Light Down: SEL+LEFT
+      Blue Light Up: SEL+RIGHT
+      Shader Back: SEL+B
+      Shader Next: SEL+A
+    Game Boy >
+      Color Correction: SEL+Y
+      Palette Back: SEL+L2
+      Palette Next: SEL+R2
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    Game Boy Color >
+      Color Correction: SEL+Y
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    Game Boy Advance >
+      Color Correction: SEL+Y
+      Sunlight Down: NONE
+      Sunlight Up: NONE
+    WonderSwan >
+      Palette Back: NONE
+      Palette Next: NONE
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    Atari Lynx >
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    Game Gear >
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    NeoGeo Pocket >
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+    TurboGrafx-16 >
+      Palette Back: NONE
+      Palette Next: NONE
+      Stretch On: MENU+L1
+      Stretch Off: MENU+R1
+  In-Game >
+    Game Boy >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      A Button: A
+      B Button: B
+      Select: SELECT
+      Start: START
+    Game Boy Color >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      A Button: A
+      B Button: B
+      Select: SELECT
+      Start: START
+    Game Boy Advance >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      A Button: A
+      B Button: B
+      Select: SELECT
+      Start: START
+      L Button: L1
+      R Button: R1
+    WonderSwan >
+      X1: UP · LS UP
+      X2: RIGHT · LS RIGHT
+      X3: DOWN · LS DOWN
+      X4: LEFT · LS LEFT
+      Y1: !RS UP · L2
+      Y2: RS RIGHT · R1
+      Y3: !RS DOWN · R2
+      Y4: RS LEFT · L1
+      A Button: A
+      B Button: B
+      Start: START
+      Rotate: SELECT
+    Atari Lynx >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      A Button: A
+      B Button: B
+      Select: SELECT
+      Pause: START
+      Option 1: L1
+      Option 2: R1
+    Game Gear >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      Button 1: B
+      Button 2: A
+      Start: START
+    NeoGeo Pocket >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      A Button: B
+      B Button: A
+      Option: START
+    TurboGrafx-16 >
+      Up: UP · LS UP
+      Down: DOWN · LS DOWN
+      Left: LEFT · LS LEFT
+      Right: RIGHT · LS RIGHT
+      Button I: A
+      Button II: B
+      Select: SELECT
+      Run: START
+Tools: (opens no page here) >
+About
+
+== In game: Game Boy Advance
+Resume
+Settings >
+  Screen >
+    Shader: Grid
+    Color Correction: Off
+    Frame Blending: Off
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: A
+    B Button: B
+    Select: SELECT
+    Start: START
+    L Button: L1
+    R Button: R1
+  Shortcuts >
+    Color Correction: SEL+Y
+    Sunlight Down: NONE
+    Sunlight Up: NONE
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: Game Boy Advance Video
+Resume
+Settings >
+  Screen >
+    Shader: Grid
+    Color Correction: Off
+    Frame Blending: Off
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: A
+    B Button: B
+    Select: SELECT
+    Start: START
+    L Button: L1
+    R Button: R1
+  Shortcuts >
+    Color Correction: SEL+Y
+    Sunlight Down: NONE
+    Sunlight Up: NONE
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: Game Boy Color
+Resume
+Settings >
+  Screen >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Stretch: Classic
+    Color Correction: Off
+    Frame Blending: Off
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: A
+    B Button: B
+    Select: SELECT
+    Start: START
+  Shortcuts >
+    Color Correction: SEL+Y
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: Game Boy
+Resume
+Settings >
+  Screen >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Stretch: Classic
+    Color Correction: Off
+    Frame Blending: Off
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: A
+    B Button: B
+    Select: SELECT
+    Start: START
+  Shortcuts >
+    Color Correction: SEL+Y
+    Palette Back: SEL+L2
+    Palette Next: SEL+R2
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: WonderSwan
+Resume
+Settings >
+  Screen >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    X1: UP · LS UP
+    X2: RIGHT · LS RIGHT
+    X3: DOWN · LS DOWN
+    X4: LEFT · LS LEFT
+    Y1: !RS UP · L2
+    Y2: RS RIGHT · R1
+    Y3: !RS DOWN · R2
+    Y4: RS LEFT · L1
+    A Button: A
+    B Button: B
+    Start: START
+    Rotate: SELECT
+  Shortcuts >
+    Palette Back: NONE
+    Palette Next: NONE
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: !L2
+    Fast Forward: !R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: Atari Lynx
+Resume
+Settings >
+  Screen >
+    Shader: Grid
+    Bezel: None
+    Scale: Integer
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: A
+    B Button: B
+    Select: SELECT
+    Pause: START
+    Option 1: L1
+    Option 2: R1
+  Shortcuts >
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: Game Gear
+Resume
+Settings >
+  Screen >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Sprite Limit: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    Button 1: B
+    Button 2: A
+    Start: START
+  Shortcuts >
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: NeoGeo Pocket
+Resume
+Settings >
+  Screen >
+    Shader: Simpletex
+    Bezel: None
+    Scale: Integer
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    A Button: B
+    B Button: A
+    Option: START
+  Shortcuts >
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game
+
+== In game: TurboGrafx-16
+Resume
+Settings >
+  Screen >
+    Shader: Grid
+    Bezel: None
+    Brightness: 11
+    Blue Light: Off
+    Saturation: Off
+    Contrast: Off
+  Gameplay >
+    Fast Forward: 6×
+    Fast Forward Sound: Off
+    Rewind: On
+    Rumble: On
+    Sprite Limit: On
+    Load State on Insert: On
+    Save State on Eject: On
+  Controls >
+    Up: UP · LS UP
+    Down: DOWN · LS DOWN
+    Left: LEFT · LS LEFT
+    Right: RIGHT · LS RIGHT
+    Button I: A
+    Button II: B
+    Select: SELECT
+    Run: START
+  Shortcuts >
+    Palette Back: NONE
+    Palette Next: NONE
+    Stretch On: MENU+L1
+    Stretch Off: MENU+R1
+    Save State: SEL+R1
+    Load State: SEL+L1
+    Reset Game: NONE
+    Rewind: L2
+    Fast Forward: R2
+    FF Toggle: NONE
+    Screenshot: SEL+X
+    Guide: NONE
+    Brightness Down: SEL+DOWN
+    Brightness Up: SEL+UP
+    Blue Light Down: SEL+LEFT
+    Blue Light Up: SEL+RIGHT
+    Shader Back: SEL+B
+    Shader Next: SEL+A
+Exit Game

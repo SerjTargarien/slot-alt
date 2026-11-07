@@ -57,6 +57,8 @@ use slot_store::{
 
 // Slot²'s own parts of the app, in files of their own (the structure pass).
 mod core_options;
+mod menu_map;
+pub use menu_map::OWN_FACE;
 mod game_keys;
 mod games;
 

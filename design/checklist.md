@@ -23,6 +23,10 @@ fails.
    `every_shelf_row_with_a_value_changes_with_left_and_right`.
 6. If it's hidden somewhere: `App::hidden_rows` (the shelf) or `App::in_game_hidden`.
 
+7. Run `menu_map`: if the row shows on either device, write the maps again
+   (`SLOT_MENU_MAP=write cargo test -p slot --test tests menu_map`) and read the diff,
+   `differences.txt` included (design/two-devices.md, "Menus on both devices").
+
 ## A setting kept in `slot.state`
 
 1. The field on `SlotState`, its default, the line `write_slot_state` writes and the line

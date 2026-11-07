@@ -1380,6 +1380,23 @@ pub const QUICK_EDGE: f32 = 32.0;
 pub const QUICK_LABEL_X: f32 = 53.0;
 pub const QUICK_VALUE_GAP: f32 = 24.0;
 pub(crate) const VALUE_MIN_SCALE: f32 = 0.6;
+/// Slot²: the least a row's value is squeezed to beside its label (`quick_value_squeeze`).
+pub const QUICK_VALUE_MIN_SCALE: f32 = VALUE_MIN_SCALE;
+
+/// Slot²: the room a row's value has, from the end of its label to the right edge.
+fn value_room(canvas: Canvas, label_end: f32) -> f32 {
+    canvas.w - QUICK_EDGE - label_end - QUICK_VALUE_GAP
+}
+
+/// Slot²: how far a row's value is squeezed to sit beside its label (1.0: not at all), by
+/// the drawing's own measure. Below `QUICK_VALUE_MIN_SCALE` the drawing stops squeezing and
+/// the value runs into the label. The menu's rule tests read it (design/two-devices.md).
+pub fn quick_value_squeeze(canvas: Canvas, label: &str, value: &str) -> f32 {
+    let pad = MENU_PAD as f32;
+    let label_w = quick_text_face(label, MENU_INK).w as f32;
+    let value_w = quick_value_face(value, true).w as f32;
+    value_room(canvas, QUICK_LABEL_X - pad + label_w - pad) / (value_w - 2.0 * pad)
+}
 pub(crate) const POINTER_GAP: f32 = 17.0;
 const POINTER_SCALE: usize = 3;
 const POINTER: [&str; 11] = [
@@ -2104,7 +2121,7 @@ impl QuickMenu<'_> {
             let Some((tex, w, h)) = value else {
                 continue;
             };
-            let room = right - label_end - QUICK_VALUE_GAP;
+            let room = value_room(self.canvas, label_end);
             let s = (room / (w as f32 - 2.0 * pad)).clamp(VALUE_MIN_SCALE, 1.0);
             let (sw, sh) = (w as f32 * s, h as f32 * s);
             let (x, y) = (

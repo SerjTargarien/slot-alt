@@ -1,0 +1,61 @@
+# What the rg34xx's menus and the rgb20sx's differ in (menu_map.rs)
+
+== In game: Atari Lynx
+Settings > Screen > Bezel: rg34xx only
+Settings > Screen > Stretch: rgb20sx only
+
+== In game: Game Boy
+Settings > Screen > Bezel: rg34xx "None", rgb20sx "AGS-102"
+Settings > Screen > Scale: rg34xx "Integer", rgb20sx "SP Screen"
+Settings > Screen > Stretch: rg34xx "Classic", rgb20sx "Off"
+
+== In game: Game Boy Advance
+Settings > Screen > Bezel: rgb20sx only
+Settings > Screen > Scale: rgb20sx only
+
+== In game: Game Boy Advance Video
+Settings > Screen > Bezel: rgb20sx only
+Settings > Screen > Scale: rgb20sx only
+
+== In game: Game Boy Color
+Settings > Screen > Bezel: rg34xx "None", rgb20sx "AGS-102"
+Settings > Screen > Scale: rg34xx "Integer", rgb20sx "SP Screen"
+Settings > Screen > Stretch: rg34xx "Classic", rgb20sx "Off"
+
+== In game: Game Gear
+Settings > Screen > Bezel: rg34xx only
+Settings > Screen > Stretch: rgb20sx only
+
+== In game: NeoGeo Pocket
+Settings > Screen > Bezel: rg34xx only
+Settings > Screen > Stretch: rgb20sx only
+
+== In game: TurboGrafx-16
+Settings > Screen > Bezel: rg34xx only
+Settings > Screen > Scale: rgb20sx only
+Settings > Screen > Stretch: rgb20sx only
+
+== In game: WonderSwan
+Settings > Screen > Bezel: rg34xx only
+Settings > Screen > Stretch: rgb20sx only
+
+== Shelf
+Screen > Atari Lynx > Bezel: rg34xx only
+Screen > Atari Lynx > Stretch: rgb20sx only
+Screen > Game Boy > Bezel: rg34xx "None", rgb20sx "AGS-102"
+Screen > Game Boy > Scale: rg34xx "Integer", rgb20sx "SP Screen"
+Screen > Game Boy > Stretch: rg34xx "Classic", rgb20sx "Off"
+Screen > Game Boy Advance > Bezel: rgb20sx only
+Screen > Game Boy Advance > Scale: rgb20sx only
+Screen > Game Boy Color > Bezel: rg34xx "None", rgb20sx "AGS-102"
+Screen > Game Boy Color > Scale: rg34xx "Integer", rgb20sx "SP Screen"
+Screen > Game Boy Color > Stretch: rg34xx "Classic", rgb20sx "Off"
+Screen > Game Gear > Bezel: rg34xx only
+Screen > Game Gear > Stretch: rgb20sx only
+Screen > NeoGeo Pocket > Bezel: rg34xx only
+Screen > NeoGeo Pocket > Stretch: rgb20sx only
+Screen > TurboGrafx-16 > Bezel: rg34xx only
+Screen > TurboGrafx-16 > Scale: rgb20sx only
+Screen > TurboGrafx-16 > Stretch: rgb20sx only
+Screen > WonderSwan > Bezel: rg34xx only
+Screen > WonderSwan > Stretch: rgb20sx only
