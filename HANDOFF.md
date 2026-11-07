@@ -173,9 +173,11 @@ set on 2026-11-06).
    Also done 2026-11-07: names that no longer said what they did (`palette_label`,
    `shortcuts::feature_of`), two more invariants (every in-game setting the game's own or
    named as every game's; every feature with shortcuts and a system), the checklist, and
-   `tools/slotsq/fmt.sh`. Next, as their own pieces: Slot²'s own code out of `app.rs` into
-   files of its own (the per-game layer, the shortcut pages, WonderSwan orientation, the
-   DS view: `impl App` in `app/*.rs`, upstream's code left where it is); the render tests
+   `tools/slotsq/fmt.sh`. Slot²'s own code out of upstream's files into its own (2026-11-07):
+   `app/games.rs` (the per-game layer), `app/game_keys.rs` (a game's own shortcut keys),
+   `app/core_options.rs` (the core palettes, the sprite limit) and `session/ws.rs`
+   (WonderSwan orientation), each an `impl` block of the same type; the DS view stays in
+   `app.rs`, being slotPlus's and ours together. Next, as their own pieces: the render tests
    that wait on wall-clock time driven by frames instead; and a checked snapshot of the
    options each core declares, to catch a misspelt option.
    3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the

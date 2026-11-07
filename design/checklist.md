@@ -66,6 +66,14 @@ fails.
    `GET_VARIABLE_UPDATE`), and try it on the device first with `SLOT_CORE_OPTIONS`
    (design/core-options.md).
 
+## Where Slot²'s own code goes
+
+New code of Slot²'s own goes in a file of its own beside upstream's, as an `impl` block
+of the same type: `crates/slot/src/app/*.rs` for `App` (`games.rs`, `game_keys.rs`,
+`core_options.rs`), `crates/slot/src/session/*.rs` for `Session` (`ws.rs`). Upstream's
+files then change only where they must call it, which keeps upstream's updates easy to
+take and Slot²'s features easy to lift out.
+
 ## Formatting
 
 `sh tools/slotsq/fmt.sh` formats the changed files that were formatted already, and names
