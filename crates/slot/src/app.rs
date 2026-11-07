@@ -1560,8 +1560,8 @@ impl App {
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
         let platform = self.playing_platform();
-        let no_bezel =
-            (platform.hardware() == Platform::Gba && !self.framed_panel()) || unbezelled(platform);
+        let no_bezel = (platform.hardware() == Platform::Gba && !self.framed_panel())
+            || self.unbezelled(platform);
         let mut hidden = Vec::new();
         // None of the added systems' cores has colour correction to set. Their
         // bezel is None, the SP frame on a 4:3 panel, or a png of the card's own.
@@ -2035,7 +2035,7 @@ impl App {
     }
 
     pub fn shown_game_bezel(&self) -> Option<TexId> {
-        if self.picture_fills() || unbezelled(self.playing_platform()) {
+        if self.picture_fills() || self.unbezelled(self.playing_platform()) {
             return None;
         }
         if self.resolved_bezel(self.playing_platform()) == BezelPick::Default
@@ -2047,7 +2047,7 @@ impl App {
     }
 
     pub fn bezel_art(&self) -> Option<BezelArt> {
-        if self.picture_fills() || unbezelled(self.playing_platform()) {
+        if self.picture_fills() || self.unbezelled(self.playing_platform()) {
             return None;
         }
         let gba = self.playing_platform().hardware() == Platform::Gba;
@@ -2224,13 +2224,17 @@ impl App {
                 Some(platform) => feature_of(s).is_none() || !has(platform, s),
             })
         }));
-        hidden.extend([
-            QuickRow::GgBezel,
-            QuickRow::NgpBezel,
-            QuickRow::Tg16Bezel,
-            QuickRow::WsBezel,
-            QuickRow::LynxBezel,
-        ]);
+        for (row, platform) in [
+            (QuickRow::GgBezel, Platform::Gg),
+            (QuickRow::NgpBezel, Platform::Ngp),
+            (QuickRow::Tg16Bezel, Platform::Tg16),
+            (QuickRow::WsBezel, Platform::Ws),
+            (QuickRow::LynxBezel, Platform::Lynx),
+        ] {
+            if self.unbezelled(platform) {
+                hidden.push(row);
+            }
+        }
         for (row, platform) in [
             (QuickRow::GbaScale, Platform::Gba),
             (QuickRow::GbScale, Platform::Gb),
@@ -5368,6 +5372,16 @@ impl App {
             }
             _ => 0.0,
         }
+    }
+
+    /// Slot²: whether an added system's bezel is left off. Its bezels were drawn for
+    /// slotPlus's fixed picture on a 3:2 panel, where Integer (the default) still puts the
+    /// picture (an RG34XX), so they show there; at Fit, or on a 4:3 or square panel, the
+    /// picture moves and they can't line up, so none is drawn until bezels are made for
+    /// those sizes (HANDOFF.md, Next).
+    fn unbezelled(&self, platform: Platform) -> bool {
+        added_system(platform)
+            && (self.framed_panel() || self.resolved_scale(platform) != Scale::Integer)
     }
 
     fn framed_panel(&self) -> bool {
@@ -12187,9 +12201,8 @@ fn shares_stretch(platform: Platform) -> bool {
     )
 }
 
-/// Slot²: Game Gear and NeoGeo Pocket games scale to Integer or Fit, and no bezel is
-/// made for those sizes yet (slotPlus's were for the old fixed size), so none is drawn.
-fn unbezelled(platform: Platform) -> bool {
+/// slotPlus's added systems, whose bezels were drawn for its fixed picture on a 3:2 panel.
+fn added_system(platform: Platform) -> bool {
     matches!(
         platform,
         Platform::Gg | Platform::Ngp | Platform::Tg16 | Platform::Ws | Platform::Lynx

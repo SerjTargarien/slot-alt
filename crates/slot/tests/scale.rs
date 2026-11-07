@@ -683,3 +683,82 @@ fn a_wonderswan_or_lynx_game_stretches_to_the_whole_square_panel() {
         assert_eq!(a.shown_game_bezel(), None);
     }
 }
+
+/// Slot²: the added systems' bezels were drawn for slotPlus's picture on a 3:2 panel. At
+/// Integer there (the RG34XX) the picture is still where they fit, so they show and can be
+/// picked; at Fit, or on the square panel (the RGB20SX), the picture moves and they're off.
+/// Found on 2026-11-07 when the RG34XX was checked against stock slotPlus.
+#[test]
+fn an_added_systems_bezel_shows_where_its_picture_is_slotpluss() {
+    let bezel_row = [
+        (Platform::Gg, QuickRow::GgBezel),
+        (Platform::Ngp, QuickRow::NgpBezel),
+        (Platform::Tg16, QuickRow::Tg16Bezel),
+        (Platform::Ws, QuickRow::WsBezel),
+        (Platform::Lynx, QuickRow::LynxBezel),
+    ];
+    let mut fits_moved = 0;
+    for (platform, row) in bezel_row {
+        let picked = SlotState {
+            bezel_gg: BezelPick::File("Mine.png".into()),
+            bezel_ngp: BezelPick::File("Mine.png".into()),
+            bezel_tg16: BezelPick::Bundled("TG16".into()),
+            bezel_ws: BezelPick::File("Mine.png".into()),
+            bezel_lynx: BezelPick::File("Mine.png".into()),
+            ..SlotState::default()
+        };
+        let (_d, mut a) = playing(platform, (720, 480), picked.clone());
+        assert!(
+            !a.in_game_hidden().contains(&QuickRow::Bezel),
+            "{platform:?}: 3:2 at Integer"
+        );
+        assert!(
+            !a.hidden_rows().contains(&row),
+            "{platform:?}: the shelf's row"
+        );
+        a.set_game_bezel(Some(TexId::from_raw(77)));
+        assert_eq!(
+            a.shown_game_bezel(),
+            Some(TexId::from_raw(77)),
+            "{platform:?}: drawn"
+        );
+
+        let (_d, mut a) = playing(platform, (720, 720), picked.clone());
+        assert!(
+            a.in_game_hidden().contains(&QuickRow::Bezel),
+            "{platform:?}: square panel"
+        );
+        assert!(
+            a.hidden_rows().contains(&row),
+            "{platform:?}: square panel's shelf"
+        );
+        a.set_game_bezel(Some(TexId::from_raw(77)));
+        assert_eq!(a.shown_game_bezel(), None, "{platform:?}: square panel");
+
+        let fit = SlotState {
+            scale_gg: Scale::Fit,
+            scale_ngp: Scale::Fit,
+            scale_tg16: Scale::Fit,
+            scale_ws: Scale::Fit,
+            scale_lynx: Scale::Fit,
+            ..picked
+        };
+        // Where Fit is Integer's size (a TurboGrafx-16 picture is 512x480 either way), the
+        // picture hasn't moved and the bezel stays.
+        let (_d, mut a) = playing(platform, (720, 480), fit);
+        let moved = a.resolved_scale(platform) != Scale::Integer;
+        fits_moved += usize::from(moved);
+        assert_eq!(
+            a.in_game_hidden().contains(&QuickRow::Bezel),
+            moved,
+            "{platform:?}: 3:2 at Fit"
+        );
+        a.set_game_bezel(Some(TexId::from_raw(77)));
+        assert_eq!(
+            a.shown_game_bezel().is_none(),
+            moved,
+            "{platform:?}: 3:2 at Fit"
+        );
+    }
+    assert!(fits_moved >= 3, "Fit moved only {fits_moved} pictures");
+}

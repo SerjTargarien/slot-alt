@@ -153,6 +153,33 @@ Decisions for the user, then work in this order:
    of its own (design/checklist.md) stays for clarity; the parked split of upstream's
    `app.rs` is no longer blocked.
 
+## Checked against stock slotPlus (2026-11-07)
+
+Our 112 commits since `slotplus/slot-1.14-ultra` (`a61ccfe`) were reviewed for RGB20SX
+changes that reach the RG34XX, then checked on the device. Layout at 720x480, every
+system's default picture size and place, fbdev, HDMI, pacing, audio, CPU clocks, Wi-Fi,
+updates and the card scripts are stock's there (or gated by `/etc/slot-device`, KMS, the
+gamepad layout or the tall canvas). Its LED is driven by stock's `led.sh` through the
+battery driver (`work_led`, `lowpwr_led`); slot's own LED code finds no
+`/sys/class/leds` there, as stock's didn't.
+
+What had slipped in:
+- **The stick gate** (`f5f1586` opens any node with stick axes): `ANBERNIC-keys` reports
+  `ABS_RX`/`RY`/`RZ` at rest 0 on -1..1, and none moved in a 60 s test of every button
+  and the D-pad. Harmless; phase 3 puts the gate back as data.
+- **The added systems' bezels were off everywhere** (made for the square panel). Fixed
+  the same day: they show where the picture is still slotPlus's (a 3:2 panel at
+  Integer), test `scale::an_added_systems_bezel_shows_where_its_picture_is_slotpluss`.
+- **Stretch on an upright WonderSwan or Lynx game** fills 720x480, squashed (checked on
+  the device); stock never stretched upright games. To decide: ignore Stretch while
+  upright, or fill the height only.
+
+Meant for every device, and different from stock on the RG34XX: no turbo (X and Y free),
+the Game Boy's Stretch on MENU+L1/R1, the WonderSwan's second pad on the shoulders (its
+shoulders read L1, L2, R2, R1 too) which keeps the default Fast Forward and Rewind out of
+WonderSwan games, vertical WonderSwan games opening upright, Scale rows for the added
+systems, menu columns centred on the rows shown.
+
 ## The feature list (phase 2 fills it)
 
 Same / Adapted / Difference, per device. Player-facing only.
