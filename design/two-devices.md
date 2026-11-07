@@ -143,8 +143,15 @@ says what it has, and Slot² hides what it hasn't and picks defaults from what i
   doesn't take the setting.
 - The card's shell tests (`card/test-*.sh`) now run with `tools/slotsq/test.sh`.
 
-Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have
-it), and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
+- On the devices after the fix: the RGB20SX hosting and the RG34XX joining held a whole
+  minute with no drop.
+
+**Bug, found by the user (2026-11-07):** when one device ends the link (End Link), the
+other one can't hold MENU to eject the game. To look at first next session (its menu or
+eject path still thinking a link runs, or waiting on the radio).
+
+Left: that bug, the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices
+have it), and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
 
 1. The channel setting (Network page, card-wide): Default, then 2.4 GHz 1, 6, 11, then
    5 GHz 36-48 and 149-165 where the chip has them (RG34XX). Slot² passes it to

@@ -217,7 +217,12 @@ phase 4).
    try there: the cores' own filters ([design/core-options.md](design/core-options.md),
    6: mGBA's and the WonderSwan's low-pass, Gambatte's resampler). Also from there: gpSP
    at 32768 Hz sounded unplayable, and even good runs report starved samples.
-3. **Link play: first link working (2026-11-07).** Tetris on mGBA, the RG34XX (BaseOS
+3. **Link play both ways (2026-11-07; design/two-devices.md, phase 4).** First, the bug
+   the user found at the end of the day: when one device ends the link, the other can't
+   hold MENU to eject the game. Then the channel setting, then Pokémon and Mario Kart.
+   The RGB20SX hosts on wlan0 now, starts are ~8 s faster, and joins no longer drop 3 s
+   in (`f9a2227`). The history:
+   **First link (2026-11-07).** Tetris on mGBA, the RG34XX (BaseOS
    1.4.0, stock slotPlus) hosting on channel 6 and the RGB20SX joining: both play, no
    stalls, a bit of lag on the RG34XX. Two fixes made it work: Base²'s launcher sets
    `AGS_LINK_FREQ=2437` (the join looked on 5745 first, a channel the RTL8723DS can't
