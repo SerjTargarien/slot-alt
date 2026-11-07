@@ -129,29 +129,32 @@ says what it has, and Slot² hides what it hasn't and picks defaults from what i
 
 ### Phase 4: link play both ways
 
-**Progress (2026-11-07):** Tetris links both ways on the devices.
-- **The RGB20SX hosts** on wlan0 when there's no wlan1 (`card/System/slotlink.sh`;
-  Base²'s wpa_supplicant has AP mode), at 2437 if its phy lists no 5 GHz.
-- **Starting took 10 s more than it should** on both devices: `wpa_cli terminate` waited
-  out its 10 s for a reply wpa_supplicant never sends. Now ~2.3 s.
-- **Joins dropped 3 s in** (always the RG34XX joining): upstream's cable counted the
-  wait for the host's game as silence (60 frames, then 2 s) and never cleared "lost".
-  Now silence counts once the other side has been heard (10 s while starting), and a
-  link heard again isn't ended (`Cable::quiet`, `App::peer_back`).
-- The game's state took 14-25 s to send (405 KB at ~16-30 KB/s), now 2.5-5 s. Power
-  saving off on a joining wlan0 (`iw`, where there is one); hosting on wlan0 the chip
-  doesn't take the setting.
-- The card's shell tests (`card/test-*.sh`) now run with `tools/slotsq/test.sh`.
+**Progress, rebuilt step by step (2026-11-08).** Yesterday's link changes (`f9a2227`,
+`dd30214`) made links end about 10 s in and the eject seem stuck (the link had already
+ended, each device playing alone). At the user's request they were reverted
+(`ecaad68`), the baseline checked on the devices (links hold, end, eject), and the
+changes brought back one at a time, each checked on both devices before the next:
+1. **The faster home Wi-Fi stop** (`dc2e9da`): `wpa_cli terminate` waited out its 10 s
+   for a reply wpa_supplicant never sends; the socket is watched instead. 2.26 s.
+2. **The RGB20SX hosts on wlan0** (`dbb8ffb`) when there's no wlan1, at 2437 if its phy
+   lists no 5 GHz.
+3. **Silence counts once the link is armed** (`0866d3a`): both sides hold the game (the
+   joiner restored the state, the host heard its READY), from zero then; 30 s for a start
+   that never arms. Upstream counted the joiner's wait for the game as silence, so a
+   state slower than ~1 s ended links 3 s in. The cable's own READY signal, not guesses
+   from the masks (yesterday's "heard" and "running" rules both misfired).
+After step 3, both directions hold, end from the menu, and eject on both. The state takes
+5-7.5 s to send (405 KB). Not brought back, and not needed so far: clearing "lost" when a
+link recovers, power saving off on a joining wlan0, the card tests in `test.sh`.
 
-- On the devices after the fix: the RGB20SX hosting and the RG34XX joining held a whole
-  minute with no drop.
+The eject "bug" of 2026-11-07 was the link having ended (yesterday's rules), the devices
+playing alone. One refused eject on 2026-11-08 was short holds after a MENU press that
+went down for 60 ms and again 20 ms later (a bounce, or a quick double press: a tap and a
+double tap, the quick menu and the switcher); worth watching on the RG34XX.
 
-**Bug, found by the user (2026-11-07):** when one device ends the link (End Link), the
-other one can't hold MENU to eject the game. To look at first next session (its menu or
-eject path still thinking a link runs, or waiting on the radio).
-
-Left: that bug, the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices
-have it), and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
+Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have it),
+the slow state (5-7.5 s; the RG34XX joins with its driver's deepest power saving, LPS MAX),
+and Pokémon trades (gpSP) and Mario Kart (mGBA). The plan:
 
 1. The channel setting (Network page, card-wide): Default, then 2.4 GHz 1, 6, 11, then
    5 GHz 36-48 and 149-165 where the chip has them (RG34XX). Slot² passes it to
