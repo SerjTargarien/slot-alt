@@ -98,6 +98,21 @@ impl Cable {
 
     pub fn prime(&mut self) {
         self.primed = true;
+        // Slot²: silence counts from the game being in hand (`quiet`).
+        self.stalled = 0;
+    }
+
+    /// Slot² (link step 3): whether the other side has gone silent. Once the link is
+    /// armed (both sides hold the game), `QUIET_FRAMES` stalls in a row from then; before,
+    /// only a start that never arms, after `START_FRAMES`. Upstream counted the joiner's
+    /// wait for the game as silence, and links whose state took 6-16 s to arrive (the
+    /// RGB20SX hosting) ended 3 s in (2026-11-08).
+    pub fn quiet(&self) -> bool {
+        let limit = match self.armed() {
+            true => QUIET_FRAMES,
+            false => START_FRAMES,
+        };
+        self.stalled >= limit
     }
 
     pub fn player(&self) -> u8 {
@@ -122,6 +137,8 @@ impl Cable {
         match buf.first() {
             Some(&KIND_READY) => {
                 self.peer_ready = true;
+                // Slot²: silence counts from the joiner having the game (`quiet`).
+                self.stalled = 0;
                 return true;
             }
             Some(&KIND_STATE) => {
@@ -170,3 +187,7 @@ impl Cable {
 }
 
 pub const QUIET_FRAMES: u32 = 60;
+
+/// Slot²: how long a link may take to arm (both sides holding the game) before it counts
+/// as dead: 30 s, against starts of up to 16 s seen over 2.4 GHz (2026-11-08).
+pub const START_FRAMES: u32 = 60 * 30;

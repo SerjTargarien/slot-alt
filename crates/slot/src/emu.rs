@@ -872,10 +872,7 @@ impl Worker {
                                 None => {
                                     cable_stalls += 1;
                                     c.stall();
-                                    self.shared.link_lost.store(
-                                        c.stalled() >= cable::QUIET_FRAMES,
-                                        Ordering::Relaxed,
-                                    );
+                                    self.shared.link_lost.store(c.quiet(), Ordering::Relaxed);
                                     break;
                                 }
                             }

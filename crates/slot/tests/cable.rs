@@ -215,3 +215,53 @@ fn a_joiner_is_not_armed_until_it_has_restored() {
     join.prime();
     assert!(join.armed(), "the joiner never armed after restoring");
 }
+
+/// Slot² (link step 3): a link is quiet only once it's armed, both sides holding the game
+/// (the joiner restored the host's state, the host heard its READY), counted from then.
+/// Upstream counted the joiner's wait for the game as silence, and links the RGB20SX
+/// hosts, whose state takes 6-16 s to arrive, ended 3 s in (2026-11-08). A start that
+/// never arms ends after `START_FRAMES`.
+#[test]
+fn a_link_is_quiet_only_once_both_sides_have_the_game() {
+    use slot::cable::{ready_packet, QUIET_FRAMES, START_FRAMES};
+    // The joiner, waiting for the game.
+    let mut joiner = Cable::new(1);
+    for _ in 0..QUIET_FRAMES * 10 {
+        joiner.stall();
+    }
+    assert!(!joiner.quiet(), "waiting for the game counted as silence");
+    joiner.prime();
+    assert!(!joiner.quiet(), "the wait carried over into the game");
+    for _ in 0..QUIET_FRAMES - 1 {
+        joiner.stall();
+    }
+    assert!(!joiner.quiet());
+    joiner.stall();
+    assert!(
+        joiner.quiet(),
+        "a running link quiet for {QUIET_FRAMES} frames"
+    );
+
+    // The host, waiting for the joiner to load the game.
+    let mut host = Cable::new(0);
+    for _ in 0..QUIET_FRAMES * 10 {
+        host.stall();
+    }
+    assert!(!host.quiet(), "the joiner loading counted as silence");
+    assert!(host.accept(&ready_packet()));
+    assert!(!host.quiet(), "the wait carried over past READY");
+    for _ in 0..QUIET_FRAMES {
+        host.stall();
+    }
+    assert!(host.quiet());
+
+    // A start that never arms.
+    let mut lonely = Cable::new(0);
+    for _ in 0..START_FRAMES {
+        lonely.stall();
+    }
+    assert!(
+        lonely.quiet(),
+        "a start that never armed kept the link forever"
+    );
+}

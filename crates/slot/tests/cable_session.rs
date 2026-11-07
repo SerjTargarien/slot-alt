@@ -151,7 +151,9 @@ fn a_peer_that_never_speaks_stalls_rather_than_guessing() {
     );
     lonely.set_speed(Speed::Normal);
 
-    let deadline = Instant::now() + Duration::from_secs(5);
+    // Slot² (link step 3): a start that never arms is given `START_FRAMES` (30 s).
+    let deadline =
+        Instant::now() + Duration::from_secs(u64::from(slot::cable::START_FRAMES / 60) + 10);
     while !lonely.link_lost() {
         assert!(
             Instant::now() < deadline,
