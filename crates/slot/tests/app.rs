@@ -2803,3 +2803,64 @@ fn rotate_turns_a_wonderswan_game_and_it_keeps_the_way_it_was_left() {
     tap(&mut s);
     assert_eq!(ws_portrait(d.path(), "Klonoa"), Some(false), "and back");
 }
+
+#[test]
+fn a_mono_wonderswan_game_takes_a_palette_of_its_own_and_a_color_one_none() {
+    let d = root_with_one_cart("WS", "Gunpey.ws");
+    let mut s = session_playing(d.path());
+    assert!(
+        s.app().palette_live(),
+        "a mono game takes the system's palette"
+    );
+    let a = s.app_mut();
+    a.apply(slot_input::Action::QuickMenu);
+    for step in [
+        slot_ui::QuickRow::Settings,
+        slot_ui::QuickRow::PlayScreen,
+        slot_ui::QuickRow::Palette,
+    ] {
+        for _ in 0..16 {
+            if a.in_game_menu() == Some(step) {
+                break;
+            }
+            a.apply(slot_input::Action::GbaDown(Btn::Down));
+            a.apply(slot_input::Action::GbaUp(Btn::Down));
+        }
+        assert_eq!(a.in_game_menu(), Some(step), "never reached {step:?}");
+        if step != slot_ui::QuickRow::Palette {
+            a.apply(slot_input::Action::GbaDown(Btn::A));
+            a.apply(slot_input::Action::GbaUp(Btn::A));
+        }
+    }
+    assert_eq!(a.gb_colors_label(), "Grayscale");
+    a.apply(slot_input::Action::GbaDown(Btn::Right));
+    a.apply(slot_input::Action::GbaUp(Btn::Right));
+    assert_eq!(a.gb_colors_label(), "WonderSwan");
+    assert!(a.game_owns_row(slot_ui::QuickRow::Palette));
+    let own = slot_store::games::read_game(d.path(), Platform::Ws, "Gunpey").screen;
+    assert_eq!(own.core_palette.as_deref(), Some("wonderswan"));
+    assert_eq!(slot_store::read_slot_state(d.path()).palette_ws, "default");
+
+    let d = common::tmp_root_with_gb_carts(&[]);
+    // As on the user's card: a Color game whose footer leaves "minimum system" at 0.
+    std::fs::write(d.path().join("Games/WS/Digimon.wsc"), vec![0u8; 0x10000]).unwrap();
+    let s = session_playing(d.path());
+    assert!(
+        !s.app().palette_live(),
+        "a WonderSwan Color game draws its own colours"
+    );
+}
+
+#[test]
+fn the_palette_shortcut_steps_a_wonderswan_games_own_palette_and_names_it() {
+    let d = root_with_one_cart("WS", "Gunpey.ws");
+    let mut s = session_playing(d.path());
+    s.app_mut().apply(slot_input::Action::PaletteNext);
+    assert_eq!(
+        s.app().toast(),
+        Some(slot_ui::Toast::CorePalette(Platform::Ws, 1))
+    );
+    let own = slot_store::games::read_game(d.path(), Platform::Ws, "Gunpey").screen;
+    assert_eq!(own.core_palette.as_deref(), Some("wonderswan"));
+    assert_eq!(slot_store::read_slot_state(d.path()).palette_ws, "default");
+}

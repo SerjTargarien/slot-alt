@@ -7,9 +7,10 @@ use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
 use slot_store::controls::{inputs, system_key, AllControls, Input, SystemControls};
+use slot_store::core_palette;
 use slot_store::games::{read_game, write_game, GameSettings, PlaySetting, ScreenSetting};
 use slot_store::shortcuts::{
-    has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
+    self, has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
 };
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Blending, Cart,
@@ -610,6 +611,8 @@ pub struct App {
     blending_pending: Option<Blending>,
     palette_live: bool,
     palette_pending: Option<GbColors>,
+    /// Slot²: a palette change for the WonderSwan's or the TurboGrafx-16's core.
+    core_palette_pending: Option<String>,
     sunlight_manual: Option<u8>,
     link_player: Option<u8>,
     platform: Platform,
@@ -1080,6 +1083,7 @@ impl App {
             snapshot: None,
             core: Core::default(),
             colour_pending: None,
+            core_palette_pending: None,
             blending_pending: None,
             palette_live: false,
             palette_pending: None,
@@ -1695,8 +1699,35 @@ impl App {
         Some(ShotDir::new(root, self.platform, cart))
     }
 
+    /// The Palette row's value: the playing system's in a game; on the shelf, the open
+    /// Screen page's system's.
     pub fn gb_colors_label(&self) -> &'static str {
-        self.view().gb_colors().label()
+        let platform = match (self.in_game_menu(), self.quick_menu()) {
+            (Some(_), _) => self.playing_platform(),
+            (None, Some(row)) if row.page().contains(&QuickRow::WsPalette) => Platform::Ws,
+            (None, Some(row)) if row.page().contains(&QuickRow::Tg16Palette) => Platform::Tg16,
+            _ => Platform::Gb,
+        };
+        match core_palette::core_palettes(platform).is_empty() {
+            true => self.view().gb_colors().label(),
+            false => core_palette::core_palette_label(
+                platform,
+                &self.view().screen(platform).core_palette,
+            ),
+        }
+    }
+
+    /// Slot²: the playing system's core palette, as its option and value, if it has one.
+    pub fn core_palette_now(&self, platform: Platform) -> Option<(&'static str, String)> {
+        let key = core_palette::core_palette_option(platform)?;
+        Some((key, self.view().screen(platform).core_palette))
+    }
+
+    /// A palette change for the running core, once.
+    pub fn take_core_palette(&mut self) -> Option<(&'static str, String)> {
+        let value = self.core_palette_pending.take()?;
+        let key = core_palette::core_palette_option(self.playing_platform())?;
+        Some((key, value))
     }
 
     pub fn set_quick_palette_faces(&mut self, dim: (TexId, u32, u32), lit: (TexId, u32, u32)) {
@@ -1743,6 +1774,8 @@ impl App {
             (QuickRow::Stretch, Platform::Lynx) => QuickRow::LynxStretch,
             (QuickRow::Scale, Platform::Nds) => QuickRow::NdsScale,
             (QuickRow::Stretch, Platform::Nds) => QuickRow::NdsStretch,
+            (QuickRow::Palette, Platform::Ws) => QuickRow::WsPalette,
+            (QuickRow::Palette, Platform::Tg16) => QuickRow::Tg16Palette,
             (QuickRow::PlayBrightness, _) => QuickRow::Brightness,
             (QuickRow::PlayBlueLight, _) => QuickRow::BlueLight,
             (QuickRow::PlaySaturation, _) => QuickRow::Saturation,
@@ -1912,6 +1945,8 @@ impl App {
             | QuickRow::PlayGameplay
             | QuickRow::Palette
             | QuickRow::GbPalette
+            | QuickRow::WsPalette
+            | QuickRow::Tg16Palette
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
             | QuickRow::ScreenGb
@@ -2004,6 +2039,7 @@ impl App {
             | QuickRow::ShortcutsGg
             | QuickRow::ShortcutsNgp
             | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsNds
             | QuickRow::ShortcutsWs
             | QuickRow::ShortcutsLynx => None,
         }
@@ -2368,6 +2404,14 @@ impl App {
         } else {
             hidden.push(QuickRow::NdsStretch);
         }
+        // A system with no shortcuts of its own has no page among the shortcut pages.
+        hidden.extend(
+            QuickRow::SHORTCUT_PAGES[1..]
+                .iter()
+                .zip(QuickRow::SHORTCUT_SYSTEMS)
+                .filter(|(_, p)| shortcuts::own(*p).is_empty())
+                .map(|(r, _)| *r),
+        );
         // Every shortcut is on one page: from the shelf it shows the general ones, or
         // the shortcuts one system has of its own.
         hidden.extend(QuickRow::PLAY_SHORTCUTS.into_iter().filter(|r| {
@@ -2997,7 +3041,10 @@ impl App {
                 self.colour_pending = Some(self.colour_correction());
             }
             GameSetting::Screen(ScreenSetting::Palette) => {
-                self.palette_pending = Some(self.gb_colors())
+                match self.core_palette_now(self.playing_platform()) {
+                    Some((_, value)) => self.core_palette_pending = Some(value),
+                    None => self.palette_pending = Some(self.gb_colors()),
+                }
             }
             GameSetting::Screen(ScreenSetting::Blending) => {
                 self.blending_pending = Some(self.blending_in_play())
@@ -3844,7 +3891,8 @@ impl App {
         self.reset_prompt = None;
         let (what, written) = if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
             let platform = self.controls_page();
-            *self.system_shortcuts.get_mut(platform) = SystemShortcuts::from(&self.shortcuts);
+            *self.system_shortcuts.get_mut(platform) =
+                SystemShortcuts::for_system(platform, &self.shortcuts);
             let Some(root) = &self.root else {
                 return;
             };
@@ -3885,8 +3933,9 @@ impl App {
             self.controls_of(platform).row(input)
                 == SystemControls::default_for(platform).row(input)
         } else if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
-            *self.system_shortcuts.get(self.controls_page())
-                == SystemShortcuts::from(&self.shortcuts)
+            let platform = self.controls_page();
+            *self.system_shortcuts.get(platform)
+                == SystemShortcuts::for_system(platform, &self.shortcuts)
         } else if row.shortcut().is_some() {
             let stock = ShortcutKeys::default();
             Shortcut::ALL
@@ -5092,6 +5141,7 @@ impl App {
             | QuickRow::ShortcutsGg
             | QuickRow::ShortcutsNgp
             | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsNds
             | QuickRow::ShortcutsWs
             | QuickRow::ShortcutsLynx => {
                 self.controls_platform = row.shortcut_system().unwrap_or(Platform::Gb);
@@ -5127,6 +5177,8 @@ impl App {
             | QuickRow::Tg16Shader
             | QuickRow::NdsShader
             | QuickRow::GbPalette
+            | QuickRow::WsPalette
+            | QuickRow::Tg16Palette
             | QuickRow::Rumble
             | QuickRow::Theme
             | QuickRow::Recents
@@ -5304,6 +5356,24 @@ impl App {
                 false => now.saturating_sub(1),
             };
             self.set_level(HudKind::BlueLight, to);
+            return;
+        }
+        // Slot²: the WonderSwan's and the TurboGrafx-16's palettes are their cores'.
+        if let QuickRow::WsPalette | QuickRow::Tg16Palette = row {
+            let platform = match row {
+                QuickRow::WsPalette => Platform::Ws,
+                _ => Platform::Tg16,
+            };
+            let to = core_palette::step_core_palette(
+                platform,
+                &self.state.screen(platform).core_palette,
+                right,
+            );
+            let mut screen = self.state.screen(platform);
+            screen.core_palette = to.to_string();
+            self.state.set_screen(platform, &screen);
+            self.core_palette_pending = Some(to.to_string());
+            self.persist();
             return;
         }
         if let QuickRow::Palette | QuickRow::GbPalette = row {
@@ -5579,6 +5649,8 @@ impl App {
             | QuickRow::ColourCorrection
             | QuickRow::Palette
             | QuickRow::GbPalette
+            | QuickRow::WsPalette
+            | QuickRow::Tg16Palette
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
             | QuickRow::ScreenGb
@@ -5695,6 +5767,7 @@ impl App {
             | QuickRow::ShortcutsGg
             | QuickRow::ShortcutsNgp
             | QuickRow::ShortcutsTg16
+            | QuickRow::ShortcutsNds
             | QuickRow::ShortcutsWs
             | QuickRow::ShortcutsLynx
             | QuickRow::LidOff
@@ -5781,6 +5854,20 @@ impl App {
             return true;
         }
         if let Action::PaletteNext | Action::PalettePrev = action {
+            // Slot²: a WonderSwan or TurboGrafx-16 game steps its core's palette, as the
+            // in-game Palette row does, and is told its name.
+            let platform = self.playing_platform();
+            let core = !core_palette::core_palettes(platform).is_empty();
+            if core && self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
+                self.change_setting(QuickRow::Palette, action == Action::PaletteNext);
+                let key = self.view().screen(platform).core_palette;
+                let at = core_palette::core_palettes(platform)
+                    .iter()
+                    .position(|(k, _)| *k == key)
+                    .unwrap_or(0);
+                self.hud.toast(Toast::CorePalette(platform, at as u8), self.now());
+                return true;
+            }
             if self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
                 let to = match action {
                     Action::PalettePrev => self.view().gb_colors().prev(),

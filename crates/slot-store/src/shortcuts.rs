@@ -7,32 +7,33 @@ use std::path::{Path, PathBuf};
 
 use crate::bindings::{Binding, Shortcut, ShortcutKeys};
 use crate::controls::{system_key, SYSTEMS};
+use crate::features::{has_feature, starts_bound, Feature};
 use crate::platform::Platform;
 
 const DIR: &str = "shortcuts";
 
-/// The systems a shortcut belongs to, or `None` for a general one, which every system has.
-pub fn systems_of(shortcut: Shortcut) -> Option<&'static [Platform]> {
-    use Platform::*;
+/// The feature a shortcut drives, or `None` for a general one, which every system has. A
+/// system has a feature's shortcuts when it has the feature (`features::has_feature`).
+pub fn systems_of(shortcut: Shortcut) -> Option<Feature> {
     Some(match shortcut {
-        Shortcut::ColorCorrection => &[Gb, Gbc, Gba, Gbav],
-        Shortcut::PaletteBack | Shortcut::PaletteNext => &[Gb],
-        Shortcut::SunlightUp | Shortcut::SunlightDown => &[Gba, Gbav],
-        Shortcut::StretchOn | Shortcut::StretchOff => &[Gb, Gbc, Gg, Ngp, Tg16, Ws, Lynx],
+        Shortcut::ColorCorrection => Feature::ColourCorrection,
+        Shortcut::PaletteBack | Shortcut::PaletteNext => Feature::Palette,
+        Shortcut::SunlightUp | Shortcut::SunlightDown => Feature::Sunlight,
+        Shortcut::StretchOn | Shortcut::StretchOff => Feature::Stretch,
         _ => return None,
     })
 }
 
-/// Whether a system has a shortcut: every general one, and its own.
+/// Whether a system has a shortcut: every general one, and those of its features.
 pub fn has(platform: Platform, shortcut: Shortcut) -> bool {
-    systems_of(shortcut).is_none_or(|on| on.contains(&platform))
+    systems_of(shortcut).is_none_or(|f| has_feature(platform, f))
 }
 
 /// The shortcuts of a system's own, in the order its page shows them.
 pub fn own(platform: Platform) -> Vec<Shortcut> {
     Shortcut::ALL
         .into_iter()
-        .filter(|s| systems_of(*s).is_some_and(|on| on.contains(&platform)))
+        .filter(|s| systems_of(*s).is_some_and(|f| has_feature(platform, f)))
         .collect()
 }
 
@@ -46,6 +47,18 @@ impl SystemShortcuts {
     /// A system's keys before any of its own are changed: those `shortcuts.txt` has.
     pub fn from(general: &ShortcutKeys) -> SystemShortcuts {
         SystemShortcuts { keys: *general }
+    }
+
+    /// `platform`'s keys before any are changed: those `shortcuts.txt` has, but a feature
+    /// the system gained later starts unbound (`features::starts_bound`).
+    pub fn for_system(platform: Platform, general: &ShortcutKeys) -> SystemShortcuts {
+        let mut keys = SystemShortcuts::from(general);
+        for s in own(platform) {
+            if systems_of(s).is_some_and(|f| !starts_bound(platform, f)) {
+                keys.set(s, None);
+            }
+        }
+        keys
     }
 
     pub fn get(&self, shortcut: Shortcut) -> Option<Binding> {
@@ -77,7 +90,7 @@ pub fn read_system_shortcuts(
     platform: Platform,
     general: &ShortcutKeys,
 ) -> SystemShortcuts {
-    let mut keys = SystemShortcuts::from(general);
+    let mut keys = SystemShortcuts::for_system(platform, general);
     let Ok(text) = std::fs::read_to_string(file(root, platform)) else {
         return keys;
     };
@@ -102,7 +115,7 @@ pub fn write_system_shortcuts(
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let text = keys.text(platform, &SystemShortcuts::from(general));
+    let text = keys.text(platform, &SystemShortcuts::for_system(platform, general));
     crate::atomic::atomic_write(&path, text.as_bytes())
 }
 
@@ -123,7 +136,7 @@ fn at(platform: Platform) -> usize {
 impl AllShortcuts {
     pub fn from(general: &ShortcutKeys) -> AllShortcuts {
         AllShortcuts {
-            sets: SYSTEMS.map(|_| SystemShortcuts::from(general)),
+            sets: SYSTEMS.map(|p| SystemShortcuts::for_system(p, general)),
         }
     }
 

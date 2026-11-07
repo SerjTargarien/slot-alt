@@ -299,6 +299,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             stretched_nds: false,
             nds_layout: "stacked".into(),
             nds_stylus_screen: false,
+            palette_ws: "default".into(),
+            palette_tg16: "RGB".into(),
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,

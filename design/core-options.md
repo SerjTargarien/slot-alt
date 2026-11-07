@@ -231,9 +231,14 @@ Build order: the palettes, then the sprite limit, then the measurements.
   (`slot_store::core_palette`); a game's own is its file's `palette=` line, read as its
   core's palette on these two systems and as a Game Boy palette on the Game Boy.
 - The shelf's WonderSwan and TurboGrafx-16 Screen pages have a Palette row; in a game, the
-  Palette row shows for a mono WonderSwan game (the footer's system byte,
-  `slot_store::ws_color`) and every TurboGrafx-16 game, and sets the game's own, with
-  amber and Y like the rest.
+  Palette row shows for a mono WonderSwan game (a `.ws` file; `slot_store::ws_color` takes
+  `.wsc` for Color, since the footer's "minimum system" byte is 0 on every game on the
+  user's card, Color ones too) and every TurboGrafx-16 game, and sets the game's own,
+  with amber and Y like the rest.
+- Palette Back/Next work on both systems too, through the feature table
+  ([shortcuts.md](shortcuts.md)), unbound until set.
+- Checked on the device on 2026-11-07, but for Dicing Knight (a `.wsc` game) showing the
+  row, fixed by the file test.
 - The core gets it as the game opens, and live when it changes (both cores apply it at
   once: Cygne's mono palette, PCE Fast's per frame).
 

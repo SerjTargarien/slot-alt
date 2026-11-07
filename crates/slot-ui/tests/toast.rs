@@ -92,9 +92,9 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         "the duplicate warnings do not follow the palettes in row order"
     );
     assert_eq!(
-        all[27 + palettes + duplicates..],
+        all[27 + palettes + duplicates..27 + palettes + duplicates + 4],
         (0..4).map(Toast::DsLayout).collect::<Vec<_>>()[..],
-        "the DS layouts come last, in the order SELECT + L2 steps them"
+        "the DS layouts follow, in the order SELECT + L2 steps them, then the cores' palettes"
     );
     for (i, t) in all.iter().enumerate() {
         assert_eq!(t.index(), i, "{t:?} does not answer to its own place");

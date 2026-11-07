@@ -59,6 +59,8 @@ pub enum QuickRow {
     WsScale,
     LynxScale,
     WsStretch,
+    /// Slot²: the WonderSwan's and the TurboGrafx-16's palettes (design/core-options.md).
+    WsPalette,
     LynxStretch,
     ScreenGg,
     GgShader,
@@ -75,6 +77,7 @@ pub enum QuickRow {
     Tg16Bezel,
     Tg16Scale,
     Tg16Stretch,
+    Tg16Palette,
     ScreenNds,
     NdsShader,
     NdsBezel,
@@ -156,11 +159,12 @@ pub enum QuickRow {
     ShortcutsGb,
     ShortcutsGbc,
     ShortcutsGba,
+    ShortcutsWs,
+    ShortcutsLynx,
     ShortcutsGg,
     ShortcutsNgp,
     ShortcutsTg16,
-    ShortcutsWs,
-    ShortcutsLynx,
+    ShortcutsNds,
     ScreenGeneral,
     Brightness,
     BlueLight,
@@ -214,7 +218,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 195] = [
+    pub const ALL: [QuickRow; 198] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -264,6 +268,7 @@ impl QuickRow {
         QuickRow::WsScale,
         QuickRow::LynxScale,
         QuickRow::WsStretch,
+        QuickRow::WsPalette,
         QuickRow::LynxStretch,
         QuickRow::ScreenGg,
         QuickRow::GgShader,
@@ -280,6 +285,7 @@ impl QuickRow {
         QuickRow::Tg16Bezel,
         QuickRow::Tg16Scale,
         QuickRow::Tg16Stretch,
+        QuickRow::Tg16Palette,
         QuickRow::ScreenNds,
         QuickRow::NdsShader,
         QuickRow::NdsBezel,
@@ -361,6 +367,7 @@ impl QuickRow {
         QuickRow::ShortcutsGg,
         QuickRow::ShortcutsNgp,
         QuickRow::ShortcutsTg16,
+        QuickRow::ShortcutsNds,
         QuickRow::ScreenGeneral,
         QuickRow::Brightness,
         QuickRow::BlueLight,
@@ -535,7 +542,7 @@ impl QuickRow {
 
     /// Slot²: General, then the systems with shortcuts of their own, in `SHORTCUT_SYSTEMS`
     /// order.
-    pub const SHORTCUT_PAGES: [QuickRow; 9] = [
+    pub const SHORTCUT_PAGES: [QuickRow; 10] = [
         QuickRow::ShortcutsGeneral,
         QuickRow::ShortcutsGb,
         QuickRow::ShortcutsGbc,
@@ -545,9 +552,10 @@ impl QuickRow {
         QuickRow::ShortcutsGg,
         QuickRow::ShortcutsNgp,
         QuickRow::ShortcutsTg16,
+        QuickRow::ShortcutsNds,
     ];
 
-    pub const SHORTCUT_SYSTEMS: [Platform; 8] = [
+    pub const SHORTCUT_SYSTEMS: [Platform; 9] = [
         Platform::Gb,
         Platform::Gbc,
         Platform::Gba,
@@ -556,6 +564,7 @@ impl QuickRow {
         Platform::Gg,
         Platform::Ngp,
         Platform::Tg16,
+        Platform::Nds,
     ];
 
     /// The shortcuts every system has.
@@ -635,11 +644,12 @@ impl QuickRow {
     /// The WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 cores
     /// have no colour
     /// correction to set, so their pages hold a shader and a bezel.
-    pub const SCREEN_WS: [QuickRow; 4] = [
+    pub const SCREEN_WS: [QuickRow; 5] = [
         QuickRow::WsShader,
         QuickRow::WsBezel,
         QuickRow::WsScale,
         QuickRow::WsStretch,
+        QuickRow::WsPalette,
     ];
 
     pub const SCREEN_LYNX: [QuickRow; 4] = [
@@ -663,11 +673,12 @@ impl QuickRow {
         QuickRow::NgpStretch,
     ];
 
-    pub const SCREEN_TG16: [QuickRow; 4] = [
+    pub const SCREEN_TG16: [QuickRow; 5] = [
         QuickRow::Tg16Shader,
         QuickRow::Tg16Bezel,
         QuickRow::Tg16Scale,
         QuickRow::Tg16Stretch,
+        QuickRow::Tg16Palette,
     ];
     pub const SCREEN_NDS: [QuickRow; 6] = [
         QuickRow::NdsLayout,
@@ -773,9 +784,11 @@ impl QuickRow {
             | QuickRow::PlayBlueLight
             | QuickRow::PlaySaturation
             | QuickRow::PlayContrast => &QuickRow::PLAY_SCREEN,
-            QuickRow::WsShader | QuickRow::WsBezel | QuickRow::WsScale | QuickRow::WsStretch => {
-                &QuickRow::SCREEN_WS
-            }
+            QuickRow::WsShader
+            | QuickRow::WsBezel
+            | QuickRow::WsScale
+            | QuickRow::WsStretch
+            | QuickRow::WsPalette => &QuickRow::SCREEN_WS,
             QuickRow::LynxShader
             | QuickRow::LynxBezel
             | QuickRow::LynxScale
@@ -790,7 +803,8 @@ impl QuickRow {
             QuickRow::Tg16Shader
             | QuickRow::Tg16Bezel
             | QuickRow::Tg16Scale
-            | QuickRow::Tg16Stretch => &QuickRow::SCREEN_TG16,
+            | QuickRow::Tg16Stretch
+            | QuickRow::Tg16Palette => &QuickRow::SCREEN_TG16,
             QuickRow::NdsShader
             | QuickRow::NdsBezel
             | QuickRow::NdsLayout
@@ -1014,7 +1028,7 @@ impl QuickRow {
             QuickRow::AutoLoad => "Load State on Insert",
             QuickRow::EjectSave => "Save State on Eject",
             QuickRow::Rewind => "Rewind",
-            QuickRow::GbPalette => "Palette",
+            QuickRow::GbPalette | QuickRow::WsPalette | QuickRow::Tg16Palette => "Palette",
             QuickRow::Theme => "Theme",
             QuickRow::Wallpaper => "Wallpaper",
             QuickRow::Recents => "Recents",
@@ -1100,6 +1114,7 @@ impl QuickRow {
             QuickRow::ShortcutsGg => "Game Gear",
             QuickRow::ShortcutsNgp => "NeoGeo Pocket",
             QuickRow::ShortcutsTg16 => "TurboGrafx-16",
+            QuickRow::ShortcutsNds => "Nintendo DS",
             QuickRow::ShortcutsWs => "WonderSwan",
             QuickRow::ShortcutsLynx => "Atari Lynx",
             QuickRow::ScSave
@@ -1224,6 +1239,7 @@ impl QuickRow {
                 | QuickRow::ShortcutsGg
                 | QuickRow::ShortcutsNgp
                 | QuickRow::ShortcutsTg16
+                | QuickRow::ShortcutsNds
                 | QuickRow::ShortcutsWs
                 | QuickRow::ShortcutsLynx
                 | QuickRow::PlayControls
@@ -2345,7 +2361,10 @@ impl QuickMenu<'_> {
                 QuickRow::RaPassword => self.achievements[1].map(|c| c[lit as usize]),
                 // Casual is the only mode, so its value stays dim even when lit.
                 QuickRow::RaMode => self.achievements[2].map(|c| c[0]),
-                QuickRow::Palette | QuickRow::GbPalette => self.palette.map(|c| c[lit as usize]),
+                QuickRow::Palette
+                | QuickRow::GbPalette
+                | QuickRow::WsPalette
+                | QuickRow::Tg16Palette => self.palette.map(|c| c[lit as usize]),
                 QuickRow::GbaBezel => self.gba_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbBezel => self.gb_bezel.map(|c| c[lit as usize]),
                 QuickRow::GbcBezel => self.gbc_bezel.map(|c| c[lit as usize]),

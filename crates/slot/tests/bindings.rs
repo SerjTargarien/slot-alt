@@ -505,6 +505,7 @@ fn shortcuts_list_general_then_each_system_with_its_own() {
             QuickRow::ShortcutsGg,
             QuickRow::ShortcutsNgp,
             QuickRow::ShortcutsTg16,
+            QuickRow::ShortcutsNds,
         ]
     );
     for row in QuickRow::SHORTCUTS {
@@ -535,10 +536,58 @@ fn a_system_page_shows_only_its_own_shortcuts_and_back_returns_to_it() {
     tap(&mut s, &mut now, Btn::A);
     assert_eq!(
         QuickRow::ScColour.shown(&s.app().hidden_rows()),
-        vec![QuickRow::ScStretchOn, QuickRow::ScStretchOff],
-        "the WonderSwan's"
+        vec![
+            QuickRow::ScPaletteBack,
+            QuickRow::ScPaletteNext,
+            QuickRow::ScStretchOn,
+            QuickRow::ScStretchOff
+        ],
+        "the WonderSwan's: its palettes and Stretch"
     );
-    assert_eq!(s.app().quick_menu(), Some(QuickRow::ScStretchOn));
+    assert_eq!(s.app().quick_menu(), Some(QuickRow::ScPaletteBack));
+}
+
+#[test]
+fn a_system_gets_a_features_shortcuts_with_the_feature() {
+    use slot_store::features::{has_feature, Feature};
+    use slot_store::shortcuts::own;
+    // Each system's own shortcuts are its features', and a system with none has no page.
+    for platform in Platform::ALL {
+        for s in own(platform) {
+            let f = slot_store::shortcuts::systems_of(s).unwrap();
+            assert!(has_feature(platform, f), "{platform:?} {s:?}");
+        }
+    }
+    assert!(own(Platform::Nds).is_empty());
+    assert!(
+        own(Platform::Tg16).contains(&Shortcut::PaletteNext),
+        "it has palettes"
+    );
+    assert!(!has_feature(Platform::Gba, Feature::Palette));
+    let d = shelf_card();
+    let (s, _) = on_shelf(d.path());
+    assert!(
+        s.app().hidden_rows().contains(&QuickRow::ShortcutsNds),
+        "the DS has no shortcuts of its own, so no page"
+    );
+}
+
+#[test]
+fn a_feature_a_system_gained_later_starts_with_its_shortcuts_unbound() {
+    use slot_store::shortcuts::SystemShortcuts;
+    let general = ShortcutKeys::default();
+    assert!(general.get(Shortcut::PaletteNext).is_some());
+    let gb = SystemShortcuts::for_system(Platform::Gb, &general);
+    let ws = SystemShortcuts::for_system(Platform::Ws, &general);
+    assert_eq!(
+        gb.get(Shortcut::PaletteNext),
+        general.get(Shortcut::PaletteNext)
+    );
+    assert_eq!(ws.get(Shortcut::PaletteNext), None);
+    assert_eq!(
+        ws.get(Shortcut::StretchOn),
+        general.get(Shortcut::StretchOn)
+    );
 }
 
 #[test]

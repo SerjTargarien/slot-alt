@@ -135,7 +135,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_WS.map(QuickRow::label),
-        ["Shader", "Bezel", "Scale", "Stretch"]
+        ["Shader", "Bezel", "Scale", "Stretch", "Palette"]
     );
     assert_eq!(
         QuickRow::SCREEN_LYNX.map(QuickRow::label),
@@ -151,7 +151,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
     );
     assert_eq!(
         QuickRow::SCREEN_TG16.map(QuickRow::label),
-        ["Shader", "Bezel", "Scale", "Stretch"]
+        ["Shader", "Bezel", "Scale", "Stretch", "Palette"]
     );
     assert_eq!(QuickRow::ScreenTg16.label(), "TurboGrafx-16");
     assert_eq!(
@@ -265,6 +265,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ShortcutsGg,
             QuickRow::ShortcutsNgp,
             QuickRow::ShortcutsTg16,
+            QuickRow::ShortcutsNds,
             QuickRow::ScreenGeneral,
             QuickRow::UndoSave,
             QuickRow::UndoLoad,
@@ -877,4 +878,14 @@ fn the_gbas_frame_blending_note_fits_across_the_screen() {
     ]);
     eprintln!("note {} px, the controls' {} px", face.w, widest.w);
     assert!(face.w > 0 && face.w <= slot_ui::OUT_W - 40, "{} px", face.w);
+}
+
+#[test]
+fn every_row_is_at_its_own_place_in_all() {
+    // A row's label and value faces are looked up by its index, from lists built in
+    // `ALL`'s order: a row out of place shows another row's label (as the shortcut pages
+    // did on 2026-11-07, the TurboGrafx-16's name on the WonderSwan's page).
+    for (at, row) in QuickRow::ALL.into_iter().enumerate() {
+        assert_eq!(row.index(), at, "{row:?}");
+    }
 }

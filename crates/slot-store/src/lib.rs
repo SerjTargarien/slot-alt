@@ -14,6 +14,8 @@ mod core;
 pub mod gb;
 pub mod header_index;
 mod gb_palette;
+pub mod core_palette;
+pub mod features;
 pub mod games;
 mod gba;
 mod guides;
@@ -58,5 +60,5 @@ pub use slot_state::{
 pub use stamp::{
     civil_from_days, days_from_civil, days_in_month, format_stamp, parse_stamp, stamp_now,
 };
-pub use ws::ws_vertical;
+pub use ws::{ws_color, ws_vertical};
 pub use zone::Zone;

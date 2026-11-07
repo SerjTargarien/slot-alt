@@ -487,7 +487,11 @@ impl Session {
         // The game says how it is held by lighting the LCD's vertical or horizontal
         // icon; when it says something new, the picture follows. Rotate turns it by hand
         // in between.
-        let said = self.emu.as_ref().and_then(|e| e.lcd_icons()).and_then(ws_icon_says);
+        let said = self
+            .emu
+            .as_ref()
+            .and_then(|e| e.lcd_icons())
+            .and_then(ws_icon_says);
         let told = said.is_some() && said != self.ws_icon_said;
         if said.is_some() {
             self.ws_icon_said = said;
@@ -609,6 +613,12 @@ impl Session {
                 for (key, value) in crate::core::palette_options(self.app.core(), p) {
                     emu.set_option(key, value);
                 }
+                recoloured = true;
+            }
+        }
+        if let Some((key, value)) = self.app.take_core_palette() {
+            if let Some(emu) = &self.emu {
+                emu.set_option(key, &value);
                 recoloured = true;
             }
         }
@@ -828,10 +838,15 @@ impl Session {
             Some(CoreState::Loading) => {}
             Some(CoreState::Ready) => {
                 if let (true, Some(emu)) = (self.app.palette_live(), &self.emu) {
-                    for (key, value) in
-                        crate::core::palette_options(self.app.core(), self.app.gb_colors())
-                    {
-                        emu.set_option(key, value);
+                    match self.app.core_palette_now(self.app.playing_platform()) {
+                        Some((key, value)) => emu.set_option(key, &value),
+                        None => {
+                            for (key, value) in
+                                crate::core::palette_options(self.app.core(), self.app.gb_colors())
+                            {
+                                emu.set_option(key, value);
+                            }
+                        }
                     }
                 }
                 self.app.on_core_ready()
@@ -872,6 +887,9 @@ impl Session {
         let chosen = self.app.gb_colors();
         let colour = self.app.colour_correction_for(platform);
         let blending = self.app.blending_for(platform);
+        // Slot²: the WonderSwan's and the TurboGrafx-16's palette, the game's own or its
+        // system's.
+        let core_palette = self.app.core_palette_now(platform);
         let join = std::thread::Builder::new()
             .name("slot-open".into())
             .spawn(move || {
@@ -899,6 +917,16 @@ impl Session {
                 if platform == Platform::Ws {
                     opened.core.set_option(WS_ROTATE, ws_rotation(ws_portrait));
                 }
+                if let Some((key, value)) = &core_palette {
+                    opened.core.set_option(key, value);
+                }
+                // A WonderSwan Color game draws its own colours; a mono one and every
+                // TurboGrafx-16 game take the system's palette.
+                let core_palette_live = match platform {
+                    Platform::Ws => !slot_store::ws_color(&rom),
+                    Platform::Tg16 => true,
+                    _ => false,
+                };
                 let lynx_turn = (platform == Platform::Lynx)
                     .then(|| crate::hold_picker::lynx_setup(&root, &stem));
                 Loaded {
@@ -906,7 +934,7 @@ impl Session {
                     rom,
                     platform,
                     player,
-                    palette_live: palette.is_some(),
+                    palette_live: palette.is_some() || core_palette_live,
                     sav,
                     resume,
                     ws_vertical,
@@ -1079,7 +1107,11 @@ mod ws_icon_tests {
     fn the_lcds_icons_say_upright_or_wide_or_nothing() {
         assert_eq!(ws_icon_says(0b010), Some(true), "the vertical icon");
         assert_eq!(ws_icon_says(0b100), Some(false), "the horizontal icon");
-        assert_eq!(ws_icon_says(0b111_011), Some(true), "the dots and sleep don't count");
+        assert_eq!(
+            ws_icon_says(0b111_011),
+            Some(true),
+            "the dots and sleep don't count"
+        );
         assert_eq!(ws_icon_says(0), None);
         assert_eq!(ws_icon_says(0b110), None, "both lit says nothing");
     }

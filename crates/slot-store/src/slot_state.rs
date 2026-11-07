@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::atomic::atomic_write;
 use crate::core::Core;
+use crate::core_palette::core_palette;
 use crate::gb_palette::{GbColors, GbPalette};
 use crate::platform::Platform;
 use crate::zone::Zone;
@@ -435,6 +436,10 @@ pub struct SlotState {
     /// name slot gives it (`stacked`, `single`, `below`, `corner`).
     pub scale_nds: Scale,
     pub stretched_nds: bool,
+    /// Slot²: the WonderSwan's mono palette and the TurboGrafx-16's, as their cores spell
+    /// them (`core_palette`).
+    pub palette_ws: String,
+    pub palette_tg16: String,
     pub nds_layout: String,
     /// Slot²: whether moving the stylus brings the DS's touch screen up, for a game that
     /// hasn't chosen.
@@ -669,6 +674,8 @@ impl Default for SlotState {
             stretched_nds: false,
             nds_layout: "stacked".into(),
             nds_stylus_screen: false,
+            palette_ws: crate::core_palette::WS_PALETTES[0].0.to_string(),
+            palette_tg16: crate::core_palette::TG16_PALETTES[0].0.to_string(),
             blending_gba: Blending::Off,
             blending_gb: Blending::Off,
             blending_gbc: Blending::Off,
@@ -782,6 +789,10 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         text.push_str(&format!("lid_off_min={min}\n"));
     }
     text.push_str(&format!("bezel_gba={}\n", s.bezel_gba.key()));
+    text.push_str(&format!(
+        "palette_ws={}\npalette_tg16={}\n",
+        s.palette_ws, s.palette_tg16
+    ));
     text.push_str(&format!("bezel_gb={}\n", s.bezel_gb.key()));
     text.push_str(&format!("bezel_gbc={}\n", s.bezel_gbc.key()));
     text.push_str(&format!("bezel_ws={}\n", s.bezel_ws.key()));
@@ -810,7 +821,10 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("scale_nds={}\n", s.scale_nds.name()));
     text.push_str(&format!("stretched_nds={}\n", s.stretched_nds as u8));
     text.push_str(&format!("nds_layout={}\n", s.nds_layout));
-    text.push_str(&format!("nds_stylus_screen={}\n", s.nds_stylus_screen as u8));
+    text.push_str(&format!(
+        "nds_stylus_screen={}\n",
+        s.nds_stylus_screen as u8
+    ));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -906,6 +920,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut nds_stylus_screen = None;
     let mut stretched_lynx = None;
     let mut blending_gba = None;
+    let (mut palette_ws, mut palette_tg16) = (None, None);
     let mut blending_gb = None;
     let mut blending_gbc = None;
     let mut shelf = None;
@@ -984,6 +999,8 @@ fn parse(text: &str) -> Option<SlotState> {
             "nds_layout" => nds_layout = Some(value.trim().to_string()).filter(|v| !v.is_empty()),
             "stretched_lynx" => stretched_lynx = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
+            "palette_ws" => palette_ws = Some(core_palette(Platform::Ws, value).to_string()),
+            "palette_tg16" => palette_tg16 = Some(core_palette(Platform::Tg16, value).to_string()),
             "blending_gb" => blending_gb = Blending::parse(value),
             "blending_gbc" => blending_gbc = Blending::parse(value),
             "shelf" => shelf = Some(value.to_string()).filter(|v| !v.is_empty()),
@@ -1099,6 +1116,8 @@ fn parse(text: &str) -> Option<SlotState> {
         nds_layout: nds_layout.unwrap_or(fallback.nds_layout),
         stretched_lynx: stretched_lynx.unwrap_or(fallback.stretched_lynx),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),
+        palette_ws: palette_ws.unwrap_or(fallback.palette_ws),
+        palette_tg16: palette_tg16.unwrap_or(fallback.palette_tg16),
         blending_gb: blending_gb.unwrap_or(fallback.blending_gb),
         blending_gbc: blending_gbc.unwrap_or(fallback.blending_gbc),
         recents: Vec::new(),

@@ -54,6 +54,29 @@ The rule adds no input lag: the list of shortcuts was already rebuilt every fram
   system's.
 - Sunlight ships unbound.
 
+## Shortcuts follow a system's features (2026-11-07)
+
+Found by the user: a system feature added later (the WonderSwan's and the TurboGrafx-16's
+palettes) didn't bring its shortcuts, because the systems of each shortcut and the
+shortcut pages were lists written by hand.
+
+- `slot_store::features` says what each system can do that a shortcut drives (colour
+  correction, palettes, stretch, sunlight), from the same facts the Screen rows use. A
+  shortcut belongs to a feature (`shortcuts::systems_of`), and a system has it when it has
+  the feature.
+- Controls > Shortcuts has a page for every system, the DS's too; a system with no
+  shortcuts of its own has its page hidden. A system that gains a feature shows its page
+  and the feature's rows with no change to the menu.
+- A system's keys start from `shortcuts.txt`'s, but a feature a system gained later
+  starts unbound there (`features::starts_bound`): the WonderSwan's and the
+  TurboGrafx-16's Palette Back/Next.
+- Palette Back/Next in a WonderSwan (mono) or TurboGrafx-16 game step the game's own
+  palette, as the in-game Palette row does, and the toast names it.
+- Found on the device the same day: the system pages showed each other's names (the
+  WonderSwan's page was labelled TurboGrafx-16, the Game Gear's WonderSwan). Reordering
+  the pages on 2026-11-06 had moved them in `QuickRow::ALL` but not in the enum, and a
+  row's label is found by its enum place. Fixed, and a test now checks every row's place.
+
 ## 3. Per game (built)
 
 - A fourth row of the in-game Settings (Screen, Gameplay, Controls, Shortcuts) opens one

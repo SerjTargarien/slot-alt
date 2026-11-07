@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::bindings::{Binding, Shortcut};
 use crate::controls::{inputs, parse_row, row_text, system_key, Input, Row, SystemControls};
+use crate::core_palette::core_palettes;
 use crate::gb_palette::{GbColors, GbPalette};
 use crate::platform::Platform;
 use crate::slot_state::{
@@ -22,6 +23,9 @@ pub struct Screen {
     pub colour_correction: bool,
     /// The Game Boy's colours: one value for every system in `slot.state`.
     pub palette: GbColors,
+    /// The palette the WonderSwan's or the TurboGrafx-16's core draws in
+    /// (`core_palette`); empty for other systems.
+    pub core_palette: String,
     pub bezel: BezelPick,
     pub scale: Scale,
     pub stretch: Stretch,
@@ -53,6 +57,11 @@ impl SlotState {
                 _ => false,
             },
             palette: s.gb_colors(),
+            core_palette: match platform {
+                Ws => s.palette_ws.clone(),
+                Tg16 => s.palette_tg16.clone(),
+                _ => String::new(),
+            },
             bezel: match platform {
                 Gba | Gbav => s.bezel_gba.clone(),
                 Gb => s.bezel_gb.clone(),
@@ -122,6 +131,11 @@ impl SlotState {
             _ => {}
         }
         s.set_gb_colors(to.palette);
+        match platform {
+            Ws => s.palette_ws = to.core_palette.clone(),
+            Tg16 => s.palette_tg16 = to.core_palette.clone(),
+            _ => {}
+        }
         let bezel = match platform {
             Gba | Gbav => &mut s.bezel_gba,
             Gb => &mut s.bezel_gb,
@@ -216,6 +230,7 @@ pub struct ScreenOverrides {
     pub shader: Option<Shader>,
     pub colour_correction: Option<bool>,
     pub palette: Option<GbColors>,
+    pub core_palette: Option<String>,
     pub bezel: Option<BezelPick>,
     pub scale: Option<Scale>,
     pub stretch: Option<Stretch>,
@@ -230,6 +245,10 @@ impl ScreenOverrides {
             shader: self.shader.unwrap_or(system.shader),
             colour_correction: self.colour_correction.unwrap_or(system.colour_correction),
             palette: self.palette.unwrap_or(system.palette),
+            core_palette: self
+                .core_palette
+                .clone()
+                .unwrap_or_else(|| system.core_palette.clone()),
             bezel: self.bezel.clone().unwrap_or_else(|| system.bezel.clone()),
             scale: self.scale.unwrap_or(system.scale),
             stretch: self.stretch.unwrap_or(system.stretch),
@@ -248,6 +267,7 @@ impl ScreenOverrides {
             shader: own(&now.shader, &system.shader),
             colour_correction: own(&now.colour_correction, &system.colour_correction),
             palette: own(&now.palette, &system.palette),
+            core_palette: own(&now.core_palette, &system.core_palette),
             bezel: own(&now.bezel, &system.bezel),
             scale: own(&now.scale, &system.scale),
             stretch: own(&now.stretch, &system.stretch),
@@ -260,7 +280,7 @@ impl ScreenOverrides {
         match setting {
             ScreenSetting::Shader => self.shader.is_some(),
             ScreenSetting::ColourCorrection => self.colour_correction.is_some(),
-            ScreenSetting::Palette => self.palette.is_some(),
+            ScreenSetting::Palette => self.palette.is_some() || self.core_palette.is_some(),
             ScreenSetting::Bezel => self.bezel.is_some(),
             ScreenSetting::Scale => self.scale.is_some(),
             ScreenSetting::Stretch => self.stretch.is_some(),
@@ -274,7 +294,10 @@ impl ScreenOverrides {
         match setting {
             ScreenSetting::Shader => self.shader = None,
             ScreenSetting::ColourCorrection => self.colour_correction = None,
-            ScreenSetting::Palette => self.palette = None,
+            ScreenSetting::Palette => {
+                self.palette = None;
+                self.core_palette = None;
+            }
             ScreenSetting::Bezel => self.bezel = None,
             ScreenSetting::Scale => self.scale = None,
             ScreenSetting::Stretch => self.stretch = None,
@@ -288,7 +311,10 @@ impl ScreenOverrides {
         match setting {
             ScreenSetting::Shader => self.shader.map(|s| s.name().into()),
             ScreenSetting::ColourCorrection => self.colour_correction.map(on),
-            ScreenSetting::Palette => self.palette.map(|p| p.core_name().into()),
+            ScreenSetting::Palette => match &self.core_palette {
+                Some(key) => Some(key.clone()),
+                None => self.palette.map(|p| p.core_name().into()),
+            },
             ScreenSetting::Bezel => self.bezel.as_ref().map(BezelPick::key),
             ScreenSetting::Scale => self.scale.map(|s| s.name().into()),
             ScreenSetting::Stretch => self.stretch.map(|s| s.name().into()),
@@ -297,8 +323,16 @@ impl ScreenOverrides {
         }
     }
 
-    /// Takes `key=value` if it is one of these settings; whether it was.
-    fn read(&mut self, key: &str, value: &str) -> bool {
+    /// Takes `key=value` if it is one of these settings; whether it was. A WonderSwan's
+    /// or TurboGrafx-16's `palette` is its core's, a Game Boy's its `GbColors`.
+    fn read(&mut self, platform: Platform, key: &str, value: &str) -> bool {
+        if key == "palette" && !core_palettes(platform).is_empty() {
+            self.core_palette = core_palettes(platform)
+                .iter()
+                .find(|(k, _)| *k == value)
+                .map(|(k, _)| k.to_string());
+            return true;
+        }
         let Some(setting) = ScreenSetting::ALL.into_iter().find(|s| s.key() == key) else {
             return false;
         };
@@ -710,7 +744,7 @@ pub fn read_game(root: &Path, platform: Platform, stem: &str) -> GameSettings {
     };
     for (key, value) in text.lines().filter_map(|l| l.split_once('=')) {
         let (key, value) = (key.trim(), value.trim());
-        let known = game.screen.read(key, value)
+        let known = game.screen.read(platform, key, value)
             || game.play.read(key, value)
             || game.shortcuts.read(key, value)
             || game.controls.read(platform, key, value)
