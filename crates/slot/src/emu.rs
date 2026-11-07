@@ -1103,8 +1103,13 @@ impl Worker {
                 if player == 0 {
                     match core.serialize() {
                         Ok(state) => {
-                            eprintln!("slot: cable: sending {} bytes of state", state.len());
-                            for p in cable::state_packets(&state) {
+                            let packets = cable::state_packets(&state);
+                            eprintln!(
+                                "slot: cable: sending {} bytes of state, {} packed",
+                                state.len(),
+                                packets.iter().map(Vec::len).sum::<usize>()
+                            );
+                            for p in packets {
                                 wire.send(NETPACKET_RELIABLE, &p);
                             }
                         }

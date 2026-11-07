@@ -34,8 +34,28 @@ pub fn ready_packet() -> [u8; 1] {
     [KIND_READY]
 }
 
+/// Slot² (link step 4): a packed state starts with this, then lz4 with its size first. A
+/// Game Boy state is mostly zeros (Tetris's 405 KB link state took ~3 s to a dozing
+/// joiner, 2026-11-08). A stock slotPlus host sends its state as it is, which still reads.
+const PACKED: &[u8; 4] = b"SQZ1";
+
+fn pack(state: &[u8]) -> Vec<u8> {
+    [&PACKED[..], &lz4_flex::block::compress_prepend_size(state)].concat()
+}
+
+fn unpack(data: Vec<u8>) -> Vec<u8> {
+    match data.strip_prefix(&PACKED[..]) {
+        Some(packed) => lz4_flex::block::decompress_size_prepended(packed).unwrap_or_else(|e| {
+            eprintln!("slot: cable: the host's game would not unpack: {e}");
+            Vec::new()
+        }),
+        None => data,
+    }
+}
+
 pub fn state_packets(state: &[u8]) -> Vec<Vec<u8>> {
-    let mut out: Vec<Vec<u8>> = state
+    let packed = pack(state);
+    let mut out: Vec<Vec<u8>> = packed
         .chunks(CHUNK)
         .map(|c| {
             let mut p = Vec::with_capacity(c.len() + 1);
@@ -93,7 +113,7 @@ impl Cable {
             return None;
         }
         self.complete = false;
-        Some(std::mem::take(&mut self.incoming))
+        Some(unpack(std::mem::take(&mut self.incoming)))
     }
 
     pub fn prime(&mut self) {

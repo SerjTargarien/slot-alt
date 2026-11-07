@@ -149,7 +149,17 @@ fn a_joiner_runs_nothing_until_it_has_the_hosts_machine() {
         "the joiner ran a seeded frame on its own machine"
     );
 
-    let state: Vec<u8> = (0..150_000u32).map(|n| n as u8).collect();
+    // Slot²: bytes that don't compress (states are packed, link step 4), so it still
+    // takes several pieces.
+    let mut x = 0x2545_f491u32;
+    let state: Vec<u8> = (0..150_000)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            x as u8
+        })
+        .collect();
     let packets = slot::cable::state_packets(&state);
     assert!(packets.len() > 1, "a state this size must be cut up");
     for (i, p) in packets.iter().enumerate() {
@@ -264,4 +274,39 @@ fn a_link_is_quiet_only_once_both_sides_have_the_game() {
         lonely.quiet(),
         "a start that never armed kept the link forever"
     );
+}
+
+/// Slot² (link step 4): the host's game crosses packed. A Game Boy state is mostly zeros
+/// (Tetris's 202 KB packs to 4.5 KB with gzip); sent as it was, the 405 KB took ~3 s to
+/// a dozing joiner (2026-11-08).
+#[test]
+fn the_hosts_game_crosses_packed_and_arrives_whole() {
+    let mut state = vec![0u8; 405_580];
+    for (i, b) in state.iter_mut().enumerate().step_by(7) {
+        *b = (i % 251) as u8;
+    }
+    let packets = slot::cable::state_packets(&state);
+    let sent: usize = packets.iter().map(Vec::len).sum();
+    assert!(
+        sent * 5 < state.len(),
+        "{sent} bytes sent for a {} byte state",
+        state.len()
+    );
+    let mut join = Cable::new(1);
+    for p in &packets {
+        assert!(join.accept(p));
+    }
+    assert_eq!(join.take_state().as_deref(), Some(state.as_slice()));
+}
+
+/// Slot² (link step 4): a stock slotPlus host sends its game as it is; a Slot² joiner
+/// still reads it.
+#[test]
+fn a_game_sent_unpacked_still_arrives_whole() {
+    let state: Vec<u8> = (0..1000u32).map(|n| (n * 7) as u8).collect();
+    let mut join = Cable::new(1);
+    let (first, last) = state.split_at(600);
+    assert!(join.accept(&[&[1u8][..], first].concat()), "KIND_STATE");
+    assert!(join.accept(&[&[2u8][..], last].concat()), "KIND_STATE_END");
+    assert_eq!(join.take_state().as_deref(), Some(state.as_slice()));
 }
