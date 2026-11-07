@@ -2235,18 +2235,6 @@ pub struct QuickScroll {
     pub thumb_h: f32,
 }
 
-fn scrolls(page: &[QuickRow]) -> bool {
-    [
-        &QuickRow::CONTROLS[..],
-        &QuickRow::PLAY_SHORTCUTS,
-        &QuickRow::GENERAL,
-        &QuickRow::PLAY_SCREEN,
-        // General and eight consoles are more rows than fit above the legend.
-        &QuickRow::SCREEN,
-    ]
-    .contains(&page)
-}
-
 fn visible(page: &[QuickRow], canvas: Canvas) -> usize {
     match page == QuickRow::PLAY_SCREEN {
         true => PANEL_VISIBLE,
@@ -2257,7 +2245,10 @@ fn visible(page: &[QuickRow], canvas: Canvas) -> usize {
 pub fn quick_window(selected: QuickRow, hidden: &[QuickRow], canvas: Canvas) -> (usize, usize) {
     let count = selected.shown(hidden).len();
     let fits = visible(selected.page(), canvas);
-    if !scrolls(selected.page()) || count <= fits {
+    // Slot²: any page with more rows than fit scrolls. Upstream named the pages that could,
+    // and lists that grew later (the shortcut and controls pages' systems, Gameplay, the
+    // Game Boy's Screen page) ran off a 3:2 panel (found on the RG34XX, 2026-11-07).
+    if count <= fits {
         return (0, count);
     }
     let at = selected.position(hidden);
@@ -2326,11 +2317,14 @@ mod layout_tests {
     use super::*;
 
     #[test]
-    fn the_screen_page_scrolls_its_general_row_and_eight_consoles_above_the_legend() {
-        assert!(scrolls(&QuickRow::SCREEN));
+    fn every_page_keeps_its_chosen_row_between_the_top_and_the_legend() {
+        // Whichever row is chosen, on any page, it sits in a window that fits between the
+        // top and the legend (the Screen page's General and eight consoles first needed it).
         assert!(QuickRow::SCREEN.len() > QUICK_VISIBLE);
-        // Whichever row is chosen, it sits in a window that fits between the top and the legend.
-        for row in QuickRow::SCREEN {
+        for row in QuickRow::ALL
+            .into_iter()
+            .filter(|r| r.page() != QuickRow::PLAY_SCREEN)
+        {
             let top = quick_row_top(row, &[], Canvas::FRAMED);
             assert!(
                 top >= 0.0 && top + QUICK_PITCH <= LEGEND_Y,

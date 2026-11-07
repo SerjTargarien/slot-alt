@@ -124,6 +124,18 @@ impl Walk {
     /// The page the bar is on, row by row, opening each page a row opens.
     fn page(&mut self, a: &mut App, device: &str, depth: usize) {
         let first = self.at(a).expect("a menu is open");
+        // A page draws no more rows than fit on the screen; the rest scroll. (The shortcut
+        // pages' list of systems ran off the RG34XX's screen, 2026-11-07.)
+        let (_, drawn) = slot_ui::quick_window(first, &self.hidden(a), a.canvas());
+        let fits = match first.page() == QuickRow::PLAY_SCREEN {
+            true => 3,
+            false => slot_ui::quick_visible(a.canvas()),
+        };
+        if drawn > fits {
+            self.broken.push(format!(
+                "{device}: {first:?}'s page draws {drawn} rows where {fits} fit"
+            ));
+        }
         for row in first.shown(&self.hidden(a)) {
             self.go(a, row);
             let text = a.row_text(row);

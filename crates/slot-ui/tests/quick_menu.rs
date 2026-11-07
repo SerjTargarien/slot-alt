@@ -623,8 +623,11 @@ fn a_scroll_bar_shows_only_on_a_page_with_rows_out_of_sight() {
         .is_some(),
         "nine rows in three still scroll"
     );
+    // Gameplay's seven rows (Sprite Limit made it seven) scroll at 720x480 since every
+    // page may (2026-11-07); General's four on the Screen page don't.
+    assert!(slot_ui::quick_scroll(QuickRow::Rumble, &NONE, slot_ui::Canvas::FRAMED).is_some());
     assert_eq!(
-        slot_ui::quick_scroll(QuickRow::Rumble, &NONE, slot_ui::Canvas::FRAMED),
+        slot_ui::quick_scroll(QuickRow::Brightness, &NONE, slot_ui::Canvas::FRAMED),
         None
     );
     assert!(slot_ui::quick_scroll(QuickRow::GameUp, &NONE, slot_ui::Canvas::FRAMED).is_some());

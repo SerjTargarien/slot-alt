@@ -249,7 +249,8 @@ fn every_fast_forward_speed_sits_on_the_rows_right_edge_and_clears_the_label() {
     let top = quick_row_top(QuickRow::FastForward, &f.app().hidden_rows(), BAND) as usize;
     for name in ["2x", "3x", "4x", "6x", "8x"] {
         let px = composed(&mut f, &mut c, name);
-        let value = inked(&px, 360..OUT_W as usize, top);
+        // Short of the scroll bar: Gameplay has seven rows, six on a 3:2 screen.
+        let value = inked(&px, 360..OUT_W as usize - 20, top);
         let last = *value
             .last()
             .unwrap_or_else(|| panic!("{name}: the Fast Forward row has no value"));
@@ -302,8 +303,11 @@ fn the_game_boy_page_shows_the_palette_by_name() {
 
     let top = quick_row_top(QuickRow::GbPalette, &[], BAND) as usize;
     beside("Palette", pointer(&px, top));
-    for row in QuickRow::SCREEN_GB {
-        let top = quick_row_top(row, &[], BAND) as usize;
+    // Seven rows, six on a 3:2 screen: the ones in the window, values short of its scroll
+    // bar.
+    let (start, len) = slot_ui::quick_window(QuickRow::GbPalette, &[], BAND);
+    for row in QuickRow::SCREEN_GB.into_iter().skip(start).take(len) {
+        let top = quick_row_top_at(row, QuickRow::GbPalette, &[], BAND) as usize;
         if row != QuickRow::GbPalette {
             assert!(pointer(&px, top).is_none(), "a pointer at {row:?} as well");
         }
@@ -316,7 +320,7 @@ fn the_game_boy_page_shows_the_palette_by_name() {
         if row.opens() {
             continue;
         }
-        let value = inked(&px, 360..OUT_W as usize, top);
+        let value = inked(&px, 360..OUT_W as usize - 20, top);
         let last = *value.last().expect("a row with no value");
         assert!(
             (679..=688).contains(&last),

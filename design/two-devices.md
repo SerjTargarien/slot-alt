@@ -211,7 +211,11 @@ system's in a game. It keeps:
   On 2026-11-07, only Screen rows differ (Scale, Stretch and Bezel, by panel shape).
 - **Rules on every page**: a setting shows something; what it shows fits beside its name
   (the drawing's own measure, `slot_ui::quick_value_squeeze`); a value changes with Left
-  or Right and goes back. It catches the empty Stretch row found on the RG34XX.
+  or Right and goes back; a page draws no more rows than fit. It catches the empty
+  Stretch row found on the RG34XX, and the lists that ran off its screen (the shortcut and
+  controls pages' systems, Gameplay, the Game Boy's Screen page; the user saw the first
+  on 2026-11-07): only pages upstream had named could scroll, and now any page with more
+  rows than fit does.
 
 Not covered: what draws as its own picture (clock, wallpaper, Wi-Fi, RomM; marked
 `(its own face)`), rows that need Wi-Fi, a game's own values, and how anything looks. A
