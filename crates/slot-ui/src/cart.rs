@@ -135,24 +135,6 @@ pub const TG16_LABEL_Y: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).1;
 pub const TG16_LABEL_W: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).2 - TG16_LABEL_X;
 pub const TG16_LABEL_H: u32 = tg16_label_panel(TG16_CART_W, TG16_CART_H).3 - TG16_LABEL_Y;
 
-// Nintendo DS game card: the portrait label sits in a shallow recess over
-// most of the face, above a little arrow at the foot.
-pub use crate::bitmaps::{NDS_CART_H, NDS_CART_W};
-
-pub const fn nds_label_panel(w: u32, h: u32) -> (u32, u32, u32, u32) {
-    (
-        (w * 100 + 500) / 1000,
-        (h * 45 + 500) / 1000,
-        (w * 900 + 500) / 1000,
-        (h * 870 + 500) / 1000,
-    )
-}
-
-pub const NDS_LABEL_X: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).0;
-pub const NDS_LABEL_Y: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).1;
-pub const NDS_LABEL_W: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).2 - NDS_LABEL_X;
-pub const NDS_LABEL_H: u32 = nds_label_panel(NDS_CART_W, NDS_CART_H).3 - NDS_LABEL_Y;
-
 const PAD: u32 = 10;
 const MAX_LINES: usize = 3;
 const MIN_PX: f32 = 10.0;
@@ -198,7 +180,6 @@ pub fn mould_of(cart: &Cart) -> Mould {
         Platform::Gg => Mould::Gg,
         Platform::Ngp => Mould::Ngp,
         Platform::Tg16 => Mould::Tg16,
-        Platform::Nds => Mould::Nds,
         _ => match gb_shell_of(cart) {
             None => Mould::Gba,
             Some(GbShell::Notched) => Mould::Notched,
@@ -225,7 +206,6 @@ pub fn mould_for(platform: Platform) -> Mould {
         Platform::Gg => Mould::Gg,
         Platform::Ngp => Mould::Ngp,
         Platform::Tg16 => Mould::Tg16,
-        Platform::Nds => Mould::Nds,
     }
 }
 
@@ -276,8 +256,7 @@ pub fn gb_shell_of(cart: &Cart) -> Option<GbShell> {
         | Platform::Lynx
         | Platform::Gg
         | Platform::Ngp
-        | Platform::Tg16
-        | Platform::Nds => None,
+        | Platform::Tg16 => None,
         Platform::Gb | Platform::Gbc => Some(match cart.shell.map(|c| c.outline) {
             Some(Outline::Notched) => GbShell::Notched,
             Some(Outline::Rounded) => GbShell::Rounded,
@@ -364,7 +343,6 @@ fn spec(shape: Shape) -> Spec {
                     Mould::Gg => (GG_LABEL_X, GG_LABEL_Y, GG_LABEL_W, GG_LABEL_H),
                     Mould::Ngp => (NGP_LABEL_X, NGP_LABEL_Y, NGP_LABEL_W, NGP_LABEL_H),
                     Mould::Tg16 => (TG16_LABEL_X, TG16_LABEL_Y, TG16_LABEL_W, TG16_LABEL_H),
-                    Mould::Nds => (NDS_LABEL_X, NDS_LABEL_Y, NDS_LABEL_W, NDS_LABEL_H),
                     _ => (LYNX_LABEL_X, LYNX_LABEL_Y, LYNX_LABEL_W, LYNX_LABEL_H),
                 },
                 mask: extra_mask(mould),
@@ -378,19 +356,11 @@ fn spec(shape: Shape) -> Spec {
 pub const SEATED_W: u32 = 240;
 const SEATED_H: u32 = 141;
 const GB_SEATED_H: u32 = 259;
-/// tools/slot_art/dslite.py cuts its slot to this width.
-pub const NDS_SEATED_W: u32 = 168;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba | Platform::Gbav => (SEATED_W, SEATED_H),
         Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
-        // A DS card is far smaller than the others, so it seats narrower, in a
-        // DS Lite slot narrowed to match.
-        Platform::Nds => {
-            let (w, h) = mould_for(Platform::Nds).size();
-            (NDS_SEATED_W, (h * NDS_SEATED_W + w / 2) / w)
-        }
         // The others are drawn at the seated width already scaled, so their seated
         // height follows from their own aspect.
         other => {
@@ -792,7 +762,7 @@ fn dress(s: &Spec, rgba: &mut [u8]) {
         Mould::Notched => "GAME BOY",
         Mould::Rounded => "GAME BOY COLOR",
         // The slotPlus moulds carry their markings in their art.
-        Mould::Ws | Mould::Lynx | Mould::Gg | Mould::Ngp | Mould::Tg16 | Mould::Nds => return,
+        Mould::Ws | Mould::Lynx | Mould::Gg | Mould::Ngp | Mould::Tg16 => return,
     };
     stamp_console(rgba, s.w, s.h, title, y0);
 }
@@ -963,13 +933,9 @@ fn generated_label(s: &Spec, title: &str, bg: [u8; 3]) -> Vec<u8> {
 
     if let Some(font) = text::label_font() {
         let (max_px, max_h) = match s.mould {
-            Mould::Gba
-            | Mould::Ws
-            | Mould::Lynx
-            | Mould::Gg
-            | Mould::Ngp
-            | Mould::Tg16
-            | Mould::Nds => (lh as f32 / (MAX_LINES as f32 * 1.36), f32::INFINITY),
+            Mould::Gba | Mould::Ws | Mould::Lynx | Mould::Gg | Mould::Ngp | Mould::Tg16 => {
+                (lh as f32 / (MAX_LINES as f32 * 1.36), f32::INFINITY)
+            }
             Mould::Notched | Mould::Rounded => {
                 let room = (lh - 2 * PAD) as f32;
                 (room / MAX_LINES as f32, room)
@@ -1000,12 +966,11 @@ fn ink(bg: [u8; 3]) -> [u8; 3] {
 
 /// How round a mould's label corners are. A Game Gear label has rounded
 /// corners that tuck inside the arches of the hood, and a NeoGeo Pocket's
-/// are softly rounded too, and a DS card's a little; the others are square.
+/// are softly rounded too; the others are square.
 fn label_corner(mould: Mould) -> f32 {
     match mould {
         Mould::Gg => 14.0,
         Mould::Ngp => 6.0,
-        Mould::Nds => 4.0,
         _ => 0.0,
     }
 }

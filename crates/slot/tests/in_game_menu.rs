@@ -116,8 +116,6 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Bezel,
                 QuickRow::Scale,
                 QuickRow::Stretch,
-                QuickRow::Layout,
-                QuickRow::StylusScreen,
                 // mGBA has no sprite limit to lift.
                 QuickRow::SpriteLimit
             ][..],
@@ -133,8 +131,6 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Bezel,
                 QuickRow::Scale,
                 QuickRow::Stretch,
-                QuickRow::Layout,
-                QuickRow::StylusScreen,
                 // mGBA has no sprite limit to lift.
                 QuickRow::SpriteLimit
             ][..],
@@ -937,7 +933,7 @@ fn a_game_boy_advance_game_names_its_shoulders() {
     at_controls_row(&mut a, QuickRow::GameL);
     assert!(drawn(&a, lit_name("L Button")));
     let hidden = a.in_game_hidden();
-    assert!(hidden.contains(&QuickRow::GameY1) && hidden.contains(&QuickRow::GameX));
+    assert!(hidden.contains(&QuickRow::GameY1));
     assert!(!hidden.contains(&QuickRow::GameL), "a GBA has L and R");
 }
 

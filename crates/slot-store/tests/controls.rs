@@ -8,10 +8,6 @@ fn plain(d: Device) -> Binding {
     Binding::plain(d).unwrap()
 }
 
-fn chord(a: Device, b: Device) -> Binding {
-    Binding::pair(a, b).unwrap()
-}
-
 #[test]
 fn every_system_moves_with_the_d_pad_and_the_left_stick() {
     for platform in Platform::ALL {
@@ -41,16 +37,9 @@ fn every_system_moves_with_the_d_pad_and_the_left_stick() {
 fn the_defaults_bind_what_upstream_bound() {
     let gb = SystemControls::default_for(Platform::Gb);
     assert_eq!(gb.row(Input::A), [Some(plain(Device::A)), None, None]);
-    assert_eq!(
-        gb.row(Input::X),
-        [None; SLOTS],
-        "turbo is gone: X and Y are free"
-    );
     assert_eq!(gb.row(Input::L), [None; SLOTS], "a Game Boy has no L");
     let gba = SystemControls::default_for(Platform::Gba);
     assert_eq!(gba.row(Input::L), [Some(plain(Device::L1)), None, None]);
-    let ds = SystemControls::default_for(Platform::Nds);
-    assert_eq!(ds.row(Input::X), [Some(plain(Device::X)), None, None]);
 }
 
 #[test]
@@ -165,12 +154,6 @@ fn upstream_controls_seed_every_system_where_the_user_changed_them() {
             "unchanged rows keep the new defaults"
         );
     }
-    let ds = read_system_controls(d.path(), Platform::Nds);
-    assert_eq!(
-        ds.row(Input::X),
-        [Some(plain(Device::X)), None, None],
-        "upstream's Turbo A row is about turbo, not the DS's X"
-    );
 }
 
 #[test]
@@ -199,38 +182,6 @@ fn rows_read_in_each_systems_own_order_and_keep_todays_buttons() {
             None
         ],
         "X2 is right"
-    );
-}
-
-#[test]
-fn the_ds_page_has_its_screens_and_a_stylus_on_the_right_stick() {
-    let ds = SystemControls::default_for(Platform::Nds);
-    assert_eq!(
-        ds.row(Input::SwapScreens),
-        [Some(plain(Device::L2)), None, None]
-    );
-    assert_eq!(
-        ds.row(Input::NextLayout),
-        [Binding::with(Modifier::Select, Device::L2), None, None]
-    );
-    assert_eq!(
-        ds.row(Input::Stylus),
-        [None; SLOTS],
-        "unbound: the stick steers"
-    );
-    assert_eq!(ds.row(Input::Touch), [Some(plain(Device::R2)), None, None]);
-    for (input, stick) in [
-        (Input::StylusUp, Device::RsUp),
-        (Input::StylusDown, Device::RsDown),
-        (Input::StylusLeft, Device::RsLeft),
-        (Input::StylusRight, Device::RsRight),
-    ] {
-        assert_eq!(ds.row(input), [Some(plain(stick)), None, None], "{input:?}");
-    }
-    assert!(Input::Stylus.is_slots() && !Input::A.is_slots());
-    assert!(
-        !inputs(Platform::Gba).contains(&Input::Stylus),
-        "only the DS has them"
     );
 }
 

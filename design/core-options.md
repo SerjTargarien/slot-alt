@@ -4,6 +4,9 @@ Status: surveyed with the user's ask on 2026-11-06; chosen the same day ("Chosen
 palettes and the sprite limit built and checked on the device, and the two measurements
 made (both stay as they are), on 2026-11-07. The core options work is done.
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## What the user asked for
 
 Find and document every per-core setting the cores we use expose, and choose which to
@@ -15,12 +18,10 @@ having.
 
 Each core's source at its pin in `taskfile.yml` (the cores Slot² runs, see
 [cores/README.md](../cores/README.md)), its declared options read from its
-`libretro_core_options.h` (DSperate's wrapper from `src/libretro.cpp`). "Slot² sets" is
+`libretro_core_options.h`. "Slot² sets" is
 `crates/slot/src/core.rs` (`apply_core_options`, `init_options`, `colour_option`,
 `blend_option`, `palette_options`) and the session's live options.
 
-- **DSperate** (wrapper `093d50f`) declares one option, `dsperate_jit` (enabled|disabled),
-  which Slot² sets enabled; Slot²'s patch adds `dsperate_frameskip`.
 - **Beetle NeoPop** declares one, `ngp_language`, which Slot² sets to english.
 
 ## Every option, by core

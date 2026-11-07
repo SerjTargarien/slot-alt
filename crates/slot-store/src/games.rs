@@ -48,7 +48,6 @@ impl SlotState {
                 Gg => s.shader_gg,
                 Ngp => s.shader_ngp,
                 Tg16 => s.shader_tg16,
-                Nds => s.shader_nds,
             },
             colour_correction: match platform {
                 Gba | Gbav => s.colour_correction_gba,
@@ -71,7 +70,6 @@ impl SlotState {
                 Gg => s.bezel_gg.clone(),
                 Ngp => s.bezel_ngp.clone(),
                 Tg16 => s.bezel_tg16.clone(),
-                Nds => s.bezel_nds.clone(),
             },
             scale: match platform {
                 Gba | Gbav => s.scale_gba,
@@ -82,7 +80,6 @@ impl SlotState {
                 Gg => s.scale_gg,
                 Ngp => s.scale_ngp,
                 Tg16 => s.scale_tg16,
-                Nds => s.scale_nds,
             },
             stretch: match platform {
                 Gb => s.stretch_gb,
@@ -98,7 +95,6 @@ impl SlotState {
                 Gg => s.stretched_gg,
                 Ngp => s.stretched_ngp,
                 Tg16 => s.stretched_tg16,
-                Nds => s.stretched_nds,
             },
             blending: match platform {
                 Gba | Gbav => s.blending_gba,
@@ -121,7 +117,6 @@ impl SlotState {
             Gg => &mut s.shader_gg,
             Ngp => &mut s.shader_ngp,
             Tg16 => &mut s.shader_tg16,
-            Nds => &mut s.shader_nds,
         };
         *shader = to.shader;
         match platform {
@@ -145,7 +140,6 @@ impl SlotState {
             Gg => &mut s.bezel_gg,
             Ngp => &mut s.bezel_ngp,
             Tg16 => &mut s.bezel_tg16,
-            Nds => &mut s.bezel_nds,
         };
         *bezel = to.bezel.clone();
         let scale = match platform {
@@ -157,7 +151,6 @@ impl SlotState {
             Gg => &mut s.scale_gg,
             Ngp => &mut s.scale_ngp,
             Tg16 => &mut s.scale_tg16,
-            Nds => &mut s.scale_nds,
         };
         *scale = to.scale;
         match platform {
@@ -174,7 +167,6 @@ impl SlotState {
             Gg => s.stretched_gg = to.stretched,
             Ngp => s.stretched_ngp = to.stretched,
             Tg16 => s.stretched_tg16 = to.stretched,
-            Nds => s.stretched_nds = to.stretched,
         }
         match platform {
             Gba | Gbav => s.blending_gba = to.blending,

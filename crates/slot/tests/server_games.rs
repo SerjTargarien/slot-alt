@@ -64,7 +64,7 @@ fn tags_are_the_four_platforms() {
         v["tags"].as_array().unwrap().iter().map(|t| t.as_str().unwrap().to_string()).collect();
     tags.sort();
     // slotPlus: every shelf, its own systems too.
-    assert_eq!(tags, ["GB", "GBA", "GBAV", "GBC", "GG", "Lynx", "NDS", "NGP", "TG16", "WS"]);
+    assert_eq!(tags, ["GB", "GBA", "GBAV", "GBC", "GG", "Lynx", "NGP", "TG16", "WS"]);
     server.stop();
 }
 

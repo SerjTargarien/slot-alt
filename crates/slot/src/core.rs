@@ -138,12 +138,10 @@ fn open_named(
                     apply_link_options(&mut opened, core, player);
                 }
                 // Bigger than the 240x160 default: a WonderSwan picture has
-                // room to turn at 2x, a TurboGrafx-16 one to be 512 wide, and
-                // the DS's two screens to stand one over the other.
+                // room to turn at 2x, a TurboGrafx-16 one to be 512 wide.
                 let big = match core {
                     Core::Cygne => Some(Platform::Ws),
                     Core::Pce => Some(Platform::Tg16),
-                    Core::Dsperate => Some(Platform::Nds),
                     _ => None,
                 };
                 if let Some(big) = big {
@@ -206,9 +204,7 @@ pub fn colour_option(
                 "OFF"
             },
         )),
-        Core::Cygne | Core::Lynx | Core::Gearsystem | Core::Ngp | Core::Pce | Core::Dsperate => {
-            None
-        }
+        Core::Cygne | Core::Lynx | Core::Gearsystem | Core::Ngp | Core::Pce => None,
         Core::Gpsp => Some((
             "gpsp_color_correction",
             if on { "enabled" } else { "disabled" },
@@ -356,8 +352,7 @@ pub fn option_prefix(which: Core) -> &'static str {
 
 /// Whether the core has a `<prefix>_frameskip` option to set. Beetle Lynx
 /// Gearsystem and Beetle NeoPop do not: they are cheap to run and have no
-/// frameskip setting. DSperate's is our patch onto its libretro wrapper
-/// (cores/dsperate/wrapper-0001-frameskip.patch).
+/// frameskip setting.
 fn has_frameskip(which: Core) -> bool {
     !matches!(
         which,
@@ -498,10 +493,6 @@ pub fn apply_core_options(
             core.set_option(key, value);
         }
     }
-    if which == Core::Dsperate {
-        // The recompiler is what makes the DS fast enough on the H700.
-        core.set_option("dsperate_jit", "enabled");
-    }
     if which == Core::Cygne {
         // Slot does all the button mapping, so the core must always read the
         // landscape map whatever way up it draws the picture.
@@ -624,7 +615,6 @@ mod tests {
             Core::Cygne,
             Core::Lynx,
             Core::Ngp,
-            Core::Dsperate,
         ] {
             assert!(!has_sprite_option(core), "{core:?}");
         }
@@ -710,11 +700,6 @@ mod tests {
         assert!(!has_frameskip(Core::Lynx));
         assert!(!has_frameskip(Core::Gearsystem));
         assert!(!has_frameskip(Core::Ngp));
-        assert!(
-            has_frameskip(Core::Dsperate),
-            "our wrapper patch gives it one"
-        );
-        assert_eq!(option_prefix(Core::Dsperate), "dsperate");
     }
 
     #[test]

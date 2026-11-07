@@ -12,8 +12,7 @@ pub enum Feature {
     /// Palettes to step through: the Game Boy's (`GbColors`), the WonderSwan's and the
     /// TurboGrafx-16's (their cores', `core_palette`).
     Palette,
-    /// Stretch On or Off (the Stretch row on a square panel; the DS's fills the screen in
-    /// its One Screen layout).
+    /// Stretch On or Off (the Stretch row on a square panel).
     Stretch,
     /// The GBA cartridges' sunlight sensor (Boktai).
     Sunlight,
@@ -44,8 +43,6 @@ pub fn has_feature(platform: Platform, feature: Feature) -> bool {
 pub fn starts_bound(platform: Platform, feature: Feature) -> bool {
     match feature {
         Feature::Palette => platform == Platform::Gb,
-        // The DS's Stretch shortcuts came on 2026-11-07.
-        Feature::Stretch => platform != Platform::Nds,
         _ => true,
     }
 }

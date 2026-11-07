@@ -632,7 +632,7 @@ fn every_option_slot_sets_is_in_the_cores_snapshot() {
     use slot_retro::MockCore;
     use slot_store::GbColors;
     let declared = declared();
-    let runs: [(Core, &[Platform]); 9] = [
+    let runs: [(Core, &[Platform]); 8] = [
         (Core::Mgba, &[Platform::Gba, Platform::Gb, Platform::Gbc]),
         (Core::Gpsp, &[Platform::Gba]),
         (Core::Gambatte, &[Platform::Gb, Platform::Gbc]),
@@ -641,7 +641,6 @@ fn every_option_slot_sets_is_in_the_cores_snapshot() {
         (Core::Gearsystem, &[Platform::Gg]),
         (Core::Ngp, &[Platform::Ngp]),
         (Core::Pce, &[Platform::Tg16]),
-        (Core::Dsperate, &[Platform::Nds]),
     ];
     let mut set: Vec<(Core, String, String)> = Vec::new();
     for (core, platforms) in runs {

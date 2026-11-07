@@ -31,14 +31,8 @@ impl Pad {
 
     /// The inputs pressed now, from a system's controls. An input is pressed when any of
     /// its bindings is held. A held chord (L1+Up) wins over its buttons' own bindings, so
-    /// holding L1 and Up presses what L1+Up is bound to and not Up's input too. While the
-    /// DS's stylus is out, Touch's buttons press only Touch.
-    pub fn pressed(
-        &self,
-        controls: &SystemControls,
-        platform: Platform,
-        stylus_out: bool,
-    ) -> Vec<Input> {
+    /// holding L1 and Up presses what L1+Up is bound to and not Up's input too.
+    pub fn pressed(&self, controls: &SystemControls, platform: Platform) -> Vec<Input> {
         let held = |d: Device| self.held.contains(&device_btn(d));
         let chord_held = |b: &Binding| match b.modifier {
             Some(Modifier::Button(m)) => held(m) && held(b.button),
@@ -52,16 +46,8 @@ impl Pad {
                 }
             }
         }
-        let touching: Vec<Device> = match stylus_out {
-            true => controls.bindings(Input::Touch).map(|b| b.button).collect(),
-            false => Vec::new(),
-        };
-        let active = |input: Input, b: Binding| match b.modifier {
-            None => {
-                held(b.button)
-                    && !taken.contains(&b.button)
-                    && (input == Input::Touch || !touching.contains(&b.button))
-            }
+        let active = |b: Binding| match b.modifier {
+            None => held(b.button) && !taken.contains(&b.button),
             Some(Modifier::Menu) => self.chorded.contains(&device_btn(b.button)),
             Some(Modifier::Button(_)) => chord_held(&b),
             // The gesture layer sends a SELECT chord as itself (see the binding table).
@@ -70,26 +56,16 @@ impl Pad {
         inputs(platform)
             .iter()
             .copied()
-            .filter(|&input| controls.bindings(input).any(|b| active(input, b)))
+            .filter(|&input| controls.bindings(input).any(active))
             .collect()
     }
 
-    /// The core buttons held: the pressed inputs that drive the core. While the DS's
-    /// Stylus Hold is held, the D-pad's inputs move the stylus instead.
-    pub fn mask(
-        &self,
-        controls: &SystemControls,
-        platform: Platform,
-        stylus_out: bool,
-    ) -> ButtonMask {
-        let pressed = self.pressed(controls, platform, stylus_out);
-        let steering = pressed.contains(&Input::Stylus);
-        let moving = |i: Input| {
-            steering && matches!(i, Input::Up | Input::Down | Input::Left | Input::Right)
-        };
-        let bits = pressed
+    /// The core buttons held: the pressed inputs that drive the core.
+    pub fn mask(&self, controls: &SystemControls, platform: Platform) -> ButtonMask {
+        let bits = self
+            .pressed(controls, platform)
             .into_iter()
-            .filter(|&i| !i.is_slots() && !moving(i))
+            .filter(|&i| !i.is_slots())
             .fold(0, |bits, i| bits | bit(drives(platform, i)));
         ButtonMask(bits)
     }
@@ -137,8 +113,6 @@ fn bit(input: Input) -> u16 {
         Input::Right => ButtonMask::RIGHT,
         Input::A => ButtonMask::A,
         Input::B => ButtonMask::B,
-        Input::X => ButtonMask::X,
-        Input::Y => ButtonMask::Y,
         Input::L => ButtonMask::L,
         Input::R => ButtonMask::R,
         Input::Select => ButtonMask::SELECT,
@@ -147,14 +121,6 @@ fn bit(input: Input) -> u16 {
         Input::Y2 => ButtonMask::R,
         Input::Y3 => ButtonMask::L2,
         Input::Y4 => ButtonMask::L,
-        Input::SwapScreens
-        | Input::NextLayout
-        | Input::Stylus
-        | Input::Touch
-        | Input::StylusUp
-        | Input::StylusDown
-        | Input::StylusLeft
-        | Input::StylusRight
-        | Input::Rotate => 0,
+        Input::Rotate => 0,
     }
 }

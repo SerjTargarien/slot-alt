@@ -400,7 +400,6 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::ScreenGg,
         QuickRow::ScreenNgp,
         QuickRow::ScreenTg16,
-        QuickRow::ScreenNds,
         QuickRow::ScreenGeneral,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
@@ -2224,15 +2223,6 @@ fn the_shelfs_sprite_limit_is_every_games_and_says_where_it_works() {
 }
 
 #[test]
-fn back_from_the_ds_screen_page_returns_to_screen() {
-    // Found by the structure pass's invariants: Back here closed the whole menu.
-    let (_d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::NdsLayout);
-    press(&mut a, Btn::B);
-    assert_eq!(a.quick_menu(), Some(QuickRow::ScreenNds));
-}
-
-#[test]
 fn every_shelf_row_with_a_value_changes_with_left_and_right() {
     // The structure pass: `change_setting` ends in a catch-all, so this is what checks that
     // a row showing a value the user can change is one Left and Right reach.
@@ -2276,8 +2266,9 @@ fn every_shelf_row_with_a_value_changes_with_left_and_right() {
         checked += 1;
     }
     eprintln!("checked {checked} rows");
+    // 39 on 2026-11-07, after the DS's rows went.
     assert!(
-        checked >= 40,
+        checked >= 39,
         "only {checked} rows were reached: the test checks too little"
     );
 }
@@ -2300,7 +2291,6 @@ fn every_shelf_row_that_sets_something_shows_its_value() {
         QuickRow::GgBezel,
         QuickRow::NgpBezel,
         QuickRow::Tg16Bezel,
-        QuickRow::NdsBezel,
         QuickRow::RaMode,
         QuickRow::RommStatus,
         QuickRow::RommPairedServer,

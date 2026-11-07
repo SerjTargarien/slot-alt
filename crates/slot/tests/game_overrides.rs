@@ -437,9 +437,6 @@ fn every_in_game_setting_is_the_games_own_or_named_as_every_games() {
         QuickRow::PlayBlueLight,
         QuickRow::PlaySaturation,
         QuickRow::PlayContrast,
-        // The DS's own file keeps these per game already (nds_view.txt).
-        QuickRow::Layout,
-        QuickRow::StylusScreen,
     ];
     let rows = QuickRow::PLAY_SCREEN
         .into_iter()

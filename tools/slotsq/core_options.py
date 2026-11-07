@@ -114,7 +114,7 @@ def libretro_options(src, whole=True):
 
 
 def variables(src):
-    """retro_variable tables, as DSperate's wrapper declares them: {"key", "Name; a|b"}."""
+    """retro_variable tables, as a plain libretro wrapper declares them: {"key", "Name; a|b"}."""
     found = {}
     for key, text in re.findall(r'\{\s*"([a-z0-9]+_[a-z0-9_]+)"\s*,\s*"([^"]*;[^"]*)"\s*\}', src):
         found[key] = [v.strip() for v in text.split(";", 1)[1].split("|")]
@@ -145,9 +145,6 @@ def main():
                 if name.endswith("libretro_core_options.h") and "intl" not in name:
                     text = tar.extractfile(member).read().decode("utf-8", "replace")
                     table.setdefault(core, {}).update(libretro_options(text))
-                elif core == "dsperate" and name.endswith("src/libretro.cpp"):
-                    text = tar.extractfile(member).read().decode("utf-8", "replace")
-                    table.setdefault(core, {}).update(variables(text))
         # Options Slot²'s own patches add (cores/<core>/*.patch).
         for patch in sorted((REPO / "cores" / core).glob("*.patch")):
             added = "\n".join(l[1:] for l in patch.read_text().splitlines() if l.startswith("+"))

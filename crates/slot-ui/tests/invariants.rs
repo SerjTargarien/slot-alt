@@ -30,7 +30,6 @@ fn pages() -> Vec<(&'static str, &'static [QuickRow])> {
         ("SCREEN_GG", &QuickRow::SCREEN_GG),
         ("SCREEN_NGP", &QuickRow::SCREEN_NGP),
         ("SCREEN_TG16", &QuickRow::SCREEN_TG16),
-        ("SCREEN_NDS", &QuickRow::SCREEN_NDS),
         ("GAME", &QuickRow::GAME),
         ("PLAY", &QuickRow::PLAY),
         ("SETTINGS", &QuickRow::SETTINGS),
@@ -194,7 +193,6 @@ fn a_systems_features_are_the_rows_its_screen_page_has() {
         (Platform::Gg, &QuickRow::SCREEN_GG),
         (Platform::Ngp, &QuickRow::SCREEN_NGP),
         (Platform::Tg16, &QuickRow::SCREEN_TG16),
-        (Platform::Nds, &QuickRow::SCREEN_NDS),
     ];
     for (platform, page) in pages {
         let has_row = |label: &str| page.iter().any(|r| r.label() == label);

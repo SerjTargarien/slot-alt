@@ -25,8 +25,6 @@ pub enum Input {
     Right,
     A,
     B,
-    X,
-    Y,
     L,
     R,
     Select,
@@ -36,25 +34,13 @@ pub enum Input {
     Y2,
     Y3,
     Y4,
-    /// The DS's slot controls, which drive slot rather than the core: swap the main
-    /// screen, step through the layouts, and the stylus. Stylus Up/Down/Left/Right move
-    /// it and Touch touches with it, bringing it out; holding Stylus brings it out for the
-    /// D-pad's inputs to move it instead.
-    SwapScreens,
-    NextLayout,
-    Stylus,
-    Touch,
-    StylusUp,
-    StylusDown,
-    StylusLeft,
-    StylusRight,
     /// Slot²: the WonderSwan's turn, which drives slot rather than the core: it turns the
     /// game between held upright and held wide (design/ws-orientation.md).
     Rotate,
 }
 
 impl Input {
-    pub const COUNT: usize = 25;
+    pub const COUNT: usize = 15;
 
     pub const ALL: [Input; Input::COUNT] = [
         Input::Up,
@@ -63,8 +49,6 @@ impl Input {
         Input::Right,
         Input::A,
         Input::B,
-        Input::X,
-        Input::Y,
         Input::L,
         Input::R,
         Input::Select,
@@ -73,14 +57,6 @@ impl Input {
         Input::Y2,
         Input::Y3,
         Input::Y4,
-        Input::SwapScreens,
-        Input::NextLayout,
-        Input::Stylus,
-        Input::Touch,
-        Input::StylusUp,
-        Input::StylusDown,
-        Input::StylusLeft,
-        Input::StylusRight,
         Input::Rotate,
     ];
 
@@ -96,8 +72,6 @@ impl Input {
             Input::Right => "right",
             Input::A => "a",
             Input::B => "b",
-            Input::X => "x",
-            Input::Y => "y",
             Input::L => "l",
             Input::R => "r",
             Input::Select => "select",
@@ -106,32 +80,13 @@ impl Input {
             Input::Y2 => "y2",
             Input::Y3 => "y3",
             Input::Y4 => "y4",
-            Input::SwapScreens => "swap_screens",
-            Input::NextLayout => "next_layout",
-            Input::Stylus => "stylus",
-            Input::Touch => "touch",
-            Input::StylusUp => "stylus_up",
-            Input::StylusDown => "stylus_down",
-            Input::StylusLeft => "stylus_left",
-            Input::StylusRight => "stylus_right",
             Input::Rotate => "rotate",
         }
     }
 
-    /// Whether the input drives slot rather than the core (the DS's screens and stylus).
+    /// Whether the input drives slot rather than the core (the WonderSwan's turn).
     pub fn is_slots(self) -> bool {
-        matches!(
-            self,
-            Input::SwapScreens
-                | Input::NextLayout
-                | Input::Stylus
-                | Input::Touch
-                | Input::StylusUp
-                | Input::StylusDown
-                | Input::StylusLeft
-                | Input::StylusRight
-                | Input::Rotate
-        )
+        matches!(self, Input::Rotate)
     }
 
     pub(crate) fn parse(key: &str) -> Option<Input> {
@@ -153,23 +108,7 @@ impl Input {
             Input::Start => GameButton::Start,
             Input::L => GameButton::L,
             Input::R => GameButton::R,
-            // The DS's X and Y were upstream's Turbo A and B rows, which are about turbo,
-            // gone now, not about the DS's buttons.
-            Input::X
-            | Input::Y
-            | Input::Y1
-            | Input::Y2
-            | Input::Y3
-            | Input::Y4
-            | Input::SwapScreens
-            | Input::NextLayout
-            | Input::Stylus
-            | Input::Touch
-            | Input::StylusUp
-            | Input::StylusDown
-            | Input::StylusLeft
-            | Input::StylusRight
-            | Input::Rotate => return None,
+            Input::Y1 | Input::Y2 | Input::Y3 | Input::Y4 | Input::Rotate => return None,
         })
     }
 }
@@ -187,28 +126,6 @@ pub fn inputs(platform: Platform) -> &'static [Input] {
             &[Up, Down, Left, Right, A, B, Select, Start, L, R]
         }
         Platform::Ws => &[Up, Down, Left, Right, Y1, Y2, Y3, Y4, A, B, Start, Rotate],
-        Platform::Nds => &[
-            Up,
-            Down,
-            Left,
-            Right,
-            A,
-            B,
-            X,
-            Y,
-            L,
-            R,
-            Select,
-            Start,
-            SwapScreens,
-            NextLayout,
-            Stylus,
-            Touch,
-            StylusUp,
-            StylusDown,
-            StylusLeft,
-            StylusRight,
-        ],
     }
 }
 
@@ -238,7 +155,6 @@ pub fn system_key(platform: Platform) -> &'static str {
         Platform::Gg => "gg",
         Platform::Ngp => "ngp",
         Platform::Tg16 => "tg16",
-        Platform::Nds => "nds",
     }
 }
 
@@ -353,7 +269,6 @@ pub(crate) fn parse_row(value: &str) -> Row {
 
 fn default_row(platform: Platform, input: Input) -> Row {
     let plain = |d| Binding::plain(d).expect("a plain binding");
-    let chord = |m, d| Binding::pair(m, d).expect("a chord");
     let one = |b| [Some(b), None, None];
     let two = |a, b| [Some(a), Some(b), None];
     match drives(platform, input) {
@@ -364,8 +279,6 @@ fn default_row(platform: Platform, input: Input) -> Row {
         Input::Right => two(plain(Device::Right), plain(Device::LsRight)),
         Input::A => one(plain(Device::A)),
         Input::B => one(plain(Device::B)),
-        Input::X => one(plain(Device::X)),
-        Input::Y => one(plain(Device::Y)),
         Input::L => one(plain(Device::L1)),
         Input::R => one(plain(Device::R1)),
         Input::Select => one(plain(Device::Select)),
@@ -376,17 +289,6 @@ fn default_row(platform: Platform, input: Input) -> Row {
         Input::Y2 => two(plain(Device::RsRight), plain(Device::R1)),
         Input::Y3 => two(plain(Device::RsDown), plain(Device::R2)),
         Input::Y4 => two(plain(Device::RsLeft), plain(Device::L1)),
-        // The DS's controls: L2 swaps the screens and SELECT+L2 steps the layouts, as slot
-        // has always had them; the right stick steers the stylus and R2 touches. Holding
-        // Stylus to steer it with the D-pad is there to bind, for a handheld with no stick.
-        Input::SwapScreens => one(plain(Device::L2)),
-        Input::NextLayout => one(chord(Device::Select, Device::L2)),
-        Input::Stylus => [None; SLOTS],
-        Input::Touch => one(plain(Device::R2)),
-        Input::StylusUp => one(plain(Device::RsUp)),
-        Input::StylusDown => one(plain(Device::RsDown)),
-        Input::StylusLeft => one(plain(Device::RsLeft)),
-        Input::StylusRight => one(plain(Device::RsRight)),
         // The WonderSwan has no SELECT, which the core turned the picture with.
         Input::Rotate => one(plain(Device::Select)),
     }
@@ -465,8 +367,6 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (_, Input::Right) => "Right",
         (_, Input::A) => "A Button",
         (_, Input::B) => "B Button",
-        (_, Input::X) => "X Button",
-        (_, Input::Y) => "Y Button",
         (_, Input::L) => "L Button",
         (_, Input::R) => "R Button",
         (_, Input::Select) => "Select",
@@ -475,20 +375,12 @@ pub fn label(platform: Platform, input: Input) -> &'static str {
         (_, Input::Y2) => "Y2",
         (_, Input::Y3) => "Y3",
         (_, Input::Y4) => "Y4",
-        (_, Input::SwapScreens) => "Swap Screens",
-        (_, Input::NextLayout) => "Next Layout",
-        (_, Input::Stylus) => "Stylus Hold",
-        (_, Input::Touch) => "Touch",
-        (_, Input::StylusUp) => "Stylus Up",
-        (_, Input::StylusDown) => "Stylus Down",
-        (_, Input::StylusLeft) => "Stylus Left",
         (_, Input::Rotate) => "Rotate",
-        (_, Input::StylusRight) => "Stylus Right",
     }
 }
 
 /// The systems with a controls page, in the order the page lists them.
-pub const SYSTEMS: [Platform; 9] = [
+pub const SYSTEMS: [Platform; 8] = [
     Platform::Gb,
     Platform::Gbc,
     Platform::Gba,
@@ -497,7 +389,6 @@ pub const SYSTEMS: [Platform; 9] = [
     Platform::Gg,
     Platform::Ngp,
     Platform::Tg16,
-    Platform::Nds,
 ];
 
 /// Every system's controls (`Gbav` shares the GBA's).

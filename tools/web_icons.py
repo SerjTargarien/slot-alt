@@ -4,7 +4,7 @@ Slot's own GB, GBC and GBA icons. No makers' names or marks.
 
     tools/web_icons.py [TAG ...]
 
-Writes web/public/platforms/<TAG>.svg for WS, Lynx, GG, NGP, TG16, NDS and PokeMini
+Writes web/public/platforms/<TAG>.svg for WS, Lynx, GG, NGP, TG16 and PokeMini
 (all of them unless tags are named).
 """
 
@@ -82,19 +82,6 @@ def tg16():
     return svg(348, 168, b)
 
 
-def nds():
-    # A DS Lite, open: two screens one above the other, the pad and buttons beside the
-    # lower.
-    b = rr(4, 4, 260, 160, 18, '#b6b8bc') + rr(10, 10, 248, 148, 14, '#e4e5e8')
-    b += rr(78, 22, 112, 128, 4, '#2a2a2e') + rr(86, 30, 96, 72, 1, '#8a929a')
-    b += rr(4, 172, 260, 160, 18, '#b6b8bc') + rr(10, 178, 248, 148, 14, '#e4e5e8')
-    b += rr(78, 196, 112, 112, 4, '#2a2a2e') + rr(86, 204, 96, 72, 1, '#8a929a')
-    b += dpad(42, 236, 40, '#3a3a3e')
-    for dx, dy in [(0, -14), (0, 14), (-14, 0), (14, 0)]:
-        b += circle(226 + dx, 236 + dy, 7, '#3a3a3e')
-    return svg(268, 336, b)
-
-
 def pokemini():
     # The Pokémon mini: a small, nearly round clear body, the screen at the top, the pad
     # bottom left, A and B bottom right, and C at the side.
@@ -107,8 +94,7 @@ def pokemini():
     return svg(248, 218, b)
 
 
-ICONS = {'WS': ws, 'Lynx': lynx, 'GG': gg, 'NGP': ngp, 'TG16': tg16, 'NDS': nds,
-         'PokeMini': pokemini}
+ICONS = {'WS': ws, 'Lynx': lynx, 'GG': gg, 'NGP': ngp, 'TG16': tg16, 'PokeMini': pokemini}
 
 
 def main():

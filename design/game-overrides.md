@@ -4,6 +4,9 @@ Status: agreed with the user on 2026-11-06; decisions of the same day below ("De
 Steps 1 (screen), 2 (shortcuts, and Gameplay with them) and 3 (controls) built. Step 4,
 the shelf's system first, shelved on 2026-11-06 (below).
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## Decided (2026-11-06, after the shortcut pages)
 
 - **One file per game**, `Config/games/<system>/<file name>.txt` (the ROM's file name

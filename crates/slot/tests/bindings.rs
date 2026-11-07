@@ -250,7 +250,7 @@ fn a_game_boy_has_no_l_or_r_rows() {
     let hidden = a.in_game_hidden();
     assert!(hidden.contains(&QuickRow::GameL));
     assert!(hidden.contains(&QuickRow::GameR));
-    assert!(hidden.contains(&QuickRow::GameY1) && hidden.contains(&QuickRow::GameX));
+    assert!(hidden.contains(&QuickRow::GameY1));
 }
 
 const FRAME: Millis = 16;
@@ -505,7 +505,6 @@ fn shortcuts_list_general_then_each_system_with_its_own() {
             QuickRow::ShortcutsGg,
             QuickRow::ShortcutsNgp,
             QuickRow::ShortcutsTg16,
-            QuickRow::ShortcutsNds,
         ]
     );
     for row in QuickRow::SHORTCUTS {
@@ -558,22 +557,11 @@ fn a_system_gets_a_features_shortcuts_with_the_feature() {
             assert!(has_feature(platform, f), "{platform:?} {s:?}");
         }
     }
-    assert_eq!(
-        own(Platform::Nds),
-        [Shortcut::StretchOn, Shortcut::StretchOff],
-        "the DS's Stretch, since 2026-11-07"
-    );
     assert!(
         own(Platform::Tg16).contains(&Shortcut::PaletteNext),
         "it has palettes"
     );
     assert!(!has_feature(Platform::Gba, Feature::Palette));
-    let d = shelf_card();
-    let (s, _) = on_shelf(d.path());
-    assert!(
-        !s.app().hidden_rows().contains(&QuickRow::ShortcutsNds),
-        "the DS has shortcuts of its own now, so its page shows"
-    );
 }
 
 #[test]
@@ -652,17 +640,17 @@ fn a_system_shortcut_is_listened_for_only_in_its_systems_games() {
     let gb = actions(Platform::Gb);
     assert!(gb.contains(&Action::PaletteNext));
     assert!(gb.contains(&Action::StretchOn));
-    let nds = actions(Platform::Nds);
-    assert!(!nds.contains(&Action::ColourCorrectionToggle));
+    let ws = actions(Platform::Ws);
+    assert!(!ws.contains(&Action::ColourCorrectionToggle));
     assert!(
-        !nds.contains(&Action::StretchOn),
-        "the DS has Stretch, but its keys start unbound"
+        !ws.contains(&Action::PaletteNext),
+        "the WonderSwan has palettes, but its keys start unbound"
     );
     assert!(slot_store::shortcuts::has(
-        Platform::Nds,
-        Shortcut::StretchOn
+        Platform::Ws,
+        Shortcut::PaletteNext
     ));
-    assert!(nds.contains(&Action::SaveState));
+    assert!(ws.contains(&Action::SaveState));
 }
 
 #[test]

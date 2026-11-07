@@ -3,6 +3,9 @@
 Status: agreed with the user on 2026-11-06. Steps 1 and 2 built and checked on the device
 (Klonoa turns by itself).
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## What the user asked for
 
 Klonoa (tried 2026-11-06) can't be turned and doesn't turn by itself. A WonderSwan game

@@ -1018,7 +1018,7 @@ fn a_select_chord_taken_by_the_caller_keeps_select_from_the_game() {
     let mut g = gestures();
     assert!(!g.take_select_chord(0), "nothing held");
     assert!(g.feed(Down(Select), 0).is_empty());
-    // The DS takes SELECT + L2 itself: the caller observes L2, not feeds it.
+    // A caller that takes SELECT + L2 itself observes L2, not feeds it.
     assert!(g.take_select_chord(40));
     g.observe(Down(L2));
     g.observe(Up(L2));

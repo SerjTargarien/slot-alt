@@ -16,7 +16,6 @@ The emulator cores Slot² runs, where each comes from, and how current it is. Ch
 | Game Gear | Gearsystem (`gearsystem`) | [drhelius/Gearsystem](https://github.com/drhelius/Gearsystem) | `517ddaa`, 3.9.22, 2026-10-11 | 57 commits, releases 3.9.23 and 3.9.24 |
 | NeoGeo Pocket (Color) | Beetle NeoPop (`ngp`) | [libretro/beetle-ngp-libretro](https://github.com/libretro/beetle-ngp-libretro) | `a50d5ac`, 2026-06-14 | none |
 | TurboGrafx-16 | Beetle PCE Fast (`pce`) | [libretro/beetle-pce-fast-libretro](https://github.com/libretro/beetle-pce-fast-libretro) | `3f946f2`, 2026-10-02 | 2 commits (translations) |
-| Nintendo DS | DSperate (`dsperate`) | [beebono/DSperate](https://github.com/beebono/DSperate) through [thwonp/dsperate-lr](https://github.com/thwonp/dsperate-lr) | `ddf2910`, v3.0.5, 2026-10-21; wrapper `093d50f`, 2026-10-27 | 94 commits, v3.3.0; wrapper 11 commits, v3.3.0-lr.1 |
 
 "Default" is what a game runs on until another core is picked for it (START on the
 shelf opens the cart to its chip, saved per game in `Config/selected_core.txt`). The Game
@@ -56,7 +55,7 @@ Each recipe:
   Gearsystem.
 
 Bullseye's glibc 2.31 keeps the cores running on BaseOS's older system. Base² has glibc
-2.44, so it could run cores built on a newer system (see DSperate).
+2.44, so it could run cores built on a newer system.
 
 **Cross-building here (2026-11-06):** Docker isn't reachable from this WSL machine, so
 Beetle Cygne was built with Ubuntu's cross compiler instead of the container, through the
@@ -149,35 +148,6 @@ flags and patch as usual.
 - **Pin:** `3f946f2` (2026-10-02). Two newer commits, both translations. No patches.
 - **In Slot²:** its games change width as they run; Slot² follows the frame it last drew.
 
-### DSperate: Nintendo DS
-
-- **What:** beebono's DS emulator, "an attempt at reimplementing DraStic-level performance
-  with modern features". The libretro core is thwonp's wrapper, dsperate-lr (made for
-  plorpOS), around one DSperate commit. Both GPL-3.0.
-- **Pin:** DSperate `ddf2910`, v3.0.5 (2026-10-21), through the wrapper at `093d50f`
-  (2026-10-27). Built with GCC 10.2 without DSperate's PGO profiles (they match only the
-  GCC they were made with), Vulkan, SDL, Wi-Fi and RetroAchievements left out.
-- **Patch (1):** `wrapper-0001-frameskip`, slotPlus's frameskip: whole display periods
-  skipped while the audio runs behind, at most two in a row.
-- **Upstream since (87 commits, v3.0.6 to v3.3.0, 2026-10-31 to 11-04; 94 by 2026-11-07,
-  no newer release):** accuracy fixes
-  (Zoo Keeper, Picross DS Korean, Electroplankton, IPC timing, steadier 3D textures);
-  analog sticks for games with Circle Pad patches; save states that no longer freeze
-  Dragon Quest IX; GBA cartridges in slot 2, the Rumble Pak and the Guitar Grip; and a
-  GPU 3D renderer (Vulkan, OpenGL ES), which the libretro core doesn't use: its 3D is drawn
-  on the CPU.
-- **The wrapper since:** release
-  [v3.3.0-lr.1](https://github.com/thwonp/dsperate-lr/releases/tag/v3.3.0-lr.1)
-  (2026-11-04), pinned to exactly DSperate v3.3.0 (`99618eb`), with slotPlus's frameskip
-  taken in (`dsperate_frameskip = slotplus`, beside a per-frame `auto`), and opt-in core
-  options for analog patches and the Rumble Pak. It ships two prebuilt cores: one for
-  glibc 2.17 without PGO, and one for glibc 2.38 or newer built with GCC 13 and DSperate's
-  PGO profile. **Base²'s glibc 2.44 runs the PGO build.** Its authors measured 59.4-59.8 fps
-  on an H700 (Cortex-A53 at 1.5 GHz) in Metroid Prime Hunters, Golden Sun: Dark Dawn and
-  GTA: Chinatown Wars; the RK3566 runs at 1.8 GHz.
-- **In Slot²:** its controls (screens, layouts, stylus) are on its controls page; its
-  layouts are Slot²'s (`video_mode.rs`).
-
 ## Every option each core declares
 
 `cores/options.json` lists them with their values, from each core's source at its pin
@@ -187,10 +157,7 @@ Which of them Slot² uses, and why, is [design/core-options.md](../design/core-o
 
 ## Where to look next
 
-1. **DSperate:** try the wrapper's prebuilt PGO core, timed against today's on the same
-   game (DS games slow down now). If it's better, pin the wrapper release instead of
-   building, and check our core option values against its new names.
-2. **gpSP:** the save-type and recompiler fixes. A pin bump for us, and for upstream slot,
+1. **gpSP:** the save-type and recompiler fixes. A pin bump for us, and for upstream slot,
    which pins the same commit.
-3. **Gearsystem:** 3.9.24, after checking which of its changes reach the libretro core.
-4. The rest are at their newest, or behind only by logging and translations.
+2. **Gearsystem:** 3.9.24, after checking which of its changes reach the libretro core.
+3. The rest are at their newest, or behind only by logging and translations.

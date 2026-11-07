@@ -35,7 +35,6 @@ pub mod cart_faces;
 pub mod clock;
 pub mod core;
 pub mod core_picker;
-pub mod cpu_governor;
 #[cfg(unix)]
 pub mod crash;
 pub mod hold_picker;
@@ -80,7 +79,6 @@ pub mod state_writer;
 pub mod studio;
 pub mod studio_faces;
 pub mod studio_view;
-pub mod stylus;
 pub mod thumb;
 pub mod unwrap_scene;
 pub mod update;

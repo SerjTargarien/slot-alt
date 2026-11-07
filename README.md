@@ -19,7 +19,7 @@ A slightly modified Slot. Alongside Slot's Game Boy Advance, Game Boy and Game B
 Each release comes in two versions. Pick the one you want from the [releases page](https://github.com/nelynes/slotPlus/releases):
 
 - **`slot-plus.zip`, slotPlus:** Game Boy Advance, Game Boy and Game Boy Color, plus WonderSwan and Atari Lynx.
-- **`slot-plusultra.zip`, slotPlusUltra:** everything in slotPlus, plus Game Gear, NeoGeo Pocket, TurboGrafx-16 and Nintendo DS.
+- **`slot-plusultra.zip`, slotPlusUltra:** everything in slotPlus, plus Game Gear, NeoGeo Pocket, TurboGrafx-16 and Nintendo DS. Slot² has all of it but the DS (removed 2026-11-07).
 
 | System | Version | Put games in | Files | Core | BIOS |
 |---|---|---|---|---|---|
@@ -28,7 +28,6 @@ Each release comes in two versions. Pick the one you want from the [releases pag
 | Sega Game Gear | Ultra | `Games/GG/` | `.gg` | Gearsystem | Not needed |
 | NeoGeo Pocket / Color | Ultra | `Games/NGP/` | `.ngp` `.ngc` `.ngpc` | Beetle NeoPop | Not needed |
 | TurboGrafx-16 / TurboExpress | Ultra | `Games/TG16/` | `.pce` (HuCards) | Beetle PCE Fast | Not needed |
-| Nintendo DS | Ultra | `Games/NDS/` | `.nds` | DSperate | Not needed |
 
 > [!IMPORTANT]
 > Atari Lynx games need `lynxboot.img`, the Lynx boot ROM. It is **not included**. Put your own copy in `BIOS/`.
@@ -37,9 +36,9 @@ Each release comes in two versions. Pick the one you want from the [releases pag
 
 - **Folders:** each system's folders under `Games`, `Labels`, `Saves`, `States` and `Bezels` are created for you on first boot.
 - **Carts:** each system has its own cart, drawn in Slot's look. WonderSwan games get a black cart, WonderSwan Color games a frosted clear one, and a HuCard turns over to go into the slot contacts first.
-- **Cart Slot:** set Settings > General > Cart Slot to Bespoke and the slot on each shelf becomes the back of that system's handheld: a pearl WonderSwan and a Lynx II, plus a Game Gear, a carbon NeoGeo Pocket Color, a TurboExpress and a silver DS Lite in Ultra. The Game Boy shelves keep Slot's own.
+- **Cart Slot:** set Settings > General > Cart Slot to Bespoke and the slot on each shelf becomes the back of that system's handheld: a pearl WonderSwan and a Lynx II, plus a Game Gear, a carbon NeoGeo Pocket Color and a TurboExpress in Ultra. The Game Boy shelves keep Slot's own.
 
-**Controls, label art sizes, bezels, saves, the DS's screen layouts and stylus, and how Lynx and WonderSwan games that turn sideways work are all in the [systems guide](SYSTEMS.md).**
+**Controls, label art sizes, bezels, saves, and how Lynx and WonderSwan games that turn sideways work are all in the [systems guide](SYSTEMS.md).**
 
 ## Label Art
 
@@ -85,7 +84,6 @@ A full user guide can be found at [slot-cfw.fyi](https://slot-cfw.fyi).
 </p>
 
 <p align="center">
-<img src=".github/resources/screenshots/ds-layouts.gif" width="48%" alt="slotPlusUltra on the RG SP: scrolling the Nintendo DS shelf, putting Mario Kart DS in and resuming mid-race, swapping the screens with L2, then stepping through Full Screen, Side by Side, Picture in Picture, Both Screens and One Screen with SELECT and L2">
 <img src=".github/resources/screenshots/cart-slot.gif" width="48%" alt="slotPlusUltra: setting Cart Slot to Bespoke in Settings, then scrolling every shelf: the Game Boy shelves keep Slot's slot, and the WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 shelves each show the back of their own handheld">
 </p>
 

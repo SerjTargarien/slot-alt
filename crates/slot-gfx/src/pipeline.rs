@@ -219,7 +219,7 @@ impl GamePass {
     }
 
     /// Draw another part of the game's frame somewhere else on the canvas,
-    /// plain: a DS game's second screen.
+    /// plain (the DS's second screen used it; nothing does since the DS went).
     pub fn draw_inset(&self, quad: &Quad, src: [f32; 4], layout: [f32; 4]) {
         self.draw_source(self.game, quad, src, layout, ScreenEffect::None);
     }

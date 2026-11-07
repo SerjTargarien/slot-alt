@@ -42,9 +42,9 @@ mod toast;
 
 pub use art::decode as decode_png;
 pub use backdrop::{
-    bezel_face, blur_background, bundled_game_bezel_face, bundled_game_bezel_face_in,
+    bezel_face, blur_background, bundled_game_bezel_face,
     bundled_game_bezels, default_background, default_game_bezel_face, draw_backdrop, draw_ground,
-    game_bezel_face, has_default_game_bezel, wallpaper_face, BezelArt, DS_LITE_BEZEL,
+    game_bezel_face, has_default_game_bezel, wallpaper_face, BezelArt,
 };
 pub use barcode::{code39, CODE39_NARROW, CODE39_WIDE};
 pub use battery::{draw_gauge, BOLT_PX, GAUGE_H, GAUGE_W, WALL};
@@ -73,10 +73,6 @@ pub use cart::{
     mould_of, mould_shadow, platform_art_size, platform_label_well, ws_label_panel, LYNX_CART_H,
     LYNX_CART_W, LYNX_LABEL_H, LYNX_LABEL_W, LYNX_LABEL_X, LYNX_LABEL_Y, WS_CART_H, WS_CART_W,
     WS_LABEL_H, WS_LABEL_W, WS_LABEL_X, WS_LABEL_Y,
-};
-pub use cart::{
-    nds_label_panel, NDS_CART_H, NDS_CART_W, NDS_LABEL_H, NDS_LABEL_W, NDS_LABEL_X, NDS_LABEL_Y,
-    NDS_SEATED_W,
 };
 pub use cart::{
     ngp_label_panel, NGP_CART_H, NGP_CART_W, NGP_LABEL_H, NGP_LABEL_W, NGP_LABEL_X, NGP_LABEL_Y,
@@ -163,4 +159,4 @@ pub use sticker::{
     draw_sticker, head_rows, sticker_face, sticker_lines, sticker_rect, StickerFields, COPYRIGHT,
     CREDITS, DC, HOME, ORIGIN, STICKER_H, STICKER_W,
 };
-pub use toast::{toast_box, toast_face, toast_face_text, toast_rect, Toast, DS_LAYOUTS};
+pub use toast::{toast_box, toast_face, toast_face_text, toast_rect, Toast};

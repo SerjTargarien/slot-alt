@@ -3,6 +3,9 @@
 Status: steps 1-3 built and checked on the device (2026-11-06); step 4, defaults per
 system, is next.
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## What the user asked for
 
 - Each system has its own mapping, on its own page, like the Screen pages.
@@ -59,7 +62,6 @@ Each platform declares its own inputs, in its own names, and which core bit each
 | TurboGrafx-16 | Up, Down, Left, Right, I, II, Select, Run, Turbo I, Turbo II |
 | Atari Lynx | Up, Down, Left, Right, A, B, Option 1, Option 2, Pause, Turbo A, Turbo B |
 | WonderSwan | X1, X2, X3, X4, Y1, Y2, Y3, Y4, A, B, Start, Turbo A, Turbo B |
-| Nintendo DS | Up, Down, Left, Right, A, B, X, Y, L, R, Select, Start, and slot's DS controls: Swap Screens, Next Layout, Stylus |
 
 The core-bit mapping of each input (Cygne's Y pad on R2, R, L2 and L, for instance) lives
 with the platform, checked against each core when built.

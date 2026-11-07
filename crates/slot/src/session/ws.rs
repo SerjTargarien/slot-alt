@@ -14,7 +14,7 @@ impl Session {
         }
         let down = self
             .pad
-            .pressed(controls, platform, false)
+            .pressed(controls, platform)
             .contains(&Input::Rotate);
         let fresh = down && !self.ws_rotate_held;
         self.ws_rotate_held = down;

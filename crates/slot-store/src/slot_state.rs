@@ -384,7 +384,6 @@ pub struct SlotState {
     pub shader_gg: Shader,
     pub shader_ngp: Shader,
     pub shader_tg16: Shader,
-    pub shader_nds: Shader,
     pub auto_load: bool,
     pub eject_save: bool,
     pub rewind: bool,
@@ -409,7 +408,6 @@ pub struct SlotState {
     pub bezel_gg: BezelPick,
     pub bezel_ngp: BezelPick,
     pub bezel_tg16: BezelPick,
-    pub bezel_nds: BezelPick,
     pub scale_gba: Scale,
     pub scale_gb: Scale,
     pub scale_gbc: Scale,
@@ -433,19 +431,10 @@ pub struct SlotState {
     pub scale_lynx: Scale,
     pub stretched_ws: bool,
     pub stretched_lynx: bool,
-    /// Slot²: the DS's screens scale to Integer or Fit; Stretch fills the panel with one
-    /// screen (its One Screen layout only); and the layout a game starts with, by the
-    /// name slot gives it (`stacked`, `single`, `below`, `corner`).
-    pub scale_nds: Scale,
-    pub stretched_nds: bool,
     /// Slot²: the WonderSwan's mono palette and the TurboGrafx-16's, as their cores spell
     /// them (`core_palette`).
     pub palette_ws: String,
     pub palette_tg16: String,
-    pub nds_layout: String,
-    /// Slot²: whether moving the stylus brings the DS's touch screen up, for a game that
-    /// hasn't chosen.
-    pub nds_stylus_screen: bool,
     pub blending_gba: Blending,
     pub blending_gb: Blending,
     pub blending_gbc: Blending,
@@ -558,8 +547,6 @@ impl Shader {
     pub const NGP: [Shader; 5] = Shader::WS;
     /// The TurboExpress's colour LCD picks from the same list as the Lynx's.
     pub const TG16: [Shader; 5] = Shader::GBA;
-    /// The DS's two screens pick from the GBA's list, as the TurboExpress does.
-    pub const NDS: [Shader; 5] = Shader::GBA;
 
     pub fn name(self) -> &'static str {
         match self {
@@ -631,7 +618,6 @@ impl Default for SlotState {
             shader_gg: Shader::Simpletex,
             shader_ngp: Shader::Simpletex,
             shader_tg16: Shader::Grid,
-            shader_nds: Shader::Off,
             auto_load: true,
             eject_save: true,
             rewind: true,
@@ -654,8 +640,6 @@ impl Default for SlotState {
             bezel_gg: BezelPick::None,
             bezel_ngp: BezelPick::None,
             bezel_tg16: BezelPick::None,
-            // nelynes's DS Lite set, bundled in slot-ui (slot_ui::DS_LITE_BEZEL).
-            bezel_nds: BezelPick::Bundled(String::from("DS Lite")),
             scale_gba: Scale::Fit,
             scale_gb: Scale::SpFrame,
             scale_gbc: Scale::SpFrame,
@@ -673,10 +657,6 @@ impl Default for SlotState {
             scale_lynx: Scale::Integer,
             stretched_ws: false,
             stretched_lynx: false,
-            scale_nds: Scale::Fit,
-            stretched_nds: false,
-            nds_layout: "stacked".into(),
-            nds_stylus_screen: false,
             palette_ws: crate::core_palette::WS_PALETTES[0].0.to_string(),
             palette_tg16: crate::core_palette::TG16_PALETTES[0].0.to_string(),
             blending_gba: Blending::Off,
@@ -776,7 +756,6 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("shader_gg={}\n", s.shader_gg.name()));
     text.push_str(&format!("shader_ngp={}\n", s.shader_ngp.name()));
     text.push_str(&format!("shader_tg16={}\n", s.shader_tg16.name()));
-    text.push_str(&format!("shader_nds={}\n", s.shader_nds.name()));
     text.push_str(&format!("saturation={}\n", s.saturation));
     text.push_str(&format!("contrast={}\n", s.contrast));
     text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
@@ -804,7 +783,6 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("bezel_gg={}\n", s.bezel_gg.key()));
     text.push_str(&format!("bezel_ngp={}\n", s.bezel_ngp.key()));
     text.push_str(&format!("bezel_tg16={}\n", s.bezel_tg16.key()));
-    text.push_str(&format!("bezel_nds={}\n", s.bezel_nds.key()));
     text.push_str(&format!("scale_gba={}\n", s.scale_gba.name()));
     text.push_str(&format!("scale_gb={}\n", s.scale_gb.name()));
     text.push_str(&format!("scale_gbc={}\n", s.scale_gbc.name()));
@@ -822,13 +800,6 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     text.push_str(&format!("scale_lynx={}\n", s.scale_lynx.name()));
     text.push_str(&format!("stretched_ws={}\n", s.stretched_ws as u8));
     text.push_str(&format!("stretched_lynx={}\n", s.stretched_lynx as u8));
-    text.push_str(&format!("scale_nds={}\n", s.scale_nds.name()));
-    text.push_str(&format!("stretched_nds={}\n", s.stretched_nds as u8));
-    text.push_str(&format!("nds_layout={}\n", s.nds_layout));
-    text.push_str(&format!(
-        "nds_stylus_screen={}\n",
-        s.nds_stylus_screen as u8
-    ));
     text.push_str(&format!("blending_gba={}\n", s.blending_gba.key()));
     text.push_str(&format!("blending_gb={}\n", s.blending_gb.key()));
     text.push_str(&format!("blending_gbc={}\n", s.blending_gbc.key()));
@@ -849,6 +820,8 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
 fn parse(text: &str) -> Option<SlotState> {
     let mut cart = None;
     let mut cart_platform = None;
+    // Slot²: a resumed cart of a system slot no longer has (the DS, removed 2026-11-07).
+    let mut cart_system_gone = false;
     let mut brightness = None;
     let mut blue_light = None;
     let mut dim = None;
@@ -879,7 +852,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut shader_gg = None;
     let mut shader_ngp = None;
     let mut shader_tg16 = None;
-    let mut shader_nds = None;
     let mut auto_load = None;
     let mut eject_save = None;
     let mut rewind = None;
@@ -902,7 +874,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut bezel_gg = None;
     let mut bezel_ngp = None;
     let mut bezel_tg16 = None;
-    let mut bezel_nds = None;
     let mut scale_gba = None;
     let mut scale_gb = None;
     let mut scale_gbc = None;
@@ -919,10 +890,6 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut scale_ws = None;
     let mut scale_lynx = None;
     let mut stretched_ws = None;
-    let mut scale_nds = None;
-    let mut stretched_nds = None;
-    let mut nds_layout = None;
-    let mut nds_stylus_screen = None;
     let mut stretched_lynx = None;
     let mut blending_gba = None;
     let (mut palette_ws, mut palette_tg16) = (None, None);
@@ -936,7 +903,11 @@ fn parse(text: &str) -> Option<SlotState> {
         };
         match key {
             "cart" => cart = Some(value.to_string()),
-            "cart_platform" => cart_platform = platform_value(value),
+            "cart_platform" => {
+                cart_platform = platform_value(value);
+                // Only the DS: a value slot can't read is kept as a card that never said.
+                cart_system_gone = value.trim().eq_ignore_ascii_case("nds");
+            }
             "brightness" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
             "blue_light" => blue_light = Some(level(value, BLUE_LIGHT_MAX)?),
             "dim" => dim = level(value, DIM_MAX),
@@ -982,7 +953,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "bezel_gg" => bezel_gg = Some(BezelPick::parse(value)),
             "bezel_ngp" => bezel_ngp = Some(BezelPick::parse(value)),
             "bezel_tg16" => bezel_tg16 = Some(BezelPick::parse(value)),
-            "bezel_nds" => bezel_nds = Some(BezelPick::parse(value)),
             "scale_gba" => scale_gba = Scale::parse(value),
             "scale_gb" => scale_gb = Scale::parse(value),
             "scale_gbc" => scale_gbc = Scale::parse(value),
@@ -999,10 +969,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "scale_ws" => scale_ws = Scale::parse(value),
             "scale_lynx" => scale_lynx = Scale::parse(value),
             "stretched_ws" => stretched_ws = flag(value),
-            "scale_nds" => scale_nds = Scale::parse(value),
-            "stretched_nds" => stretched_nds = flag(value),
-            "nds_stylus_screen" => nds_stylus_screen = flag(value),
-            "nds_layout" => nds_layout = Some(value.trim().to_string()).filter(|v| !v.is_empty()),
             "stretched_lynx" => stretched_lynx = flag(value),
             "blending_gba" => blending_gba = Blending::parse(value),
             "palette_ws" => palette_ws = Some(core_palette(Platform::Ws, value).to_string()),
@@ -1019,7 +985,6 @@ fn parse(text: &str) -> Option<SlotState> {
             "shader_tg16" => {
                 shader_tg16 = Shader::parse(value).filter(|s| Shader::TG16.contains(s))
             }
-            "shader_nds" => shader_nds = Shader::parse(value).filter(|s| Shader::NDS.contains(s)),
             "shader_lynx" => {
                 shader_lynx = Shader::parse(value).filter(|s| Shader::LYNX.contains(s))
             }
@@ -1029,7 +994,9 @@ fn parse(text: &str) -> Option<SlotState> {
     let cart = cart?;
     let fallback = SlotState::default();
     Some(SlotState {
-        cart: (!cart.is_empty()).then_some(cart),
+        // Without its system, the stem alone could seat another system's game of the
+        // same name, so the cart is let go.
+        cart: (!cart.is_empty() && !cart_system_gone).then_some(cart),
         cart_platform,
         brightness: brightness?,
         dim: dim.unwrap_or(fallback.dim),
@@ -1077,7 +1044,6 @@ fn parse(text: &str) -> Option<SlotState> {
             .or(shader_gb.filter(|s| Shader::NGP.contains(s)))
             .unwrap_or(fallback.shader_ngp),
         shader_tg16: shader_tg16.unwrap_or(fallback.shader_tg16),
-        shader_nds: shader_nds.unwrap_or(fallback.shader_nds),
         auto_load: auto_load.unwrap_or(fallback.auto_load),
         eject_save: eject_save.unwrap_or(fallback.eject_save),
         rewind: rewind.unwrap_or(fallback.rewind),
@@ -1100,7 +1066,6 @@ fn parse(text: &str) -> Option<SlotState> {
         bezel_gg: bezel_gg.unwrap_or(fallback.bezel_gg),
         bezel_ngp: bezel_ngp.unwrap_or(fallback.bezel_ngp),
         bezel_tg16: bezel_tg16.unwrap_or(fallback.bezel_tg16),
-        bezel_nds: bezel_nds.unwrap_or(fallback.bezel_nds),
         scale_gba: scale_gba.unwrap_or(fallback.scale_gba),
         scale_gb: scale_gb.unwrap_or(fallback.scale_gb),
         scale_gbc: scale_gbc.unwrap_or(fallback.scale_gbc),
@@ -1117,10 +1082,6 @@ fn parse(text: &str) -> Option<SlotState> {
         scale_ws: scale_ws.unwrap_or(fallback.scale_ws),
         scale_lynx: scale_lynx.unwrap_or(fallback.scale_lynx),
         stretched_ws: stretched_ws.unwrap_or(fallback.stretched_ws),
-        scale_nds: scale_nds.unwrap_or(fallback.scale_nds),
-        stretched_nds: stretched_nds.unwrap_or(fallback.stretched_nds),
-        nds_stylus_screen: nds_stylus_screen.unwrap_or(fallback.nds_stylus_screen),
-        nds_layout: nds_layout.unwrap_or(fallback.nds_layout),
         stretched_lynx: stretched_lynx.unwrap_or(fallback.stretched_lynx),
         blending_gba: blending_gba.unwrap_or(fallback.blending_gba),
         palette_ws: palette_ws.unwrap_or(fallback.palette_ws),

@@ -57,10 +57,6 @@ fn tg16() -> Cart {
     cart(Platform::Tg16, "Bonk's Adventure")
 }
 
-fn nds() -> Cart {
-    cart(Platform::Nds, "Mario Kart DS")
-}
-
 fn at(face: &slot_ui::CartFace, x: u32, y: u32) -> [u8; 4] {
     let i = ((y * face.w + x) * 4) as usize;
     [
@@ -85,21 +81,12 @@ fn each_cart_has_its_own_mould() {
     assert_eq!(mould_for(Platform::Ngp), Mould::Ngp);
     assert_eq!(mould_of(&tg16()), Mould::Tg16);
     assert_eq!(mould_for(Platform::Tg16), Mould::Tg16);
-    assert_eq!(mould_of(&nds()), Mould::Nds);
-    assert_eq!(mould_for(Platform::Nds), Mould::Nds);
     assert_eq!(mould_for(Platform::Ws), Mould::Ws);
     assert_eq!(mould_for(Platform::Lynx), Mould::Lynx);
     assert_eq!(mould_for(Platform::Gba), Mould::Gba);
     assert_eq!(
         Mould::EXTRA,
-        [
-            Mould::Ws,
-            Mould::Lynx,
-            Mould::Gg,
-            Mould::Ngp,
-            Mould::Tg16,
-            Mould::Nds
-        ]
+        [Mould::Ws, Mould::Lynx, Mould::Gg, Mould::Ngp, Mould::Tg16]
     );
     for (i, m) in Mould::ALL.iter().enumerate() {
         assert_eq!(m.index(), i);
@@ -124,16 +111,6 @@ fn the_wonderswan_cart_is_wide_and_the_lynx_card_nearly_square() {
         let (cw, ch) = cart_box(c.platform);
         assert!((sh as f32 - ch as f32 * 240.0 / cw as f32).abs() <= 1.0);
     }
-}
-
-#[test]
-fn a_ds_card_seats_narrower_keeping_its_shape() {
-    let c = nds();
-    let (sw, sh) = seated_box(c.platform);
-    assert_eq!(sw, slot_ui::NDS_SEATED_W);
-    assert!(sw < 240, "a DS card is smaller than a GBA cart");
-    let (cw, ch) = cart_box(c.platform);
-    assert!((sh as f32 - ch as f32 * sw as f32 / cw as f32).abs() <= 1.0);
 }
 
 #[test]

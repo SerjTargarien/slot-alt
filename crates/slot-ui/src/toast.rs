@@ -38,8 +38,6 @@ pub enum Toast {
     Forgotten,
     Palette(GbColors),
     Duplicate(QuickRow),
-    /// A DS game's new layout, by its place in `DS_LAYOUTS`.
-    DsLayout(u8),
     /// Slot²: a WonderSwan or TurboGrafx-16 game's new palette, by its place in its
     /// system's (`slot_store::core_palette`).
     CorePalette(Platform, u8),
@@ -53,14 +51,6 @@ fn core_palette_toasts() -> impl Iterator<Item = Toast> {
         (0..core_palettes(p).len() as u8).map(move |i| Toast::CorePalette(p, i))
     })
 }
-
-/// The names of a DS game's layouts, in the order SELECT + L2 steps them.
-pub const DS_LAYOUTS: [&str; 4] = [
-    "Both Screens",
-    "One Screen",
-    "Main and Small",
-    "Picture in Picture",
-];
 
 impl Toast {
     const FIXED: [Toast; 27] = [
@@ -98,7 +88,6 @@ impl Toast {
             .into_iter()
             .chain(GbColors::all().map(Toast::Palette))
             .chain(bound_rows().map(Toast::Duplicate))
-            .chain((0..DS_LAYOUTS.len() as u8).map(Toast::DsLayout))
             .chain(core_palette_toasts())
             .collect()
     }
@@ -111,17 +100,10 @@ impl Toast {
                     + GbColors::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
             }
-            Toast::DsLayout(i) => {
-                Self::FIXED.len()
-                    + GbColors::all().count()
-                    + bound_rows().count()
-                    + usize::from(i).min(DS_LAYOUTS.len() - 1)
-            }
             Toast::CorePalette(..) => {
                 Self::FIXED.len()
                     + GbColors::all().count()
                     + bound_rows().count()
-                    + DS_LAYOUTS.len()
                     + core_palette_toasts().position(|t| t == self).unwrap_or(0)
             }
             fixed => Self::FIXED.iter().position(|t| *t == fixed).unwrap_or(0),
@@ -200,7 +182,6 @@ impl Toast {
             Toast::Forgotten => "Network forgotten",
             Toast::Palette(p) => p.label(),
             Toast::Duplicate(_) => "",
-            Toast::DsLayout(i) => DS_LAYOUTS[usize::from(i).min(DS_LAYOUTS.len() - 1)],
             Toast::CorePalette(p, i) => core_palettes(p).get(usize::from(i)).map_or("", |c| c.1),
         }
     }

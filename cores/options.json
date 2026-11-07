@@ -258,16 +258,6 @@
    "48000"
   ]
  },
- "dsperate": {
-  "dsperate_frameskip": [
-   "disabled",
-   "auto"
-  ],
-  "dsperate_jit": [
-   "enabled",
-   "disabled"
-  ]
- },
  "gambatte": {
   "gambatte_audio_resampler": [
    "sinc",

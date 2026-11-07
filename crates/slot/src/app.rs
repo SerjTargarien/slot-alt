@@ -45,12 +45,11 @@ use crate::persist::{self, Snapshot};
 use crate::print_scene::{print_draws, Cue, PrintArtState, PrintFrame, PrintTextures};
 use crate::romm::{no_romm_jobs, PairFail, RommEvent, RommJob, RommJobs};
 use crate::server::{ServerNet, ServerPaper, ServerSession};
-use crate::stylus::Stylus;
 use crate::unwrap_scene::{unwrap_draws, UnwrapScene, UnwrapTextures};
 use crate::update::{
     no_update_jobs, Kind, Release, UpdateEvent, UpdateFail, UpdateJob, UpdateJobs,
 };
-use crate::video_mode::{self, DsFrame, DsLayout, DsPart, DsScreen, DsView, VideoMode};
+use crate::video_mode::{self, VideoMode};
 use slot_store::{
     read_carousel, read_shortcuts, write_carousel, write_shortcuts, Binding, CarouselKeys, Device,
     Modifier, Shortcut, ShortcutKeys, LID_OFF_MIN,
@@ -627,11 +626,6 @@ pub struct App {
     platform: Platform,
     named_core: bool,
     video_mode: VideoMode,
-    /// A DS game's view of its two screens.
-    ds_view: DsView,
-    /// The DS stylus while R2 is held, and where it was last left.
-    stylus: Option<Stylus>,
-    stylus_at: (f32, f32),
     portrait: bool,
     /// The size of the frame the core last drew.
     shown: (u32, u32),
@@ -651,7 +645,7 @@ pub struct App {
     quick_romm_faces: [Option<[(TexId, u32, u32); 2]>; 4],
     pub romm: crate::romm::RommConf,
     quick_palette_faces: Option<[(TexId, u32, u32); 2]>,
-    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 9],
+    quick_bezel_faces: [Option<[(TexId, u32, u32); 2]>; 8],
     game_bezel: Option<TexId>,
     bezel_column: Vec<u8>,
     in_game_menu: Option<QuickRow>,
@@ -1102,9 +1096,6 @@ impl App {
             platform: Platform::default(),
             named_core: false,
             video_mode: VideoMode::default(),
-            ds_view: DsView::default(),
-            stylus: None,
-            stylus_at: (crate::stylus::SCREEN_W / 2.0, crate::stylus::SCREEN_H / 2.0),
             portrait: false,
             shown: (0, 0),
             link: None,
@@ -1123,7 +1114,7 @@ impl App {
             quick_romm_faces: [None; 4],
             romm: crate::romm::RommConf::default(),
             quick_palette_faces: None,
-            quick_bezel_faces: [None; 9],
+            quick_bezel_faces: [None; 8],
             game_bezel: None,
             bezel_column: Vec::new(),
             in_game_menu: None,
@@ -1569,20 +1560,14 @@ impl App {
 
     pub fn in_game_hidden(&self) -> Vec<QuickRow> {
         let platform = self.playing_platform();
-        let no_bezel = (platform.hardware() == Platform::Gba && !self.framed_panel())
-            || unbezelled(platform)
-            || (platform == Platform::Nds && self.tall());
+        let no_bezel =
+            (platform.hardware() == Platform::Gba && !self.framed_panel()) || unbezelled(platform);
         let mut hidden = Vec::new();
         // None of the added systems' cores has colour correction to set. Their
         // bezel is None, the SP frame on a 4:3 panel, or a png of the card's own.
         if matches!(
             platform,
-            Platform::Ws
-                | Platform::Lynx
-                | Platform::Gg
-                | Platform::Ngp
-                | Platform::Tg16
-                | Platform::Nds
+            Platform::Ws | Platform::Lynx | Platform::Gg | Platform::Ngp | Platform::Tg16
         ) {
             hidden.push(QuickRow::ColourCorrection);
         }
@@ -1595,16 +1580,8 @@ impl App {
         if self.scale_choices(self.playing_platform()).len() < 2 {
             hidden.push(QuickRow::Scale);
         }
-        // The DS's Stretch fills the panel with One Screen, so it shows only there.
-        let stretch_row = match platform {
-            Platform::Nds => self.tall() && self.ds_view.layout == DsLayout::Single,
-            _ => self.stretch_choices(platform).len() >= 2 || self.stretch_switch(),
-        };
-        if !stretch_row {
+        if self.stretch_choices(platform).len() < 2 && !self.stretch_switch() {
             hidden.push(QuickRow::Stretch);
-        }
-        if platform != Platform::Nds {
-            hidden.extend([QuickRow::Layout, QuickRow::StylusScreen]);
         }
         // slotPlus's other cores have no frame blending to pick.
         // Slot²: the sprite limit, where the running core lets it be lifted.
@@ -1624,11 +1601,6 @@ impl App {
                 .into_iter()
                 .filter(|r| r.shortcut().is_some_and(|s| !has(platform, s))),
         );
-        // A DS game records no rewind (its states are ~6 MB each), so it
-        // offers none.
-        if platform == Platform::Nds {
-            hidden.extend([QuickRow::Rewind, QuickRow::ScRewind]);
-        }
         if !self.has_states || self.link_active() {
             hidden.push(QuickRow::States);
         }
@@ -1737,9 +1709,7 @@ impl App {
             (QuickRow::Shader, Platform::Ngp) => QuickRow::NgpShader,
             (QuickRow::Bezel, Platform::Ngp) => QuickRow::NgpBezel,
             (QuickRow::Shader, Platform::Tg16) => QuickRow::Tg16Shader,
-            (QuickRow::Shader, Platform::Nds) => QuickRow::NdsShader,
             (QuickRow::Bezel, Platform::Tg16) => QuickRow::Tg16Bezel,
-            (QuickRow::Bezel, Platform::Nds) => QuickRow::NdsBezel,
             (QuickRow::Scale, Platform::Gba) => QuickRow::GbaScale,
             (QuickRow::Scale, Platform::Gb) => QuickRow::GbScale,
             (QuickRow::Scale, Platform::Gbc) => QuickRow::GbcScale,
@@ -1755,8 +1725,6 @@ impl App {
             (QuickRow::Scale, Platform::Lynx) => QuickRow::LynxScale,
             (QuickRow::Stretch, Platform::Ws) => QuickRow::WsStretch,
             (QuickRow::Stretch, Platform::Lynx) => QuickRow::LynxStretch,
-            (QuickRow::Scale, Platform::Nds) => QuickRow::NdsScale,
-            (QuickRow::Stretch, Platform::Nds) => QuickRow::NdsStretch,
             (QuickRow::Palette, Platform::Ws) => QuickRow::WsPalette,
             (QuickRow::Palette, Platform::Tg16) => QuickRow::Tg16Palette,
             (QuickRow::PlayBrightness, _) => QuickRow::Brightness,
@@ -1791,12 +1759,6 @@ impl App {
             QuickRow::Tg16Scale => Some(scale_value(self.resolved_scale(Platform::Tg16))),
             QuickRow::WsScale => Some(scale_value(self.resolved_scale(Platform::Ws))),
             QuickRow::LynxScale => Some(scale_value(self.resolved_scale(Platform::Lynx))),
-            QuickRow::NdsScale => Some(scale_value(self.resolved_scale(Platform::Nds))),
-            QuickRow::NdsStretch => Some(QuickValue::flag(self.view().stretched_nds)),
-            QuickRow::NdsLayout => Some(ds_layout_value(self.ds_starting_layout())),
-            QuickRow::Layout => Some(ds_layout_value(self.ds_view.layout)),
-            QuickRow::NdsStylusScreen => Some(QuickValue::flag(self.state.nds_stylus_screen)),
-            QuickRow::StylusScreen => Some(QuickValue::flag(self.ds_stylus_screen())),
             QuickRow::GbStretch
             | QuickRow::GbcStretch
             | QuickRow::GgStretch
@@ -1852,7 +1814,6 @@ impl App {
             QuickRow::GgShader => Some(shader_value(self.view().shader_gg)),
             QuickRow::NgpShader => Some(shader_value(self.view().shader_ngp)),
             QuickRow::Tg16Shader => Some(shader_value(self.view().shader_tg16)),
-            QuickRow::NdsShader => Some(shader_value(self.view().shader_nds)),
             QuickRow::Rumble => Some(QuickValue::flag(self.view().rumble)),
             QuickRow::SpriteLimit => Some(QuickValue::flag(self.view().sprite_limit)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.view().auto_load)),
@@ -1994,15 +1955,10 @@ impl App {
             Platform::Gg => &mut self.state.bezel_gg,
             Platform::Ngp => &mut self.state.bezel_ngp,
             Platform::Tg16 => &mut self.state.bezel_tg16,
-            Platform::Nds => &mut self.state.bezel_nds,
         }
     }
 
     pub fn resolved_bezel(&self, platform: Platform) -> BezelPick {
-        // Slot²: DS bezel sets are drawn for the band, not the square panel's layouts.
-        if platform == Platform::Nds && self.tall() {
-            return BezelPick::None;
-        }
         let pick = match platform {
             Platform::Gba | Platform::Gbav => &self.view().bezel_gba,
             Platform::Gb => &self.view().bezel_gb,
@@ -2012,7 +1968,6 @@ impl App {
             Platform::Gg => &self.view().bezel_gg,
             Platform::Ngp => &self.view().bezel_ngp,
             Platform::Tg16 => &self.view().bezel_tg16,
-            Platform::Nds => &self.view().bezel_nds,
         };
         let choices = self.bezel_choices(platform);
         if choices.contains(pick) {
@@ -2252,11 +2207,6 @@ impl App {
         }
         if !self.framed_panel() {
             hidden.push(QuickRow::GbaBezel);
-        }
-        if self.tall() {
-            hidden.push(QuickRow::NdsBezel);
-        } else {
-            hidden.push(QuickRow::NdsStretch);
         }
         // A system with no shortcuts of its own has no page among the shortcut pages.
         hidden.extend(
@@ -2775,201 +2725,6 @@ impl App {
         self.video_mode = mode;
     }
 
-    /// A DS game's view of its screens, as it was last left.
-    pub fn set_ds_view(&mut self, view: DsView) {
-        self.ds_view = view;
-    }
-
-    pub fn ds_view(&self) -> DsView {
-        self.ds_view
-    }
-
-    /// Whether moving the DS's stylus brings its touch screen up: the game's choice, else
-    /// the shelf's (off unless set).
-    pub fn ds_stylus_screen(&self) -> bool {
-        self.ds_view
-            .stylus_screen
-            .unwrap_or(self.state.nds_stylus_screen)
-    }
-
-    /// The view drawn: while the stylus is out and the stylus shows the touch screen,
-    /// the bottom screen is the main one, unless both are shown full size already.
-    fn ds_view_shown(&self) -> DsView {
-        match self.stylus.is_some() && self.ds_stylus_screen() {
-            true if self.ds_view.layout != DsLayout::Stacked => DsView {
-                main: DsScreen::Bottom,
-                ..self.ds_view
-            },
-            _ => self.ds_view,
-        }
-    }
-
-    /// How the DS's screens are sized: on the whole canvas, at its Scale, and stretched
-    /// where the panel has a stretch switch and it is on (One Screen only).
-    fn ds_frame(&self) -> DsFrame {
-        let c = self.canvas();
-        DsFrame {
-            w: c.w,
-            h: c.h,
-            fit: self.resolved_scale(Platform::Nds) == Scale::Fit,
-            stretch: self.tall() && self.view().stretched_nds,
-        }
-    }
-
-    /// The layout a DS game never played before starts with (the shelf's Layout row).
-    pub fn ds_starting_layout(&self) -> DsLayout {
-        DsLayout::parse(&self.state.nds_layout).unwrap_or_default()
-    }
-
-    /// The DS screens drawn, the main one and maybe the other over it, in canvas units.
-    pub fn ds_parts(&self) -> (DsPart, Option<DsPart>) {
-        self.ds_view_shown().parts(self.ds_frame())
-    }
-
-    /// A rect in canvas units where the compositor places the game: in 720x480 units of
-    /// the panel on a framed panel (the DS uses the whole of it), of the band otherwise.
-    fn on_panel(&self, r: [f32; 4]) -> [f32; 4] {
-        let c = self.canvas();
-        let (sx, sy) = (OUT_W as f32 / c.w, OUT_H as f32 / c.h);
-        [r[0] * sx, r[1] * sy, r[2] * sx, r[3] * sy]
-    }
-
-    /// The DS's other screen, where its layout draws one over the main one:
-    /// the part of the buffer, and where the compositor places it.
-    pub fn game_inset(&self) -> Option<([f32; 4], [f32; 4])> {
-        if self.playing_platform() != Platform::Nds {
-            return None;
-        }
-        self.ds_parts().1.map(|p| (p.src, self.on_panel(p.dst)))
-    }
-
-    /// Whether the game is drawn sharp bilinear: a DS game, whose layouts
-    /// put its screens at 1.25x and 2.5x as well as 2x.
-    pub fn game_sharp(&self) -> bool {
-        self.playing_platform() == Platform::Nds
-    }
-
-    /// The PNG a DS bezel set draws for the layout on screen, while a DS
-    /// game plays.
-    pub fn ds_bezel_file(&self) -> Option<&'static str> {
-        let fit = self.resolved_scale(Platform::Nds) == Scale::Fit;
-        (self.playing_platform() == Platform::Nds)
-            .then(|| self.ds_view.layout.bezel_file(fit))
-            .flatten()
-    }
-
-    /// Swap which of a DS game's screens is the main one, L2's job.
-    pub fn swap_ds_screens(&mut self) {
-        self.ds_view = self.ds_view.swapped();
-        self.keep_ds_view();
-    }
-
-    /// Step a DS game to its next layout, SELECT + L2's job, and say which.
-    pub fn next_ds_layout(&mut self) {
-        self.ds_view = self.ds_view.next_layout();
-        self.keep_ds_view();
-        let at = self.ds_view.layout.index() as u8;
-        self.hud.toast(Toast::DsLayout(at), self.now());
-    }
-
-    fn keep_ds_view(&mut self) {
-        let (Some(root), Phase::Playing { cart }) = (self.root.clone(), &self.phase) else {
-            return;
-        };
-        let written = video_mode::write_ds_view(&root, cart, self.ds_view);
-        if let Err(e) = &written {
-            eprintln!("slot: video: could not write nds_view.txt: {e}");
-        }
-        self.card_writes.wrote("nds_view.txt", &written);
-    }
-
-    /// Take out the DS stylus (its Stylus input held) or put it away.
-    pub fn stylus_out(&mut self, out: bool) {
-        match (out, self.stylus) {
-            (true, None) => self.stylus = Some(Stylus::at(self.stylus_at)),
-            (false, Some(s)) => {
-                self.stylus_at = (s.x, s.y);
-                self.stylus = None;
-            }
-            _ => {}
-        }
-    }
-
-    pub fn stylus_is_out(&self) -> bool {
-        self.stylus.is_some()
-    }
-
-    /// Which ways the stylus is being moved (up, down, left, right), and whether it touches.
-    pub fn stylus_steer(&mut self, held: [bool; 4], touching: bool) {
-        if let Some(s) = &mut self.stylus {
-            s.steer(held, touching);
-        }
-    }
-
-    /// What the DS core's touch screen reads: the stylus, or nothing.
-    pub fn pointer(&self) -> Option<slot_retro::Pointer> {
-        self.stylus.map(|s| s.pointer())
-    }
-
-    /// The stylus moves with the D-pad, and goes away with the DS controls,
-    /// when a menu opens over the game or it ends.
-    fn tick_stylus(&mut self, dt: f32) {
-        if !self.ds_controls() {
-            self.stylus_out(false);
-        }
-        if let Some(s) = &mut self.stylus {
-            s.tick(dt);
-        }
-    }
-
-    /// The stylus's cursor over the bottom screen: a cross, and a dot in its
-    /// middle while it touches.
-    fn draw_stylus(&self, out: &mut Vec<Draw>) {
-        let Some(s) = self.stylus else {
-            return;
-        };
-        // Over the bottom screen, wherever the layout draws it.
-        let (main, other) = self.ds_parts();
-        let Some(bottom) = [Some(main), other]
-            .into_iter()
-            .flatten()
-            .find(|p| p.screen == DsScreen::Bottom)
-        else {
-            return;
-        };
-        let [dx, dy, dw, dh] = bottom.dst;
-        let x = dx + s.x / crate::stylus::SCREEN_W * dw;
-        let y = dy + s.y / crate::stylus::SCREEN_H * dh;
-        let (arm, thick) = (11.0, 3.0);
-        let bar = |out: &mut Vec<Draw>, w: f32, h: f32, pad: f32, colour: [f32; 4]| {
-            out.push(Draw::Rect {
-                x: x - w / 2.0 - pad,
-                y: y - h / 2.0 - pad,
-                w: w + pad * 2.0,
-                h: h + pad * 2.0,
-                colour,
-            });
-        };
-        let (dark, light) = ([0.0, 0.0, 0.0, 0.8], [1.0, 1.0, 1.0, 1.0]);
-        for (pad, colour) in [(1.5, dark), (0.0, light)] {
-            bar(out, arm * 2.0, thick, pad, colour);
-            bar(out, thick, arm * 2.0, pad, colour);
-        }
-        if s.touching {
-            bar(out, 7.0, 7.0, 1.5, dark);
-            bar(out, 7.0, 7.0, 0.0, [1.0, 0.85, 0.2, 1.0]);
-        }
-    }
-
-    /// Whether the DS's own controls are live: a DS game is playing, shown,
-    /// and no menu is over it.
-    pub fn ds_controls(&self) -> bool {
-        self.playing_platform() == Platform::Nds
-            && matches!(self.phase, Phase::Playing { .. })
-            && self.in_game_menu.is_none()
-            && self.game_visible()
-    }
-
     pub fn source_rect(&self) -> [f32; 4] {
         match self.playing_platform().hardware() {
             // The Game Gear and Pocket size the Game Boy's way (`picture`), source included.
@@ -2981,7 +2736,6 @@ impl App {
             | Platform::Tg16
             | Platform::Ws
             | Platform::Lynx => self.picture().1,
-            Platform::Nds => self.ds_parts().0.src,
             _ => video_mode::source_rect_shown(
                 self.platform,
                 self.video_mode,
@@ -3068,7 +2822,6 @@ impl App {
             Platform::Tg16 => self.view().stretched_tg16,
             Platform::Ws => self.view().stretched_ws,
             Platform::Lynx => self.view().stretched_lynx,
-            Platform::Nds => self.view().stretched_nds,
             _ => self.view().stretched_gb,
         }
     }
@@ -3081,7 +2834,6 @@ impl App {
             Platform::Tg16 => self.state.stretched_tg16 = on,
             Platform::Ws => self.state.stretched_ws = on,
             Platform::Lynx => self.state.stretched_lynx = on,
-            Platform::Nds => self.state.stretched_nds = on,
             _ => self.state.stretched_gb = on,
         }
     }
@@ -3114,7 +2866,6 @@ impl App {
             Platform::Tg16 => self.view().scale_tg16,
             Platform::Ws => self.view().scale_ws,
             Platform::Lynx => self.view().scale_lynx,
-            Platform::Nds => self.view().scale_nds,
         }
     }
 
@@ -3131,12 +2882,6 @@ impl App {
     }
 
     pub fn game_layout(&self) -> GameLayout {
-        if self.playing_platform() == Platform::Nds {
-            return GameLayout {
-                panel: self.framed_panel(),
-                rect: self.on_panel(self.ds_parts().0.dst),
-            };
-        }
         let (sizing, source) = self.picture();
         self.layout_of(self.playing_platform(), sizing, source)
     }
@@ -3190,10 +2935,6 @@ impl App {
     }
 
     pub fn scale_choices(&self, platform: Platform) -> Vec<Scale> {
-        // Slot²: the DS lays its screens out itself (`DsView::parts`).
-        if platform == Platform::Nds {
-            return vec![Scale::Integer, Scale::Fit];
-        }
         let mut seen = Vec::new();
         let mut choices = Vec::new();
         for &scale in Self::scale_candidates(platform) {
@@ -3228,12 +2969,6 @@ impl App {
 
     pub fn resolved_scale(&self, platform: Platform) -> Scale {
         let stored = self.scale_of(platform);
-        if platform == Platform::Nds {
-            return match stored {
-                Scale::Integer => Scale::Integer,
-                _ => Scale::Fit,
-            };
-        }
         let shown = self.shown_as(platform, VideoMode::Actual, stored, Stretch::Classic);
         self.scale_choices(platform)
             .into_iter()
@@ -3288,7 +3023,6 @@ impl App {
             Platform::Tg16 => self.state.scale_tg16 = to,
             Platform::Ws => self.state.scale_ws = to,
             Platform::Lynx => self.state.scale_lynx = to,
-            Platform::Nds => self.state.scale_nds = to,
         }
     }
 
@@ -3320,11 +3054,11 @@ impl App {
     }
 
     /// The shortcuts the input layer listens for now. Stretch On and Off only apply where a
-    /// game can stretch, so in a GBA or DS game their keys stay free.
+    /// game can stretch, so in a GBA game their keys stay free.
     /// In a game, the game's own controls win: a shortcut that needs a button one of the
     /// playing system's inputs uses (see `input::collides`) is left out of the game, and
     /// still works on the shelf and in menus. The menus flag the clash. Fast forward at
-    /// speed 0 and rewind switched off (or never recorded, as in a DS game) aren't listened
+    /// speed 0 and rewind switched off aren't listened
     /// for at all, so their keys are the game's.
     pub fn input_entries(&self) -> Vec<slot_input::Entry> {
         let off = |a: Action| match a {
@@ -3726,15 +3460,6 @@ impl App {
         self.carousel
     }
 
-    /// Slot²: the Stretch shortcuts in a DS game, which act where its Stretch row is: in
-    /// the One Screen layout on a tall panel. The value is the game's own.
-    fn set_ds_stretch(&mut self, on: bool) {
-        if !self.tall() || self.ds_view.layout != DsLayout::Single {
-            return;
-        }
-        self.edit_game(|a| a.set_stretched(Platform::Nds, on));
-    }
-
     fn set_picture(&mut self, mode: VideoMode) {
         if self.stretch_switch() {
             let platform = self.playing_platform();
@@ -3786,11 +3511,9 @@ impl App {
         self.view().rewind && !self.link_active()
     }
 
-    /// Whether rewind is recorded. Not for a DS game: its states are about
-    /// 6 MB, and taking one as often as rewind does costs the 3D games the
-    /// time they have to spare on the H700.
+    /// Whether rewind is recorded.
     pub fn records_rewind(&self) -> bool {
-        self.view().rewind && self.playing_platform() != Platform::Nds
+        self.view().rewind
     }
 
     pub fn picture_rect(&self) -> [f32; 4] {
@@ -3992,17 +3715,12 @@ impl App {
             Platform::Gg => self.view().shader_gg,
             Platform::Ngp => self.view().shader_ngp,
             Platform::Tg16 => self.view().shader_tg16,
-            Platform::Nds => self.view().shader_nds,
         }
     }
 
-    /// The shader drawn over the game: a DS game's wherever its main screen
-    /// is drawn big enough for it, from 2x.
+    /// The shader drawn over the game.
     pub fn drawn_shader(&self) -> Shader {
-        match self.playing_platform() {
-            Platform::Nds if !self.ds_view_shown().shaded(self.ds_frame()) => Shader::Off,
-            _ => self.screen_shader(),
-        }
+        self.screen_shader()
     }
 
     pub fn colour_correction(&self) -> bool {
@@ -4019,12 +3737,7 @@ impl App {
             Platform::Gb => self.view().colour_correction_gb,
             Platform::Gbc => self.view().colour_correction_gbc,
             // None of these cores has colour correction.
-            Platform::Ws
-            | Platform::Lynx
-            | Platform::Gg
-            | Platform::Ngp
-            | Platform::Tg16
-            | Platform::Nds => false,
+            Platform::Ws | Platform::Lynx | Platform::Gg | Platform::Ngp | Platform::Tg16 => false,
         }
     }
 
@@ -4434,12 +4147,6 @@ impl App {
             },
             Phase::Inserting { .. } if action == Action::Eject => self.eject(),
             Phase::Playing { .. } => match action {
-                // Slot²: the DS's Stretch is its own (it fills the screen in One Screen).
-                Action::StretchOn | Action::StretchOff
-                    if self.playing_platform() == Platform::Nds =>
-                {
-                    self.set_ds_stretch(action == Action::StretchOn)
-                }
                 Action::StretchOn if stretches(self.playing_platform()) => {
                     self.set_picture(VideoMode::Stretch)
                 }
@@ -4732,7 +4439,6 @@ impl App {
             | QuickRow::ScreenGg
             | QuickRow::ScreenNgp
             | QuickRow::ScreenTg16
-            | QuickRow::ScreenNds
             | QuickRow::ScreenLynx
             | QuickRow::ScreenGb
             | QuickRow::Shortcuts
@@ -4757,8 +4463,7 @@ impl App {
             | QuickRow::ControlsLynx
             | QuickRow::ControlsGg
             | QuickRow::ControlsNgp
-            | QuickRow::ControlsTg16
-            | QuickRow::ControlsNds => {
+            | QuickRow::ControlsTg16 => {
                 self.controls_platform = row.control_system().unwrap_or(Platform::Gb);
                 if let Some(row) = row.child() {
                     let row = row.shown(&self.hidden_rows())[0];
@@ -4771,7 +4476,6 @@ impl App {
             | QuickRow::ShortcutsGg
             | QuickRow::ShortcutsNgp
             | QuickRow::ShortcutsTg16
-            | QuickRow::ShortcutsNds
             | QuickRow::ShortcutsWs
             | QuickRow::ShortcutsLynx => {
                 self.controls_platform = row.shortcut_system().unwrap_or(Platform::Gb);
@@ -4886,8 +4590,7 @@ impl App {
         | QuickRow::NgpScale
         | QuickRow::Tg16Scale
         | QuickRow::WsScale
-        | QuickRow::LynxScale
-        | QuickRow::NdsScale = row
+        | QuickRow::LynxScale = row
         {
             let platform = match row {
                 QuickRow::GbaScale => Platform::Gba,
@@ -4897,7 +4600,6 @@ impl App {
                 QuickRow::Tg16Scale => Platform::Tg16,
                 QuickRow::WsScale => Platform::Ws,
                 QuickRow::LynxScale => Platform::Lynx,
-                QuickRow::NdsScale => Platform::Nds,
                 _ => Platform::Gbc,
             };
             self.cycle_scale(platform, right);
@@ -4910,8 +4612,7 @@ impl App {
         | QuickRow::NgpStretch
         | QuickRow::Tg16Stretch
         | QuickRow::WsStretch
-        | QuickRow::LynxStretch
-        | QuickRow::NdsStretch = row
+        | QuickRow::LynxStretch = row
         {
             let platform = stretch_row_platform(row);
             if self.tall() {
@@ -4931,8 +4632,7 @@ impl App {
         | QuickRow::LynxBezel
         | QuickRow::GgBezel
         | QuickRow::NgpBezel
-        | QuickRow::Tg16Bezel
-        | QuickRow::NdsBezel = row
+        | QuickRow::Tg16Bezel = row
         {
             let platform = match row {
                 QuickRow::GbaBezel => Platform::Gba,
@@ -4942,31 +4642,10 @@ impl App {
                 QuickRow::GgBezel => Platform::Gg,
                 QuickRow::NgpBezel => Platform::Ngp,
                 QuickRow::Tg16Bezel => Platform::Tg16,
-                QuickRow::NdsBezel => Platform::Nds,
                 _ => Platform::Gbc,
             };
             self.cycle_bezel(platform, right);
             self.persist();
-            return;
-        }
-        if row == QuickRow::NdsLayout {
-            self.state.nds_layout = self.ds_starting_layout().step(right).as_str().into();
-            self.persist();
-            return;
-        }
-        if row == QuickRow::Layout {
-            self.ds_view.layout = self.ds_view.layout.step(right);
-            self.keep_ds_view();
-            return;
-        }
-        if row == QuickRow::NdsStylusScreen {
-            self.state.nds_stylus_screen = !self.state.nds_stylus_screen;
-            self.persist();
-            return;
-        }
-        if row == QuickRow::StylusScreen {
-            self.ds_view.stylus_screen = Some(!self.ds_stylus_screen());
-            self.keep_ds_view();
             return;
         }
         if row == QuickRow::Wallpaper {
@@ -5085,13 +4764,6 @@ impl App {
                 }
                 s.shader_tg16 = to;
             }
-            QuickRow::NdsShader => {
-                let to = s.shader_nds.step(&Shader::NDS, right);
-                if to == s.shader_nds {
-                    return;
-                }
-                s.shader_nds = to;
-            }
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::SpriteLimit => {
                 s.sprite_limit = !s.sprite_limit;
@@ -5139,7 +4811,6 @@ impl App {
             Platform::Gg => (&mut self.state.shader_gg, &Shader::GG[..]),
             Platform::Ngp => (&mut self.state.shader_ngp, &Shader::NGP[..]),
             Platform::Tg16 => (&mut self.state.shader_tg16, &Shader::TG16[..]),
-            Platform::Nds => (&mut self.state.shader_nds, &Shader::NDS[..]),
         };
         *shader = shader.step(choices, right);
         let said = match *shader {
@@ -5209,12 +4880,9 @@ impl App {
                 Platform::Gba | Platform::Gbav => QuickRow::GbaColourCorrection,
                 Platform::Gb => QuickRow::GbColourCorrection,
                 Platform::Gbc => QuickRow::GbcColourCorrection,
-                Platform::Ws
-                | Platform::Lynx
-                | Platform::Gg
-                | Platform::Ngp
-                | Platform::Tg16
-                | Platform::Nds => return true,
+                Platform::Ws | Platform::Lynx | Platform::Gg | Platform::Ngp | Platform::Tg16 => {
+                    return true
+                }
             };
             self.edit_game(|a| a.change_setting(row, true));
             let said = match self.colour_correction() {
@@ -5435,7 +5103,6 @@ impl App {
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
         self.follow_game();
-        self.tick_stylus(dt);
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
@@ -6266,7 +5933,6 @@ impl App {
                     Platform::Gg,
                     Platform::Ngp,
                     Platform::Tg16,
-                    Platform::Nds,
                 ]
                 .map(|p| self.quick_bezel_faces[bezel_slot(p)]),
                 bezel: None,
@@ -6392,7 +6058,6 @@ impl App {
             }
             Phase::Playing { .. } => {
                 self.push_game(out);
-                self.draw_stylus(out);
             }
             Phase::Polaroids { .. } if self.guide.is_some() => {
                 if let Some((g, _)) = &self.guide {
@@ -6480,7 +6145,7 @@ impl App {
                 gba_bezel: None,
                 gb_bezel: None,
                 gbc_bezel: None,
-                extra_bezels: [None; 6],
+                extra_bezels: [None; 5],
                 bezel: self.quick_bezel_faces[bezel_slot(self.playing_platform())],
                 over_game: true,
                 footer_top: OUT_H as f32 - MOUTH_H + self.menu_footer_offset(),
@@ -12498,16 +12163,6 @@ fn blending_value(blending: Blending) -> QuickValue {
     }
 }
 
-/// A DS layout's name, as its rows show it.
-fn ds_layout_value(layout: DsLayout) -> QuickValue {
-    match layout {
-        DsLayout::Stacked => QuickValue::DsStacked,
-        DsLayout::Single => QuickValue::DsSingle,
-        DsLayout::Below => QuickValue::DsBelow,
-        DsLayout::Corner => QuickValue::DsCorner,
-    }
-}
-
 fn scale_value(scale: Scale) -> QuickValue {
     match scale {
         Scale::SpFrame => QuickValue::SpFrame,
@@ -12550,7 +12205,6 @@ fn stretch_row_platform(row: QuickRow) -> Platform {
         QuickRow::Tg16Stretch => Platform::Tg16,
         QuickRow::WsStretch => Platform::Ws,
         QuickRow::LynxStretch => Platform::Lynx,
-        QuickRow::NdsStretch => Platform::Nds,
         _ => Platform::Gb,
     }
 }
@@ -12656,6 +12310,5 @@ fn bezel_slot(platform: Platform) -> usize {
         Platform::Gg => 5,
         Platform::Ngp => 6,
         Platform::Tg16 => 7,
-        Platform::Nds => 8,
     }
 }

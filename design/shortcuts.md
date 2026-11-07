@@ -2,6 +2,9 @@
 
 Status: agreed with the user on 2026-11-06. Steps 1, 2 and 3 built.
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## What the user asked for
 
 - Many shortcuts belong to one system or a few. They should work there and nowhere else,

@@ -32,12 +32,12 @@ def pins():
     for build in sorted(REPO.glob("cores/*/build.sh")):
         core = build.parent.name
         text = build.read_text()
-        # A recipe names its source as `source=` (and DSperate its core as
-        # `dsperate_source=`), from a github.com archive or tree URL.
+        # A recipe names its source as `source=` (a wrapped core its core as
+        # `<core>_source=` too), from a github.com archive or tree URL.
         sources = re.findall(r'echo "(\w*source)=https://github\.com/([^/]+/[^/]+)/', text)
         wrapped = any(key != "source" for key, _ in sources)
         for key, url in sources:
-            # A wrapped core's `source` is its wrapper (DSPERATE_LR_COMMIT).
+            # A wrapped core's `source` is its wrapper (`<CORE>_LR_COMMIT`).
             var = f"{core.upper()}{'_LR' if wrapped and key == 'source' else ''}_COMMIT"
             commit = commits.get(var)
             if commit:

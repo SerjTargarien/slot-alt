@@ -10,8 +10,8 @@ Last updated 2026-11-06. Read this first. Older detail is in
 - **Slot²** (`slotsq`): the frontend, this repo's `crates/` and `card/`. A fork of
   [slot](https://github.com/BrandonKowalski/slot) (at `f1f6ef9`) with
   [slotPlusUltra](https://github.com/nelynes/slotPlus) merged in (WonderSwan, Lynx, Game
-  Gear, NeoGeo Pocket, TurboGrafx-16, DS) and our changes. Fork changes in the code are
-  marked "Slot²", slotPlus's "slotPlus".
+  Gear, NeoGeo Pocket, TurboGrafx-16, DS; the DS removed since) and our changes. Fork
+  changes in the code are marked "Slot²", slotPlus's "slotPlus".
 - They meet only through [CONTRACT.md](CONTRACT.md). Neither names the other's internals,
   and Slot² never names the device: it reads `/etc/slot-device`.
 - Running slot on ROCKNIX was retired on 2026-11-06; its notes and probe scripts are in
@@ -95,18 +95,15 @@ Done and checked on the device:
   the frame). No bezels at these sizes yet.
 - Controls ([design/controls.md](design/controls.md)): a page per system, up to three
   bindings per input (chords, MENU and SELECT chords), each system's own names, both
-  sticks and L3/R3 as bindable inputs, the left stick steering outside games, the DS's
-  screens and stylus as inputs.
+  sticks and L3/R3 as bindable inputs, the left stick steering outside games.
 - Base² reports the sticks the standard way (device tree, and a fix to the kernel's
   `adc-joystick`, worth sending upstream) and polls them and FN at 10 ms
   ([design/input-layers.md](design/input-layers.md)).
-- The DS on the whole square panel: four layouts at Integer or Fit, Stretch for one
-  screen, a Layout row on the shelf (a new game's) and in game (the game's own).
 - Tests: one program each for `slot` and `slot-ui`, render tests on Linux, a full run in
   about 90 s, one known failure (see Testing).
 - Default controls per system ([design/controls.md](design/controls.md), step 4): turbo
-  gone, the WonderSwan's Y pad on the right stick and shoulders, the DS stylus on the right
-  stick and R2. More systems as the user plays them.
+  gone, the WonderSwan's Y pad on the right stick and shoulders. More systems as the user
+  plays them.
 - Shortcuts ([design/shortcuts.md](design/shortcuts.md)): the game's input wins over a
   shortcut on the same button; General plus a page per system on the shelf.
 - Game overrides ([design/game-overrides.md](design/game-overrides.md)): one file per game
@@ -158,6 +155,17 @@ Done and checked on the device:
 - **Tests:** the render tests that start a game wait for it to be playing rather than a
   fixed time (2026-11-07); a loaded run no longer fails them.
 
+## Two devices (2026-11-07)
+
+Both handhelds are development devices, with the same player-facing features wherever the
+hardware allows: the plan, its phases and the differences are in
+[design/two-devices.md](design/two-devices.md). Phases 0 and 1 are done (one build, glibc
+2.31, runs on both); the RG34XX runs Slot² on BaseOS. The DS is removed from both (its
+layouts suited neither panel, neither has touch): its code, art, core, Gamebit platform
+and the card folders slot made for it. Old cards still read (test
+`a_card_from_the_ds_days_keeps_the_rest_and_lets_its_ds_cart_go`); their `Games/NDS`,
+`Config/nds_view.txt` and `System/dsperate_libretro.so` stay until removed by hand.
+
 ## Next, in order
 
 The order is decided with the user at the start of a session; see the list below (last
@@ -189,19 +197,17 @@ set on 2026-11-06).
    link; the RGB20SX 323844 starved); Pokémon trades and Mario Kart. Then our own KMS
    HDMI (the RGB20SX has `HDMI-A-1`) and our own U-Boot.
 4. Bezels at Integer and Fit for the new systems.
-5. **DSperate v3.3.0:** try dsperate-lr's prebuilt PGO core (Base²'s glibc runs it)
-   against today's, timed, before anything else on DS speed
-   ([cores/README.md](cores/README.md)).
-6. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
+5. Build the other cores ourselves (`cores/*/build.sh`; cross-compiling here works, as
    Beetle Cygne showed on 2026-11-06), then bump gpSP (save-type and recompiler fixes) and
    Gearsystem (3.9.24).
 
 Waiting on a decision or an outside party:
-- The rest of the structure pass, parked (2026-11-07) because it would make upstream's
-  updates hard to take, until the user decides whether to share the port back:
-  per-system settings as one record per system (`shader_gba`, `shader_gb`... fields),
-  and splitting upstream's `app.rs` by topic. Meanwhile new code of Slot²'s own goes in
-  files of its own ([design/checklist.md](design/checklist.md)).
+- The rest of the structure pass: per-system settings as one record per system
+  (`shader_gba`, `shader_gb`... fields), and splitting upstream's `app.rs` by topic. No
+  longer blocked: the fork is ours, and upstream's features are taken by hand
+  (2026-11-07, [design/two-devices.md](design/two-devices.md)). New code of Slot²'s own
+  still goes in files of its own ([design/checklist.md](design/checklist.md)).
+- One repository or two for Base² and Slot²: open, no hurry (two-devices.md).
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
   on 2026-11-06. Amber means a game's own value, so it can't also mark the shelf's system;
   it would need another cue.
@@ -215,7 +221,7 @@ Waiting on a decision or an outside party:
   a MENU chord that makes whatever is held auto-fire.
 
 Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
-Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall, NDS 230x250.
+Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall.
 
 ## Renaming (2026-11-06)
 

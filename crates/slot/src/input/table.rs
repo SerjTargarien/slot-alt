@@ -100,7 +100,6 @@ impl Table {
             self.rows
                 .iter()
                 .filter(|r| r.row != row && r.contexts.meets(mine.contexts))
-                .filter(|r| !self.apart(mine.row, r.row))
                 .find(|r| {
                     r.binding == mine.binding
                         || (game(mine) != game(r)
@@ -112,16 +111,6 @@ impl Table {
                 })
                 .map(|r| r.row)
         })
-    }
-}
-
-impl Table {
-    /// Rows that never apply at the same moment: the DS's Touch, which only acts while the
-    /// stylus is out, and the game's other inputs.
-    fn apart(&self, a: QuickRow, b: QuickRow) -> bool {
-        let input = |r: QuickRow| r.input().is_some();
-        let touch = |r: QuickRow| r == QuickRow::GameTouch;
-        (touch(a) && input(b)) || (input(a) && touch(b))
     }
 }
 

@@ -72,7 +72,6 @@ mod lynx_video;
 mod menu_repeat;
 mod mgba_gb_link;
 mod mgba_link;
-mod nds;
 mod network_ui;
 mod ngp_core;
 mod panel_turn;

@@ -10,8 +10,6 @@ use slot_ui::FfState;
 
 pub const RUMBLE_MIN_MS: Millis = 100;
 pub const RUMBLE_MAX_MS: Millis = 150;
-/// How long the DS's stylus stays out after it was last steered or touched with.
-pub const STYLUS_LINGER_MS: Millis = 2_000;
 
 use crate::app::{App, Phase};
 use crate::audio::{opened_sink, AudioSink, Ring, Sfx};
@@ -36,10 +34,6 @@ pub struct Session {
     entries: Vec<Entry>,
     captured: Vec<Btn>,
     pad: Pad,
-    /// The DS's slot controls held at the last look, so a press acts once.
-    ds_held: Vec<Input>,
-    /// When the DS's stylus was last steered or touched with; it stays out a moment after.
-    stylus_seen: Option<Millis>,
     sent: u16,
     rewinding: bool,
     fast: bool,
@@ -85,8 +79,6 @@ impl Session {
             entries: Vec::new(),
             captured: Vec::new(),
             pad: Pad::default(),
-            ds_held: Vec::new(),
-            stylus_seen: None,
             sent: 0,
             rewinding: false,
             fast: false,
@@ -344,51 +336,6 @@ impl Session {
         self.sync_pad();
     }
 
-    /// A DS game's own controls, from its bindings: Swap Screens and Next Layout act on
-    /// the press. The stylus comes out while Stylus Up/Down/Left/Right steer it or Touch
-    /// touches, and stays out a moment after; holding Stylus Hold brings it out for the
-    /// D-pad's inputs to steer instead.
-    fn sync_ds(&mut self, controls: &SystemControls, platform: Platform) {
-        if platform != Platform::Nds || !self.app.ds_controls() {
-            self.ds_held.clear();
-            self.stylus_seen = None;
-            return;
-        }
-        let pressed = self
-            .pad
-            .pressed(controls, platform, self.app.stylus_is_out());
-        let now = |i: Input| pressed.contains(&i);
-        let fresh = |i: Input| now(i) && !self.ds_held.contains(&i);
-        let (swap, next) = (fresh(Input::SwapScreens), fresh(Input::NextLayout));
-        self.ds_held = pressed.iter().copied().filter(|i| i.is_slots()).collect();
-        if swap {
-            self.app.swap_ds_screens();
-        }
-        if next {
-            self.app.next_ds_layout();
-        }
-        let held = now(Input::Stylus);
-        let stick = [
-            Input::StylusUp,
-            Input::StylusDown,
-            Input::StylusLeft,
-            Input::StylusRight,
-        ]
-        .map(now);
-        let pad = [Input::Up, Input::Down, Input::Left, Input::Right].map(|i| held && now(i));
-        let moving = [0, 1, 2, 3].map(|k| stick[k] || pad[k]);
-        let touching = now(Input::Touch);
-        let at = self.app.now();
-        if held || touching || moving.contains(&true) {
-            self.stylus_seen = Some(at);
-        }
-        let out = self
-            .stylus_seen
-            .is_some_and(|seen| at.saturating_sub(seen) < STYLUS_LINGER_MS);
-        self.app.stylus_out(out);
-        self.app.stylus_steer(moving, touching);
-    }
-
     fn sync_pad(&mut self) {
         if self.emu.is_none() {
             return;
@@ -397,10 +344,9 @@ impl Session {
         // shoulders has no L or R input, so they never reach its core.
         let platform = self.app.playing_platform();
         let controls = *self.app.controls_of(platform);
-        self.sync_ds(&controls, platform);
         self.sync_ws(&controls, platform);
         if let Some(emu) = &self.emu {
-            let mask = self.pad.mask(&controls, platform, self.app.stylus_is_out());
+            let mask = self.pad.mask(&controls, platform);
             let mask = match self.app.core() {
                 // A horizontal game's second pad is in its bindings; a game played upright
                 // still turns the buttons in code (orientation isn't bindable yet).
@@ -747,7 +693,6 @@ impl Session {
     }
 
     fn sync_speed(&self) {
-        let mut ds_running = false;
         if let Some(emu) = &self.emu {
             emu.set_fast_quarters(u32::from(self.app.ff_speed()));
             emu.set_ff_sound(self.app.ff_sound());
@@ -765,14 +710,9 @@ impl Session {
             };
             emu.set_speed(speed);
             emu.set_rewinding(self.actually_rewinding());
-            emu.set_face_xy(self.app.core() == Core::Dsperate);
             emu.set_watch_icons(self.app.core() == Core::Cygne);
-            emu.set_skip_slow(self.app.core() == Core::Dsperate);
-            emu.set_pointer(self.app.pointer());
             emu.set_rewind_recording(self.app.records_rewind());
-            ds_running = self.app.core() == Core::Dsperate && speed != Speed::Paused;
         }
-        crate::cpu_governor::hold_full(ds_running);
     }
 
     fn no_core() -> bool {
@@ -839,11 +779,6 @@ impl Session {
         self.app.load_game(platform, stem);
         self.app
             .set_video_mode(crate::video_mode::video_mode_for(&self.root, stem));
-        self.app.set_ds_view(crate::video_mode::ds_view_for(
-            &self.root,
-            stem,
-            self.app.ds_starting_layout(),
-        ));
         self.app.set_link_loaded(serial);
         let root = self.root.clone();
         let stem = stem.to_owned();

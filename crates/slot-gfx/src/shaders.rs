@@ -75,8 +75,8 @@ varying vec2 v_uv;
 // Sharp bilinear: at a scale that is not whole, each texel is drawn flat
 // and only its edge, one output pixel wide, is blended with its neighbour,
 // so every texel comes out the same size. The four taps stay inside the
-// part of the frame being drawn, so a DS screen never takes a row from the
-// screen next to it in the buffer.
+// part of the frame being drawn, so a picture never takes a row from what
+// sits next to it in the buffer.
 vec3 sharp_sample(vec2 uv) {
     vec2 scale = max(u_rect.zw * u_fbo / (u_uv.zw * u_src), vec2(1.0));
     vec2 t = uv * u_src;

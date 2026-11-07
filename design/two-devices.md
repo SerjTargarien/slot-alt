@@ -133,9 +133,15 @@ says what it has, and Slot² hides what it hasn't and picks defaults from what i
 
 Decisions for the user, then work in this order:
 
-1. **The DS: removed (decided 2026-11-07).** Its layouts suit neither panel, neither
+1. **The DS: removed (done 2026-11-07).** Its layouts suit neither panel, neither
    device has touch, and the system takes long to optimise. Its code, layouts, stylus,
-   pages, shortcuts, core and Gamebit platform go; git keeps them.
+   pages, shortcuts, CPU hold, core recipe, art, Gamebit platform and card folders are
+   gone; git keeps them. An old `slot.state` still reads, and a DS game left in the slot
+   isn't resumed as another system's game of the same name. Left on the cards until
+   removed by hand: `System/dsperate_libretro.so`, `Games/NDS` and the other NDS
+   folders, `Config/nds_view.txt`, `Config/controls/nds.txt`. Gamebit's built pages on
+   the cards are still slotPlus's and show an NDS tile until our own Gamebit is built
+   (item 2).
 2. **Gamebit our own.** Its source is in `web/` (Vue, built with bun; bun isn't
    installed here). Our systems only (no DS if it goes), our look, built by us into
    `System/web`.

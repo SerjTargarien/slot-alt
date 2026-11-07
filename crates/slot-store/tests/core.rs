@@ -259,9 +259,9 @@ fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
 }
 
 #[test]
-fn the_core_list_has_nine_entries() {
-    // slotPlus: Slot's three, then slotPlus's six.
-    assert_eq!(Core::ALL.len(), 9);
+fn the_core_list_has_eight_entries() {
+    // Slot's three, then slotPlus's five (its sixth, DSperate, removed 2026-11-07).
+    assert_eq!(Core::ALL.len(), 8);
 }
 
 #[test]

@@ -100,16 +100,6 @@ quick_rows! {
     Tg16Scale,
     Tg16Stretch,
     Tg16Palette,
-    ScreenNds,
-    NdsShader,
-    NdsBezel,
-    /// Slot²: the DS's layout a game starts with, its Scale and Stretch.
-    NdsLayout,
-    /// Slot²: whether moving the DS's stylus brings its touch screen up, for every DS
-    /// game (the shelf's) and for the one playing.
-    NdsStylusScreen,
-    NdsScale,
-    NdsStretch,
     General,
     ShelfPrev,
     ShelfNext,
@@ -129,20 +119,10 @@ quick_rows! {
     GameStart,
     GameL,
     GameR,
-    GameX,
-    GameY,
     GameY1,
     GameY2,
     GameY3,
     GameY4,
-    GameSwapScreens,
-    GameNextLayout,
-    GameStylus,
-    GameTouch,
-    GameStylusUp,
-    GameStylusDown,
-    GameStylusLeft,
-    GameStylusRight,
     GameRotate,
     ScSave,
     ScLoad,
@@ -175,7 +155,6 @@ quick_rows! {
     ControlsGg,
     ControlsNgp,
     ControlsTg16,
-    ControlsNds,
     /// Slot²: Controls > Shortcuts lists General and the systems with shortcuts of their own.
     ShortcutsGeneral,
     ShortcutsGb,
@@ -186,7 +165,6 @@ quick_rows! {
     ShortcutsGg,
     ShortcutsNgp,
     ShortcutsTg16,
-    ShortcutsNds,
     ScreenGeneral,
     Brightness,
     BlueLight,
@@ -210,9 +188,6 @@ quick_rows! {
     GbcBlending,
     GbBlending,
     Blending,
-    /// Slot²: the playing DS game's own layout.
-    Layout,
-    StylusScreen,
     Guide,
     ScGuide,
     ScStretchOn,
@@ -319,7 +294,7 @@ impl QuickRow {
     ];
 
     /// The systems with a controls page, in `slot_store::controls::SYSTEMS` order.
-    pub const CONTROL_SYSTEMS: [QuickRow; 9] = [
+    pub const CONTROL_SYSTEMS: [QuickRow; 8] = [
         QuickRow::ControlsGb,
         QuickRow::ControlsGbc,
         QuickRow::ControlsGba,
@@ -328,12 +303,11 @@ impl QuickRow {
         QuickRow::ControlsGg,
         QuickRow::ControlsNgp,
         QuickRow::ControlsTg16,
-        QuickRow::ControlsNds,
     ];
 
     /// A system's controls page: every input any system has, each system showing its own
     /// (see `slot_store::controls::inputs`).
-    pub const CONTROLS: [QuickRow; 25] = [
+    pub const CONTROLS: [QuickRow; 15] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
@@ -344,26 +318,16 @@ impl QuickRow {
         QuickRow::GameY4,
         QuickRow::GameA,
         QuickRow::GameB,
-        QuickRow::GameX,
-        QuickRow::GameY,
         QuickRow::GameSelect,
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
-        QuickRow::GameSwapScreens,
-        QuickRow::GameNextLayout,
-        QuickRow::GameStylus,
-        QuickRow::GameTouch,
-        QuickRow::GameStylusUp,
-        QuickRow::GameStylusDown,
-        QuickRow::GameStylusLeft,
-        QuickRow::GameStylusRight,
         QuickRow::GameRotate,
     ];
 
     /// Slot²: General, then the systems with shortcuts of their own, in `SHORTCUT_SYSTEMS`
     /// order.
-    pub const SHORTCUT_PAGES: [QuickRow; 10] = [
+    pub const SHORTCUT_PAGES: [QuickRow; 9] = [
         QuickRow::ShortcutsGeneral,
         QuickRow::ShortcutsGb,
         QuickRow::ShortcutsGbc,
@@ -373,10 +337,9 @@ impl QuickRow {
         QuickRow::ShortcutsGg,
         QuickRow::ShortcutsNgp,
         QuickRow::ShortcutsTg16,
-        QuickRow::ShortcutsNds,
     ];
 
-    pub const SHORTCUT_SYSTEMS: [Platform; 9] = [
+    pub const SHORTCUT_SYSTEMS: [Platform; 8] = [
         Platform::Gb,
         Platform::Gbc,
         Platform::Gba,
@@ -385,7 +348,6 @@ impl QuickRow {
         Platform::Gg,
         Platform::Ngp,
         Platform::Tg16,
-        Platform::Nds,
     ];
 
     /// The shortcuts every system has.
@@ -442,7 +404,7 @@ impl QuickRow {
         QuickRow::ScSunlightUp,
     ];
 
-    pub const SCREEN: [QuickRow; 10] = [
+    pub const SCREEN: [QuickRow; 9] = [
         QuickRow::ScreenGeneral,
         QuickRow::ScreenGba,
         QuickRow::ScreenGbc,
@@ -452,7 +414,6 @@ impl QuickRow {
         QuickRow::ScreenGg,
         QuickRow::ScreenNgp,
         QuickRow::ScreenTg16,
-        QuickRow::ScreenNds,
     ];
 
     pub const SCREEN_GENERAL: [QuickRow; 4] = [
@@ -500,14 +461,6 @@ impl QuickRow {
         QuickRow::Tg16Scale,
         QuickRow::Tg16Stretch,
         QuickRow::Tg16Palette,
-    ];
-    pub const SCREEN_NDS: [QuickRow; 6] = [
-        QuickRow::NdsLayout,
-        QuickRow::NdsStylusScreen,
-        QuickRow::NdsShader,
-        QuickRow::NdsScale,
-        QuickRow::NdsStretch,
-        QuickRow::NdsBezel,
     ];
 
     pub const SCREEN_GBA: [QuickRow; 5] = [
@@ -566,10 +519,8 @@ impl QuickRow {
         QuickRow::PlayShortcuts,
     ];
 
-    pub const PLAY_SCREEN: [QuickRow; 13] = [
+    pub const PLAY_SCREEN: [QuickRow; 11] = [
         QuickRow::Shader,
-        QuickRow::Layout,
-        QuickRow::StylusScreen,
         QuickRow::Bezel,
         QuickRow::Scale,
         QuickRow::Stretch,
@@ -596,8 +547,7 @@ impl QuickRow {
             | QuickRow::ScreenLynx
             | QuickRow::ScreenGg
             | QuickRow::ScreenNgp
-            | QuickRow::ScreenTg16
-            | QuickRow::ScreenNds => &QuickRow::SCREEN,
+            | QuickRow::ScreenTg16 => &QuickRow::SCREEN,
             QuickRow::Brightness
             | QuickRow::BlueLight
             | QuickRow::Saturation
@@ -627,12 +577,6 @@ impl QuickRow {
             | QuickRow::Tg16Scale
             | QuickRow::Tg16Stretch
             | QuickRow::Tg16Palette => &QuickRow::SCREEN_TG16,
-            QuickRow::NdsShader
-            | QuickRow::NdsBezel
-            | QuickRow::NdsLayout
-            | QuickRow::NdsStylusScreen
-            | QuickRow::NdsScale
-            | QuickRow::NdsStretch => &QuickRow::SCREEN_NDS,
             QuickRow::GbaShader
             | QuickRow::GbaColourCorrection
             | QuickRow::GbaBlending
@@ -714,9 +658,7 @@ impl QuickRow {
             | QuickRow::Bezel
             | QuickRow::Scale
             | QuickRow::Stretch
-            | QuickRow::Blending
-            | QuickRow::Layout
-            | QuickRow::StylusScreen => &QuickRow::PLAY_SCREEN,
+            | QuickRow::Blending => &QuickRow::PLAY_SCREEN,
             _ => &QuickRow::MAIN,
         }
     }
@@ -733,9 +675,6 @@ impl QuickRow {
             QuickRow::GgShader => Some(QuickRow::ScreenGg),
             QuickRow::NgpShader => Some(QuickRow::ScreenNgp),
             QuickRow::Tg16Shader => Some(QuickRow::ScreenTg16),
-            // The DS's page starts with its Layout row (2026-11-06): found by the
-            // structure pass, Back closed the menu from here while this said NdsShader.
-            QuickRow::NdsLayout => Some(QuickRow::ScreenNds),
             QuickRow::FastForward => Some(QuickRow::Game),
             QuickRow::PlayScreen => Some(QuickRow::Settings),
             QuickRow::Shader => Some(QuickRow::PlayScreen),
@@ -810,7 +749,6 @@ impl QuickRow {
             QuickRow::ScreenGg => Some(QuickRow::SCREEN_GG[0]),
             QuickRow::ScreenNgp => Some(QuickRow::SCREEN_NGP[0]),
             QuickRow::ScreenTg16 => Some(QuickRow::SCREEN_TG16[0]),
-            QuickRow::ScreenNds => Some(QuickRow::SCREEN_NDS[0]),
             _ => None,
         }
     }
@@ -907,20 +845,10 @@ impl QuickRow {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
-            | QuickRow::GameX
-            | QuickRow::GameY
             | QuickRow::GameY1
             | QuickRow::GameY2
             | QuickRow::GameY3
             | QuickRow::GameY4
-            | QuickRow::GameSwapScreens
-            | QuickRow::GameNextLayout
-            | QuickRow::GameStylus
-            | QuickRow::GameTouch
-            | QuickRow::GameStylusUp
-            | QuickRow::GameStylusDown
-            | QuickRow::GameStylusLeft
-            | QuickRow::GameStylusRight
             | QuickRow::GameRotate => self
                 .input()
                 .map_or("", |i| controls::label(Platform::Gba, i)),
@@ -932,7 +860,6 @@ impl QuickRow {
             QuickRow::ControlsGg => "Game Gear",
             QuickRow::ControlsNgp => "NeoGeo Pocket",
             QuickRow::ControlsTg16 => "TurboGrafx-16",
-            QuickRow::ControlsNds => "Nintendo DS",
             QuickRow::ShortcutsGeneral => "General",
             QuickRow::ShortcutsGb => "Game Boy",
             QuickRow::ShortcutsGbc => "Game Boy Color",
@@ -940,7 +867,6 @@ impl QuickRow {
             QuickRow::ShortcutsGg => "Game Gear",
             QuickRow::ShortcutsNgp => "NeoGeo Pocket",
             QuickRow::ShortcutsTg16 => "TurboGrafx-16",
-            QuickRow::ShortcutsNds => "Nintendo DS",
             QuickRow::ShortcutsWs => "WonderSwan",
             QuickRow::ShortcutsLynx => "Atari Lynx",
             QuickRow::ScSave
@@ -1016,13 +942,6 @@ impl QuickRow {
             QuickRow::ScreenTg16 => "TurboGrafx-16",
             QuickRow::Tg16Shader => "Shader",
             QuickRow::Tg16Bezel => "Bezel",
-            QuickRow::ScreenNds => "Nintendo DS",
-            QuickRow::NdsShader => "Shader",
-            QuickRow::NdsBezel => "Bezel",
-            QuickRow::NdsLayout | QuickRow::Layout => "Layout",
-            QuickRow::NdsStylusScreen | QuickRow::StylusScreen => "Stylus Shows Touch Screen",
-            QuickRow::NdsScale => "Scale",
-            QuickRow::NdsStretch => "Stretch",
         }
     }
 
@@ -1057,7 +976,6 @@ impl QuickRow {
                 | QuickRow::ControlsGg
                 | QuickRow::ControlsNgp
                 | QuickRow::ControlsTg16
-                | QuickRow::ControlsNds
                 | QuickRow::ShortcutsGeneral
                 | QuickRow::ShortcutsGb
                 | QuickRow::ShortcutsGbc
@@ -1065,7 +983,6 @@ impl QuickRow {
                 | QuickRow::ShortcutsGg
                 | QuickRow::ShortcutsNgp
                 | QuickRow::ShortcutsTg16
-                | QuickRow::ShortcutsNds
                 | QuickRow::ShortcutsWs
                 | QuickRow::ShortcutsLynx
                 | QuickRow::PlayControls
@@ -1079,7 +996,6 @@ impl QuickRow {
                 | QuickRow::ScreenGg
                 | QuickRow::ScreenNgp
                 | QuickRow::ScreenTg16
-                | QuickRow::ScreenNds
                 | QuickRow::ScreenGeneral
                 | QuickRow::Network
                 | QuickRow::Wifi
@@ -1106,8 +1022,6 @@ impl QuickRow {
             QuickRow::GameRight => Input::Right,
             QuickRow::GameA => Input::A,
             QuickRow::GameB => Input::B,
-            QuickRow::GameX => Input::X,
-            QuickRow::GameY => Input::Y,
             QuickRow::GameSelect => Input::Select,
             QuickRow::GameStart => Input::Start,
             QuickRow::GameL => Input::L,
@@ -1116,14 +1030,6 @@ impl QuickRow {
             QuickRow::GameY2 => Input::Y2,
             QuickRow::GameY3 => Input::Y3,
             QuickRow::GameY4 => Input::Y4,
-            QuickRow::GameSwapScreens => Input::SwapScreens,
-            QuickRow::GameNextLayout => Input::NextLayout,
-            QuickRow::GameStylus => Input::Stylus,
-            QuickRow::GameTouch => Input::Touch,
-            QuickRow::GameStylusUp => Input::StylusUp,
-            QuickRow::GameStylusDown => Input::StylusDown,
-            QuickRow::GameStylusLeft => Input::StylusLeft,
-            QuickRow::GameStylusRight => Input::StylusRight,
             QuickRow::GameRotate => Input::Rotate,
             _ => return None,
         })
@@ -1283,15 +1189,10 @@ pub enum QuickValue {
     Ghosting,
     Https,
     Http,
-    /// Slot²: the DS's layouts, in `DS_LAYOUTS` order.
-    DsStacked,
-    DsSingle,
-    DsBelow,
-    DsCorner,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 57] = [
+    pub const ALL: [QuickValue; 53] = [
         QuickValue::Speed1_5,
         QuickValue::Speed2,
         QuickValue::Speed3,
@@ -1345,10 +1246,6 @@ impl QuickValue {
         QuickValue::Ghosting,
         QuickValue::Https,
         QuickValue::Http,
-        QuickValue::DsStacked,
-        QuickValue::DsSingle,
-        QuickValue::DsBelow,
-        QuickValue::DsCorner,
     ];
 
     pub const LEVELS: [QuickValue; 16] = [
@@ -1438,10 +1335,6 @@ impl QuickValue {
             QuickValue::Ghosting => "Ghosting",
             QuickValue::Https => "HTTPS",
             QuickValue::Http => "HTTP",
-            QuickValue::DsStacked => crate::toast::DS_LAYOUTS[0],
-            QuickValue::DsSingle => crate::toast::DS_LAYOUTS[1],
-            QuickValue::DsBelow => crate::toast::DS_LAYOUTS[2],
-            QuickValue::DsCorner => crate::toast::DS_LAYOUTS[3],
         }
     }
 
@@ -2083,7 +1976,7 @@ pub struct QuickMenu<'a> {
     pub gbc_bezel: Option<[(TexId, u32, u32); 2]>,
     /// The WonderSwan, Lynx, Game Gear, NeoGeo Pocket and TurboGrafx-16 Bezel
     /// rows' values, in that order.
-    pub extra_bezels: [Option<[(TexId, u32, u32); 2]>; 6],
+    pub extra_bezels: [Option<[(TexId, u32, u32); 2]>; 5],
     pub bezel: Option<[(TexId, u32, u32); 2]>,
     pub bound: Option<&'a [Option<FacePair>]>,
     pub description: Option<(TexId, u32, u32)>,
@@ -2199,7 +2092,6 @@ impl QuickMenu<'_> {
                 QuickRow::GgBezel => self.extra_bezels[2].map(|c| c[lit as usize]),
                 QuickRow::NgpBezel => self.extra_bezels[3].map(|c| c[lit as usize]),
                 QuickRow::Tg16Bezel => self.extra_bezels[4].map(|c| c[lit as usize]),
-                QuickRow::NdsBezel => self.extra_bezels[5].map(|c| c[lit as usize]),
                 QuickRow::Bezel => self.bezel.map(|c| c[lit as usize]),
                 _ if row.binds() => self
                     .bound

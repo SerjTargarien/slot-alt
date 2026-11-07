@@ -8,7 +8,6 @@ const CART_ASPECTS: Record<string, number> = {
   GG: 352 / 329,
   NGP: 312 / 268,
   TG16: 214 / 337,
-  NDS: 288 / 304,
 }
 
 export function cartAspect(tag: string): number {

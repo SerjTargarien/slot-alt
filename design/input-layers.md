@@ -2,6 +2,9 @@
 
 Status: done on 2026-11-06, bar the backlog (items 6 and 7).
 
+**The DS was removed on 2026-11-07** ([two-devices.md](two-devices.md), phase 5): its mentions
+below are history.
+
 ## Where we are
 
 - Slot² reads both sticks (uncommitted, on the device): directions from the kernel's

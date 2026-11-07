@@ -255,7 +255,6 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             shader_gg: Shader::Simpletex,
             shader_ngp: Shader::Simpletex,
             shader_tg16: Shader::Grid,
-            shader_nds: Shader::Off,
             auto_load: true,
             eject_save: true,
             rewind: true,
@@ -278,7 +277,6 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             bezel_gg: BezelPick::None,
             bezel_ngp: BezelPick::None,
             bezel_tg16: BezelPick::None,
-            bezel_nds: BezelPick::Bundled("DS Lite".into()),
             scale_gba: Scale::Fit,
             scale_gb: Scale::SpFrame,
             scale_gbc: Scale::SpFrame,
@@ -296,10 +294,6 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             scale_lynx: Scale::Integer,
             stretched_ws: false,
             stretched_lynx: false,
-            scale_nds: Scale::Fit,
-            stretched_nds: false,
-            nds_layout: "stacked".into(),
-            nds_stylus_screen: false,
             palette_ws: "default".into(),
             palette_tg16: "RGB".into(),
             blending_gba: Blending::Off,
@@ -343,9 +337,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         shader_ngp: Shader::Grid,
         bezel_ngp: BezelPick::File("Pocket.png".into()),
         shader_tg16: Shader::Dot,
-        shader_nds: Shader::Dot,
         bezel_tg16: BezelPick::Bundled("PCE".into()),
-        bezel_nds: BezelPick::Bundled("PCE".into()),
         saturation: 4,
         contrast: 7,
         bezel_gba: BezelPick::None,
@@ -421,6 +413,35 @@ fn a_card_that_still_carries_run_ahead_keeps_the_rest_of_its_values() {
         .unwrap()
         .contains("runahead=1"));
     assert_eq!(read_slot_state(d.path()), s);
+}
+
+/// Slot²: the DS was removed on 2026-11-07. A card from before keeps every other value,
+/// and a DS game left in the slot isn't resumed as another system's game of the same name.
+#[test]
+fn a_card_from_the_ds_days_keeps_the_rest_and_lets_its_ds_cart_go() {
+    let d = tmp_root();
+    let s = SlotState {
+        clock_set: true,
+        cart: Some("Tetris".into()),
+        cart_platform: Some(Platform::Gb),
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    let path = d.path().join("Config/slot.state");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let ds = text.replace("cart_platform=gb\n", "cart_platform=nds\n")
+        + "shader_nds=Dot\nbezel_nds=DS Lite\nscale_nds=Integer\nstretched_nds=1\n"
+        + "nds_layout=corner\nnds_stylus_screen=1\n";
+    assert!(ds.contains("cart_platform=nds"));
+    std::fs::write(&path, ds).unwrap();
+    assert_eq!(
+        read_slot_state(d.path()),
+        SlotState {
+            cart: None,
+            cart_platform: None,
+            ..s
+        }
+    );
 }
 
 #[test]

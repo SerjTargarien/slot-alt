@@ -6,7 +6,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use crate::cable::{self, Cable};
-use slot_retro::{ButtonMask, Link, LinkChannel, Pointer, RetroCore, Rumble, NETPACKET_RELIABLE};
+use slot_retro::{ButtonMask, Link, LinkChannel, RetroCore, Rumble, NETPACKET_RELIABLE};
 
 use crate::audio::Ring;
 use crate::drc::{drc_ratio, drc_target};
@@ -188,19 +188,10 @@ struct Shared {
     state: AtomicU8,
     rewind: AtomicBool,
     rewind_fill: AtomicU8,
-    /// The core takes X and Y as buttons of its own (the DS); every other core gets
-    /// neither.
-    face_xy: AtomicBool,
     /// Slot²: read the WonderSwan core's LCD icons after each frame, into `icons`
     /// (0x100 and the byte; 0 when the core gives none).
     watch_icons: AtomicBool,
     icons: AtomicU16,
-    /// The core skips drawing the frame after one that ran slow (the DS):
-    /// slot runs a frame a present, so a slow one only makes the present
-    /// late, and the core is never otherwise told it is behind.
-    skip_slow: AtomicBool,
-    /// The touch screen's pointer, packed by `pack_pointer`; 0 is none.
-    pointer: AtomicU64,
     recording: AtomicBool,
     stop: AtomicBool,
     volume: AtomicU8,
@@ -276,11 +267,8 @@ impl EmuHandle {
             state: AtomicU8::new(CoreState::Loading as u8),
             rewind: AtomicBool::new(false),
             rewind_fill: AtomicU8::new(0),
-            face_xy: AtomicBool::new(false),
             watch_icons: AtomicBool::new(false),
             icons: AtomicU16::new(0),
-            skip_slow: AtomicBool::new(false),
-            pointer: AtomicU64::new(0),
             recording: AtomicBool::new(true),
             stop: AtomicBool::new(false),
             volume: AtomicU8::new(100),
@@ -485,21 +473,6 @@ impl EmuHandle {
 
     pub fn set_rewinding(&self, on: bool) {
         self.shared.rewind.store(on, Ordering::Relaxed);
-    }
-
-    pub fn set_face_xy(&self, on: bool) {
-        self.shared.face_xy.store(on, Ordering::Relaxed);
-    }
-
-    pub fn set_skip_slow(&self, on: bool) {
-        self.shared.skip_slow.store(on, Ordering::Relaxed);
-    }
-
-    /// Where the stylus points, for a core with a touch screen.
-    pub fn set_pointer(&self, pointer: Option<Pointer>) {
-        self.shared
-            .pointer
-            .store(pack_pointer(pointer), Ordering::Relaxed);
     }
 
     pub fn set_rewind_recording(&self, on: bool) {
@@ -729,10 +702,8 @@ impl Worker {
         let mut ticked = false;
         let mut paced = 0u64;
         let mut core_trace = CoreTrace::new();
-        // The last frame's time, and whether the core was asked to skip after
-        // it: DSperate decides a frame ahead, so the frame after an ask is the
-        // one it does not draw.
-        let mut last_took = Duration::ZERO;
+        // Whether the core was asked to skip after the last frame: a core can decide
+        // a frame ahead, so the frame after an ask may be the one it doesn't draw.
         let mut asked = false;
         let mut scale = 0.0f64;
         let mut rate = TickRate::new(Instant::now(), 0);
@@ -865,15 +836,8 @@ impl Worker {
                     // fast forward trims to the time it has.
                     let last = ran >= ceiling
                         || (speed != Speed::Normal && cost.last(began.elapsed(), budget));
-                    let input = if self.shared.face_xy.load(Ordering::Relaxed) {
-                        input
-                    } else {
-                        input.without_turbo()
-                    };
-                    let ask = !last
-                        || (speed == Speed::Normal
-                            && self.shared.skip_slow.load(Ordering::Relaxed)
-                            && last_took > SLOW_FRAME);
+                    let input = input.without_turbo();
+                    let ask = !last;
                     core.set_frame_skip(ask);
                     let after_ask = asked;
                     asked = ask;
@@ -916,15 +880,9 @@ impl Worker {
                                 }
                             }
                         }
-                        None => {
-                            core.set_pointer(unpack_pointer(
-                                self.shared.pointer.load(Ordering::Relaxed),
-                            ));
-                            core.run_frame(input)
-                        }
+                        None => core.run_frame(input),
                     }
                     let took = frame_began.elapsed();
-                    last_took = took;
                     core_trace.frame(took, after_ask);
                     if last {
                         drawn = took;
@@ -1654,14 +1612,6 @@ mod tests {
     }
 }
 
-/// A pointer in one word for the emulator thread: bit 33 says there is one,
-/// bit 32 that it is pressed, and the low 32 bits hold x and y.
-fn pack_pointer(pointer: Option<Pointer>) -> u64 {
-    pointer.map_or(0, |p| {
-        1 << 33 | u64::from(p.pressed) << 32 | u64::from(p.x as u16) << 16 | u64::from(p.y as u16)
-    })
-}
-
 /// With tracing on, how long the core takes over its frames, said every
 /// five seconds: its frame rate, its mean and slowest frame, and how many
 /// frames took longer than a 60 Hz frame has.
@@ -1675,10 +1625,6 @@ struct CoreTrace {
     skipped: u32,
     skipped_total: Duration,
 }
-
-/// A frame slower than this leaves too little of a 60 Hz present for the
-/// rest of it, so a core that skips when slow skips the next one.
-const SLOW_FRAME: Duration = Duration::from_millis(15);
 
 /// The CPU's clock now and at most, in MHz, for the trace.
 fn cpu_mhz() -> Option<(u32, u32)> {
@@ -1754,37 +1700,5 @@ impl CoreTrace {
             );
         }
         *self = CoreTrace::new();
-    }
-}
-
-fn unpack_pointer(word: u64) -> Option<Pointer> {
-    (word & 1 << 33 != 0).then_some(Pointer {
-        x: (word >> 16) as u16 as i16,
-        y: word as u16 as i16,
-        pressed: word & 1 << 32 != 0,
-    })
-}
-
-#[cfg(test)]
-mod pointer_word {
-    use super::*;
-
-    #[test]
-    fn a_pointer_survives_the_word_it_is_packed_into() {
-        assert_eq!(unpack_pointer(pack_pointer(None)), None);
-        for p in [
-            Pointer {
-                x: -0x7fff,
-                y: 0x7fff,
-                pressed: true,
-            },
-            Pointer {
-                x: 12,
-                y: -3,
-                pressed: false,
-            },
-        ] {
-            assert_eq!(unpack_pointer(pack_pointer(Some(p))), Some(p));
-        }
     }
 }
