@@ -67,8 +67,12 @@ Last updated 2026-11-06. Read this first. Older detail is in
 - Build settings for this machine are in `~/.cargo/config.toml`, not the repo: mold as the
   linker, and line numbers only in debug builds. A full test build takes about a minute
   and `target/` stays at a few GB; `cargo clean` if it grows.
-- Format with `rustfmt --edition 2021` per file, never `cargo fmt --all`: upstream's files
-  aren't formatted, so only lines we touch must be.
+- Format with `sh tools/slotsq/fmt.sh`: it formats the changed files that were formatted
+  already and names upstream's unformatted ones (88), whose changed lines are formatted
+  by hand. Never `cargo fmt --all`, nor `rustfmt` on one of those.
+- Adding a setting, a row, a system feature or a core option:
+  [design/checklist.md](design/checklist.md) lists the places and the test that catches
+  each one missed.
 - Commits: plain messages, author and committer Serj Targarien
   (`xergy10@gmail.com`), no `Co-Authored-By` or session lines.
 - Remote commands: background only the restart, as its own statement
@@ -166,6 +170,14 @@ set on 2026-11-06).
       take (since `f1f6ef9` the fork is +45,000/-1,900 lines in the crates, mostly added
       code; the conflicts are in `app.rs`, `quick_menu.rs`, `slot_state.rs`,
       `session.rs`).
+   Also done 2026-11-07: names that no longer said what they did (`palette_label`,
+   `shortcuts::feature_of`), two more invariants (every in-game setting the game's own or
+   named as every game's; every feature with shortcuts and a system), the checklist, and
+   `tools/slotsq/fmt.sh`. Next, as their own pieces: Slot²'s own code out of `app.rs` into
+   files of its own (the per-game layer, the shortcut pages, WonderSwan orientation, the
+   DS view: `impl App` in `app/*.rs`, upstream's code left where it is); the render tests
+   that wait on wall-clock time driven by frames instead; and a checked snapshot of the
+   options each core declares, to catch a misspelt option.
    3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
       per-game layer, the menus.
    4. `/code-review` on each diff before a commit.

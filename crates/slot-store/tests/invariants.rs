@@ -211,3 +211,21 @@ fn the_names_a_file_uses_are_each_one_thing() {
         GbColors::all().map(|c| c.core_name().to_string()).collect(),
     );
 }
+
+#[test]
+fn every_feature_has_shortcuts_and_a_system_that_has_it() {
+    use slot_store::features::{has_feature, Feature};
+    use slot_store::shortcuts::feature_of;
+    for feature in Feature::ALL {
+        assert!(
+            Shortcut::ALL
+                .into_iter()
+                .any(|s| feature_of(s) == Some(feature)),
+            "{feature:?} has no shortcuts"
+        );
+        assert!(
+            Platform::ALL.into_iter().any(|p| has_feature(p, feature)),
+            "no system has {feature:?}"
+        );
+    }
+}

@@ -19,6 +19,15 @@ pub enum Feature {
     Sunlight,
 }
 
+impl Feature {
+    pub const ALL: [Feature; 4] = [
+        Feature::ColourCorrection,
+        Feature::Palette,
+        Feature::Stretch,
+        Feature::Sunlight,
+    ];
+}
+
 pub fn has_feature(platform: Platform, feature: Feature) -> bool {
     use Platform::*;
     match feature {

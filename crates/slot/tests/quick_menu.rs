@@ -1349,7 +1349,7 @@ fn the_game_boy_page_steps_the_palette_from_auto() {
     );
     open_at(&mut a, QuickRow::GbPalette);
     assert_eq!(a.gb_colors(), GbColors::Auto);
-    assert_eq!(a.gb_colors_label(), "Auto");
+    assert_eq!(a.palette_label(), "Auto");
     let grey = GbColors::Palette(GbPalette::parse("Grayscale").unwrap());
     let last = GbColors::Palette(GbPalette::parse("SGB 4-H").unwrap());
     for (btn, want) in [
@@ -2198,14 +2198,14 @@ fn the_gbas_frame_blending_says_a_gpsp_game_mixes_instead_of_ghosting() {
 fn the_wonderswan_and_turbografx_pages_set_their_cores_palettes() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::WsPalette);
-    assert_eq!(a.gb_colors_label(), "Grayscale");
+    assert_eq!(a.palette_label(), "Grayscale");
     press(&mut a, Btn::Right);
-    assert_eq!(a.gb_colors_label(), "WonderSwan");
+    assert_eq!(a.palette_label(), "WonderSwan");
     assert_eq!(read_slot_state(d.path()).palette_ws, "wonderswan");
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::Tg16Palette);
     press(&mut a, Btn::Left);
-    assert_eq!(a.gb_colors_label(), "Composite");
+    assert_eq!(a.palette_label(), "Composite");
     assert_eq!(read_slot_state(d.path()).palette_tg16, "Composite");
 }
 

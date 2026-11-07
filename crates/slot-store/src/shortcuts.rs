@@ -14,7 +14,7 @@ const DIR: &str = "shortcuts";
 
 /// The feature a shortcut drives, or `None` for a general one, which every system has. A
 /// system has a feature's shortcuts when it has the feature (`features::has_feature`).
-pub fn systems_of(shortcut: Shortcut) -> Option<Feature> {
+pub fn feature_of(shortcut: Shortcut) -> Option<Feature> {
     Some(match shortcut {
         Shortcut::ColorCorrection => Feature::ColourCorrection,
         Shortcut::PaletteBack | Shortcut::PaletteNext => Feature::Palette,
@@ -26,14 +26,14 @@ pub fn systems_of(shortcut: Shortcut) -> Option<Feature> {
 
 /// Whether a system has a shortcut: every general one, and those of its features.
 pub fn has(platform: Platform, shortcut: Shortcut) -> bool {
-    systems_of(shortcut).is_none_or(|f| has_feature(platform, f))
+    feature_of(shortcut).is_none_or(|f| has_feature(platform, f))
 }
 
 /// The shortcuts of a system's own, in the order its page shows them.
 pub fn own(platform: Platform) -> Vec<Shortcut> {
     Shortcut::ALL
         .into_iter()
-        .filter(|s| systems_of(*s).is_some_and(|f| has_feature(platform, f)))
+        .filter(|s| feature_of(*s).is_some_and(|f| has_feature(platform, f)))
         .collect()
 }
 
@@ -54,7 +54,7 @@ impl SystemShortcuts {
     pub fn for_system(platform: Platform, general: &ShortcutKeys) -> SystemShortcuts {
         let mut keys = SystemShortcuts::from(general);
         for s in own(platform) {
-            if systems_of(s).is_some_and(|f| !starts_bound(platform, f)) {
+            if feature_of(s).is_some_and(|f| !starts_bound(platform, f)) {
                 keys.set(s, None);
             }
         }

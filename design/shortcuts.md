@@ -62,7 +62,7 @@ shortcut pages were lists written by hand.
 
 - `slot_store::features` says what each system can do that a shortcut drives (colour
   correction, palettes, stretch, sunlight), from the same facts the Screen rows use. A
-  shortcut belongs to a feature (`shortcuts::systems_of`), and a system has it when it has
+  shortcut belongs to a feature (`shortcuts::feature_of`), and a system has it when it has
   the feature.
 - Controls > Shortcuts has a page for every system, the DS's too; a system with no
   shortcuts of its own has its page hidden. A system that gains a feature shows its page

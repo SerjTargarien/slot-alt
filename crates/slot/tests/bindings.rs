@@ -510,7 +510,7 @@ fn shortcuts_list_general_then_each_system_with_its_own() {
     );
     for row in QuickRow::SHORTCUTS {
         let s = row.shortcut().unwrap();
-        assert!(slot_store::shortcuts::systems_of(s).is_none(), "{row:?}");
+        assert!(slot_store::shortcuts::feature_of(s).is_none(), "{row:?}");
     }
 }
 
@@ -554,7 +554,7 @@ fn a_system_gets_a_features_shortcuts_with_the_feature() {
     // Each system's own shortcuts are its features', and a system with none has no page.
     for platform in Platform::ALL {
         for s in own(platform) {
-            let f = slot_store::shortcuts::systems_of(s).unwrap();
+            let f = slot_store::shortcuts::feature_of(s).unwrap();
             assert!(has_feature(platform, f), "{platform:?} {s:?}");
         }
     }

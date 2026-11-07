@@ -1,6 +1,6 @@
 use slot_input::{anywhere, Action, Contexts, Entry};
 use slot_store::controls::{inputs, SystemControls};
-use slot_store::shortcuts::{has, systems_of, SystemShortcuts};
+use slot_store::shortcuts::{feature_of, has, SystemShortcuts};
 use slot_store::{Binding, CarouselAction, CarouselKeys, Modifier, Platform, ShortcutKeys};
 use slot_ui::QuickRow;
 
@@ -49,7 +49,7 @@ impl Table {
                     return None;
                 }
                 let action = shortcut_action(s);
-                let binding = match systems_of(s) {
+                let binding = match feature_of(s) {
                     Some(_) => system.get(s),
                     None => shortcuts.get(s),
                 };

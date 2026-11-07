@@ -228,10 +228,10 @@ fn an_lcd_ghosting_chosen_for_gba_reads_as_mix_on_gpsp() {
 fn palette_steps_the_palette_and_asks_the_core() {
     let (_d, mut a) = playing();
     a.set_palette_live(true);
-    let before = a.gb_colors_label();
+    let before = a.palette_label();
     go_to(&mut a, QuickRow::Palette);
     press(&mut a, Btn::Right);
-    assert_ne!(a.gb_colors_label(), before);
+    assert_ne!(a.palette_label(), before);
     assert!(a.take_gb_colors().is_some());
 }
 
@@ -281,7 +281,7 @@ fn the_palette_row_shows_with_auto_in_a_game_boy_only_game() {
     assert_eq!(a.gb_colors(), slot_store::GbColors::Auto);
     assert!(!a.in_game_hidden().contains(&QuickRow::Palette));
     go_to(&mut a, QuickRow::Palette);
-    assert_eq!(a.gb_colors_label(), "Auto");
+    assert_eq!(a.palette_label(), "Auto");
     press(&mut a, Btn::Right);
     let grey = slot_store::GbColors::Palette(slot_store::GbPalette::parse("Grayscale").unwrap());
     assert_eq!(a.gb_colors(), grey);

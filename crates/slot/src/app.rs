@@ -10,7 +10,7 @@ use slot_store::controls::{inputs, system_key, AllControls, Input, SystemControl
 use slot_store::core_palette;
 use slot_store::games::{read_game, write_game, GameSettings, PlaySetting, ScreenSetting};
 use slot_store::shortcuts::{
-    self, has, systems_of, write_system_shortcuts, AllShortcuts, SystemShortcuts,
+    self, feature_of, has, write_system_shortcuts, AllShortcuts, SystemShortcuts,
 };
 use slot_store::{
     format_stamp, parse_stamp, read_slot_state, scan, write_slot_state, BezelPick, Blending, Cart,
@@ -1708,7 +1708,7 @@ impl App {
 
     /// The Palette row's value: the playing system's in a game; on the shelf, the open
     /// Screen page's system's.
-    pub fn gb_colors_label(&self) -> &'static str {
+    pub fn palette_label(&self) -> &'static str {
         let platform = match (self.in_game_menu(), self.quick_menu()) {
             (Some(_), _) => self.playing_platform(),
             (None, Some(row)) if row.page().contains(&QuickRow::WsPalette) => Platform::Ws,
@@ -2305,8 +2305,8 @@ impl App {
         // the shortcuts one system has of its own.
         hidden.extend(QuickRow::PLAY_SHORTCUTS.into_iter().filter(|r| {
             r.shortcut().is_some_and(|s| match self.shortcut_page {
-                None => systems_of(s).is_some(),
-                Some(platform) => systems_of(s).is_none() || !has(platform, s),
+                None => feature_of(s).is_some(),
+                Some(platform) => feature_of(s).is_none() || !has(platform, s),
             })
         }));
         hidden.extend([
@@ -3699,7 +3699,7 @@ impl App {
         let (mut general, mut system) = (self.shortcuts, *self.system_shortcuts.get(platform));
         if let Some(game) = self.game_in_slot() {
             for s in Shortcut::ALL {
-                match (game.shortcuts.get(s), systems_of(s)) {
+                match (game.shortcuts.get(s), feature_of(s)) {
                     (Some(key), None) => general.set(s, key),
                     (Some(key), Some(_)) => system.set(s, key),
                     (None, _) => {}
@@ -3735,7 +3735,7 @@ impl App {
             return own;
         }
         if let Some(s) = row.shortcut() {
-            return match systems_of(s) {
+            return match feature_of(s) {
                 Some(_) => self.system_shortcuts.get(self.controls_page()).get(s),
                 None => self.shortcuts.get(s),
             };
@@ -3754,7 +3754,7 @@ impl App {
         };
         let platform = self.playing_platform();
         let (general, _) = self.shortcut_keys(platform);
-        let shelf = |s: Shortcut| match systems_of(s) {
+        let shelf = |s: Shortcut| match feature_of(s) {
             Some(_) => self.system_shortcuts.get(platform).get(s),
             None => self.shortcuts.get(s),
         };
@@ -3781,7 +3781,7 @@ impl App {
 
     fn reset_page(&mut self, row: QuickRow) {
         self.reset_prompt = None;
-        let (what, written) = if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
+        let (what, written) = if row.shortcut().is_some_and(|s| feature_of(s).is_some()) {
             let platform = self.controls_page();
             *self.system_shortcuts.get_mut(platform) =
                 SystemShortcuts::for_system(platform, &self.shortcuts);
@@ -3798,7 +3798,7 @@ impl App {
             let stock = ShortcutKeys::default();
             for s in Shortcut::ALL
                 .into_iter()
-                .filter(|s| systems_of(*s).is_none())
+                .filter(|s| feature_of(*s).is_none())
             {
                 self.shortcuts.set(s, stock.get(s));
             }
@@ -3824,7 +3824,7 @@ impl App {
             let platform = self.controls_page();
             self.controls_of(platform).row(input)
                 == SystemControls::default_for(platform).row(input)
-        } else if row.shortcut().is_some_and(|s| systems_of(s).is_some()) {
+        } else if row.shortcut().is_some_and(|s| feature_of(s).is_some()) {
             let platform = self.controls_page();
             *self.system_shortcuts.get(platform)
                 == SystemShortcuts::for_system(platform, &self.shortcuts)
@@ -3832,7 +3832,7 @@ impl App {
             let stock = ShortcutKeys::default();
             Shortcut::ALL
                 .into_iter()
-                .filter(|s| systems_of(*s).is_none())
+                .filter(|s| feature_of(*s).is_none())
                 .all(|s| self.shortcuts.get(s) == stock.get(s))
         } else {
             self.carousel == CarouselKeys::default()
@@ -3895,7 +3895,7 @@ impl App {
             if let Some(b) = binding {
                 self.edit_controls(|c, _| c.add(input, b));
             }
-        } else if let Some(s) = row.shortcut().filter(|s| systems_of(*s).is_some()) {
+        } else if let Some(s) = row.shortcut().filter(|s| feature_of(*s).is_some()) {
             let platform = self.controls_page();
             self.system_shortcuts.get_mut(platform).set(s, binding);
             if let Some(root) = &self.root {
@@ -4807,7 +4807,7 @@ impl App {
             Action::GbaDown(Btn::Right) => return self.change_setting(row, true),
             Action::GbaDown(Btn::A) => return self.open_quick_row(row),
             Action::GbaDown(Btn::B) | Action::QuickMenu => {
-                let parent = match (row.input(), row.shortcut().and_then(systems_of)) {
+                let parent = match (row.input(), row.shortcut().and_then(feature_of)) {
                     (Some(_), _) => Some(QuickRow::controls_of(self.controls_platform)),
                     (_, Some(_)) => Some(QuickRow::shortcuts_of(self.controls_platform)),
                     _ => row.parent(),

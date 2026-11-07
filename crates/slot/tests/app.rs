@@ -2832,10 +2832,10 @@ fn a_mono_wonderswan_game_takes_a_palette_of_its_own_and_a_color_one_none() {
             a.apply(slot_input::Action::GbaUp(Btn::A));
         }
     }
-    assert_eq!(a.gb_colors_label(), "Grayscale");
+    assert_eq!(a.palette_label(), "Grayscale");
     a.apply(slot_input::Action::GbaDown(Btn::Right));
     a.apply(slot_input::Action::GbaUp(Btn::Right));
-    assert_eq!(a.gb_colors_label(), "WonderSwan");
+    assert_eq!(a.palette_label(), "WonderSwan");
     assert!(a.game_owns_row(slot_ui::QuickRow::Palette));
     let own = slot_store::games::read_game(d.path(), Platform::Ws, "Gunpey").screen;
     assert_eq!(own.core_palette.as_deref(), Some("wonderswan"));

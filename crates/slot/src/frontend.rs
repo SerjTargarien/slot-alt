@@ -2215,7 +2215,7 @@ fn sync_quick_palette(app: &mut App, compositor: &mut Compositor, state: &mut Qu
     if app.in_game_menu().is_none() && app.quick_menu().is_none() {
         return;
     }
-    let text = app.gb_colors_label();
+    let text = app.palette_label();
     if text == state.shown {
         return;
     }
