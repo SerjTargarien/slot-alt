@@ -133,6 +133,30 @@ reset no
 run absent link warm >/dev/null || true
 [ -e "$TMP/mod.log" ] && fail "insmod on BaseOS"
 
+# Slot²: wpa_supplicant leaves on terminate without answering, and wpa_cli waited out its
+# 10 s for the reply, on every link (2026-11-07). Stopping is done once the supplicant is gone.
+reset yes
+: > "$TMP/run/slotwifi.on"
+: > "$TMP/ctrl/wlan0"
+make_fake wpa_cli "$TMP/cli.log" "case \"\$*\" in *terminate*) rm -f '$TMP/ctrl/wlan0'; sleep 10;; esac"
+t0=$(date +%s)
+run absent wifi stop && rc=0 || rc=$?
+t1=$(date +%s)
+[ "$rc" = 0 ] || fail "wifi stop exited $rc"
+[ $((t1 - t0)) -le 2 ] || fail "stopping a supplicant that left without answering took $((t1 - t0)) s"
+grep -q 'stale socket' "$TMP/trace.log" 2>/dev/null && fail "a supplicant that left was taken for a stale socket"
+
+# A socket nobody answers on is stale: removed at once.
+reset yes
+: > "$TMP/run/slotwifi.on"
+: > "$TMP/ctrl/wlan0"
+make_fake wpa_cli "$TMP/cli.log" 'case "$*" in *terminate*) exit 1;; esac'
+t0=$(date +%s)
+run absent wifi stop >/dev/null
+t1=$(date +%s)
+[ ! -e "$TMP/ctrl/wlan0" ] || fail "a stale socket was left"
+[ $((t1 - t0)) -le 1 ] || fail "removing a stale socket took $((t1 - t0)) s"
+
 reset yes
 make_fake wpa_cli "$TMP/cli.log" 'sleep 0.3' 'echo "wpa_state=SCANNING"'
 t0=$(date +%s)

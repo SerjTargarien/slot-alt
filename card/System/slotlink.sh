@@ -69,13 +69,36 @@ wifi_up() {
 }
 
 supplicant_stop() {
-	if $WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1; then
-		s=0
-		while [ -e "$1/$2" ] && [ "$s" -lt 8 ]; do
-			sleep 0.25 2>/dev/null || sleep 1
-			s=$((s + 1))
-		done
-	elif [ -e "$1/$2" ]; then
+	# Slot²: wpa_supplicant leaves on terminate without answering, and wpa_cli waited out
+	# its 10 s for the reply on every link (2026-11-07). It's asked in the background, and
+	# stopping is done once the supplicant's socket is gone. With no socket, nothing waits.
+	if [ ! -e "$1/$2" ]; then
+		$WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1
+		return 0
+	fi
+	$WPA_CLI -p "$1" -i "$2" terminate >/dev/null 2>&1 &
+	cli=$!
+	s=0
+	while [ -e "$1/$2" ] && kill -0 "$cli" 2>/dev/null && [ "$s" -lt 40 ]; do
+		sleep 0.25 2>/dev/null || sleep 1
+		s=$((s + 1))
+	done
+	if kill -0 "$cli" 2>/dev/null; then
+		kill "$cli" 2>/dev/null
+		wait "$cli" 2>/dev/null
+		asked=yes
+	elif wait "$cli"; then
+		asked=yes
+	else
+		asked=
+	fi
+	# Told to go, it gets the 2 s it always had; a socket nobody answered on is stale.
+	s=0
+	while [ -n "$asked" ] && [ -e "$1/$2" ] && [ "$s" -lt 8 ]; do
+		sleep 0.25 2>/dev/null || sleep 1
+		s=$((s + 1))
+	done
+	if [ -e "$1/$2" ]; then
 		trace "$2: stale socket removed"
 		/bin/rm -f "$1/$2"
 	fi
@@ -87,6 +110,7 @@ link_clear() {
 	$IP addr flush dev wlan1 2>/dev/null || true
 	/bin/rm -f "$RUN/slotlink-ap.conf"
 	wifi_stop
+	trace "home Wi-Fi stopped"
 	if [ -f "$RUN/slotlink-sta.conf" ]; then
 		supplicant_stop "$CTRL_DIR" wlan0
 		$IP addr flush dev wlan0 2>/dev/null || true
@@ -259,6 +283,7 @@ wifi_stop() {
 		/bin/rm -f "$RUN/udhcpc.wlan0.pid"
 	fi
 	[ -f "$WIFI_MARK" ] || return 0
+	trace "home Wi-Fi: stopping its supplicant"
 	supplicant_stop "$CTRL_DIR" wlan0
 	$IP addr flush dev wlan0 2>/dev/null || true
 	/bin/rm -f "$WIFI_MARK"
