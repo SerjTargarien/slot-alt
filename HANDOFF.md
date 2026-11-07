@@ -259,6 +259,10 @@ Waiting on a decision or an outside party:
   Rewind (L2) out of WonderSwan games (the "!" on its controls page): move those two for
   WonderSwan games, or accept it.
 - A version name for our builds (`SLOT_VERSION`); builds carry their hash and date.
+- The Slot² boot logo on the RGB20SX instead of the boot console text (the user,
+  2026-11-07). Base² boots with `console=tty0` and has no `boot-resource` partition, so
+  `--install-bootlogo` writes nothing there; it needs a Base² way (a splash in the init, or
+  the kernel's logo) that still leaves early errors readable.
 - Housekeeping: the flaky tests above; four `__pycache__` files tracked in git.
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
   on 2026-11-06. Amber means a game's own value, so it can't also mark the shelf's system;
