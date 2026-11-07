@@ -391,3 +391,38 @@ fn the_games_own_controls_decide_which_shortcuts_give_way() {
     assert!(!fast(&a), "Emerald's A is on R2 now, so the game has it");
     assert!(fast(&app_playing_in(d.path(), "Fusion")), "Fusion's isn't");
 }
+
+#[test]
+fn the_sprite_limit_shows_only_where_the_core_has_it_and_is_the_games_own() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    assert!(
+        a.in_game_hidden().contains(&QuickRow::SpriteLimit),
+        "mGBA has no sprite limit to lift"
+    );
+    a.set_core(Core::Gpsp);
+    assert!(!a.in_game_hidden().contains(&QuickRow::SpriteLimit));
+    to_gameplay_row(&mut a, QuickRow::SpriteLimit);
+    assert!(a.sprite_limit(), "on, the hardware's, by default");
+    press(&mut a, Btn::Right);
+    assert!(!a.sprite_limit());
+    assert!(a.game_owns_row(QuickRow::SpriteLimit));
+    assert_eq!(a.take_sprite_limit(), Some(("gpsp_sprlim", "enabled")));
+    assert_eq!(
+        read_game(d.path(), Platform::Gba, "Emerald")
+            .play
+            .sprite_limit,
+        Some(false)
+    );
+    assert!(
+        read_slot_state(d.path()).sprite_limit,
+        "the shelf keeps its own"
+    );
+    press(&mut a, Btn::Y);
+    assert!(a.sprite_limit());
+    assert_eq!(
+        a.take_sprite_limit(),
+        Some(("gpsp_sprlim", "disabled")),
+        "Y sends the shelf's value back to the core"
+    );
+}

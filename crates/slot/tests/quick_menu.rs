@@ -372,8 +372,9 @@ fn the_game_page_flips_auto_load_eject_save_and_rewind_and_saves_each() {
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (true, true, false));
     assert!(!a.may_rewind(), "rewind still offered with it off");
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
+    for _ in 0..3 {
+        press(&mut a, Btn::Down);
+    }
     assert_eq!(a.quick_menu(), Some(QuickRow::AutoLoad));
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (false, true, false));
@@ -942,7 +943,12 @@ fn fake_faces(a: &mut App) {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44), (id(413), 360, 44)],
+        descriptions: [
+            (id(410), 300, 44),
+            (id(411), 340, 44),
+            (id(413), 360, 44),
+            (id(414), 380, 44),
+        ],
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
     a.set_clock_legend_faces(
@@ -1419,7 +1425,12 @@ fn no_row_in_hand_runs_its_value_into_its_label() {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44), (id(413), 360, 44)],
+        descriptions: [
+            (id(410), 300, 44),
+            (id(411), 340, 44),
+            (id(413), 360, 44),
+            (id(414), 380, 44),
+        ],
     });
     for page in [
         &QuickRow::SCREEN_GBA[..],
@@ -2196,4 +2207,18 @@ fn the_wonderswan_and_turbografx_pages_set_their_cores_palettes() {
     press(&mut a, Btn::Left);
     assert_eq!(a.gb_colors_label(), "Composite");
     assert_eq!(read_slot_state(d.path()).palette_tg16, "Composite");
+}
+
+#[test]
+fn the_shelfs_sprite_limit_is_every_games_and_says_where_it_works() {
+    let (d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    open_at(&mut a, QuickRow::SpriteLimit);
+    let mut out = Vec::new();
+    a.draw(&mut out);
+    assert!(drawn(&out, 414), "the note naming the cores");
+    assert_eq!(a.quick_value(QuickRow::SpriteLimit), Some(QuickValue::On));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::SpriteLimit), Some(QuickValue::Off));
+    assert!(!read_slot_state(d.path()).sprite_limit);
 }

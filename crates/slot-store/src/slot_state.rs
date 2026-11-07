@@ -369,6 +369,8 @@ pub struct SlotState {
     pub clock_24h: bool,
     pub network_time: bool,
     pub rumble: bool,
+    /// Slot²: the hardware's per-line sprite limit, on unless lifted (design/core-options.md).
+    pub sprite_limit: bool,
     pub ff_speed: u8,
     pub ff_sound: bool,
     pub colour_correction_gba: bool,
@@ -615,6 +617,7 @@ impl Default for SlotState {
             clock_24h: true,
             network_time: false,
             rumble: true,
+            sprite_limit: true,
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
             colour_correction_gba: false,
@@ -793,6 +796,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         "palette_ws={}\npalette_tg16={}\n",
         s.palette_ws, s.palette_tg16
     ));
+    text.push_str(&format!("sprite_limit={}\n", s.sprite_limit as u8));
     text.push_str(&format!("bezel_gb={}\n", s.bezel_gb.key()));
     text.push_str(&format!("bezel_gbc={}\n", s.bezel_gbc.key()));
     text.push_str(&format!("bezel_ws={}\n", s.bezel_ws.key()));
@@ -860,6 +864,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut clock_24h = None;
     let mut network_time = None;
     let mut rumble = None;
+    let mut sprite_limit = None;
     let mut ff_speed = None;
     let mut ff_sound = None;
     let mut colour_correction = None;
@@ -947,6 +952,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "clock_24h" => clock_24h = flag(value),
             "network_time" => network_time = flag(value),
             "rumble" => rumble = flag(value),
+            "sprite_limit" => sprite_limit = flag(value),
             "ff_speed" => ff_speed = ff_speed_value(value),
             "ff_sound" => ff_sound = flag(value),
             "colour_correction" => colour_correction = flag(value),
@@ -1039,6 +1045,7 @@ fn parse(text: &str) -> Option<SlotState> {
         clock_24h: clock_24h.unwrap_or(fallback.clock_24h),
         network_time: network_time.unwrap_or(fallback.network_time),
         rumble: rumble.unwrap_or(fallback.rumble),
+        sprite_limit: sprite_limit.unwrap_or(fallback.sprite_limit),
         ff_speed: ff_speed.unwrap_or(fallback.ff_speed),
         ff_sound: ff_sound.unwrap_or(fallback.ff_sound),
         colour_correction_gba: colour_correction_gba

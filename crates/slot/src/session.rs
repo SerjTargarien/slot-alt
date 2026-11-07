@@ -616,6 +616,11 @@ impl Session {
                 recoloured = true;
             }
         }
+        if let Some((key, value)) = self.app.take_sprite_limit() {
+            if let Some(emu) = &self.emu {
+                emu.set_option(key, value);
+            }
+        }
         if let Some((key, value)) = self.app.take_core_palette() {
             if let Some(emu) = &self.emu {
                 emu.set_option(key, &value);
@@ -890,6 +895,8 @@ impl Session {
         // Slot²: the WonderSwan's and the TurboGrafx-16's palette, the game's own or its
         // system's.
         let core_palette = self.app.core_palette_now(platform);
+        // Slot²: the sprite limit, the game's own or the shelf's, where the core has it.
+        let sprite = crate::core::sprite_option(core, self.app.sprite_limit());
         let join = std::thread::Builder::new()
             .name("slot-open".into())
             .spawn(move || {
@@ -918,6 +925,9 @@ impl Session {
                     opened.core.set_option(WS_ROTATE, ws_rotation(ws_portrait));
                 }
                 if let Some((key, value)) = &core_palette {
+                    opened.core.set_option(key, value);
+                }
+                if let Some((key, value)) = sprite {
                     opened.core.set_option(key, value);
                 }
                 // A WonderSwan Color game draws its own colours; a mono one and every

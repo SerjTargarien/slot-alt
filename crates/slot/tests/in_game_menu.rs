@@ -117,7 +117,9 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Scale,
                 QuickRow::Stretch,
                 QuickRow::Layout,
-                QuickRow::StylusScreen
+                QuickRow::StylusScreen,
+                // mGBA has no sprite limit to lift.
+                QuickRow::SpriteLimit
             ][..],
             &empty
         ]
@@ -132,7 +134,9 @@ fn screen_shows_the_palette_only_when_palettes_are_live() {
                 QuickRow::Scale,
                 QuickRow::Stretch,
                 QuickRow::Layout,
-                QuickRow::StylusScreen
+                QuickRow::StylusScreen,
+                // mGBA has no sprite limit to lift.
+                QuickRow::SpriteLimit
             ][..],
             &empty
         ]
@@ -700,7 +704,12 @@ fn menu_faces(a: &mut App) {
             (id(409), 95),
             (id(412), 100),
         ],
-        descriptions: [(id(410), 300, 44), (id(411), 340, 44), (id(413), 360, 44)],
+        descriptions: [
+            (id(410), 300, 44),
+            (id(411), 340, 44),
+            (id(413), 360, 44),
+            (id(414), 380, 44),
+        ],
     });
 }
 

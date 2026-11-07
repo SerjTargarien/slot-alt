@@ -369,6 +369,7 @@ pub struct Play {
     pub rumble: bool,
     pub auto_load: bool,
     pub eject_save: bool,
+    pub sprite_limit: bool,
 }
 
 impl SlotState {
@@ -380,6 +381,7 @@ impl SlotState {
             rumble: self.rumble,
             auto_load: self.auto_load,
             eject_save: self.eject_save,
+            sprite_limit: self.sprite_limit,
         }
     }
 
@@ -390,6 +392,7 @@ impl SlotState {
         self.rumble = to.rumble;
         self.auto_load = to.auto_load;
         self.eject_save = to.eject_save;
+        self.sprite_limit = to.sprite_limit;
     }
 }
 
@@ -402,16 +405,18 @@ pub enum PlaySetting {
     Rumble,
     AutoLoad,
     EjectSave,
+    SpriteLimit,
 }
 
 impl PlaySetting {
-    pub const ALL: [PlaySetting; 6] = [
+    pub const ALL: [PlaySetting; 7] = [
         PlaySetting::FfSpeed,
         PlaySetting::FfSound,
         PlaySetting::Rewind,
         PlaySetting::Rumble,
         PlaySetting::AutoLoad,
         PlaySetting::EjectSave,
+        PlaySetting::SpriteLimit,
     ];
 
     fn key(self) -> &'static str {
@@ -422,6 +427,7 @@ impl PlaySetting {
             PlaySetting::Rumble => "rumble",
             PlaySetting::AutoLoad => "auto_load",
             PlaySetting::EjectSave => "eject_save",
+            PlaySetting::SpriteLimit => "sprite_limit",
         }
     }
 }
@@ -435,6 +441,7 @@ pub struct PlayOverrides {
     pub rumble: Option<bool>,
     pub auto_load: Option<bool>,
     pub eject_save: Option<bool>,
+    pub sprite_limit: Option<bool>,
 }
 
 impl PlayOverrides {
@@ -446,6 +453,7 @@ impl PlayOverrides {
             rumble: self.rumble.unwrap_or(shelf.rumble),
             auto_load: self.auto_load.unwrap_or(shelf.auto_load),
             eject_save: self.eject_save.unwrap_or(shelf.eject_save),
+            sprite_limit: self.sprite_limit.unwrap_or(shelf.sprite_limit),
         }
     }
 
@@ -461,6 +469,7 @@ impl PlayOverrides {
             rumble: own(now.rumble, shelf.rumble),
             auto_load: own(now.auto_load, shelf.auto_load),
             eject_save: own(now.eject_save, shelf.eject_save),
+            sprite_limit: own(now.sprite_limit, shelf.sprite_limit),
         };
     }
 
@@ -472,6 +481,7 @@ impl PlayOverrides {
             PlaySetting::Rumble => self.rumble.is_some(),
             PlaySetting::AutoLoad => self.auto_load.is_some(),
             PlaySetting::EjectSave => self.eject_save.is_some(),
+            PlaySetting::SpriteLimit => self.sprite_limit.is_some(),
         }
     }
 
@@ -483,6 +493,7 @@ impl PlayOverrides {
             PlaySetting::Rumble => self.rumble = None,
             PlaySetting::AutoLoad => self.auto_load = None,
             PlaySetting::EjectSave => self.eject_save = None,
+            PlaySetting::SpriteLimit => self.sprite_limit = None,
         }
     }
 
@@ -495,6 +506,7 @@ impl PlayOverrides {
             PlaySetting::Rumble => self.rumble.map(on),
             PlaySetting::AutoLoad => self.auto_load.map(on),
             PlaySetting::EjectSave => self.eject_save.map(on),
+            PlaySetting::SpriteLimit => self.sprite_limit.map(on),
         }
     }
 
@@ -514,6 +526,7 @@ impl PlayOverrides {
             PlaySetting::Rumble => self.rumble = on,
             PlaySetting::AutoLoad => self.auto_load = on,
             PlaySetting::EjectSave => self.eject_save = on,
+            PlaySetting::SpriteLimit => self.sprite_limit = on,
         }
         true
     }

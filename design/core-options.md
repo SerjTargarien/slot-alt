@@ -1,9 +1,8 @@
 # Core options: what each core offers, what Slot² uses
 
 Status: surveyed with the user's ask on 2026-11-06; chosen the same day ("Chosen"). The
-palettes built, tested here and built for the device, **not yet deployed or checked on the
-device** (the session stopped there). The sprite limit and the measurements not yet built;
-their plans are under "Next" below.
+palettes built and checked on the device (2026-11-07); the sprite limit built; the
+measurements not yet (their plan under "Next" below).
 
 ## What the user asked for
 
@@ -251,21 +250,25 @@ WonderSwan and TurboGrafx-16 Screen pages' Palette rows; a mono WonderSwan game'
 in-game Palette (cycles, applies at once, amber, Y back); no Palette row in a WonderSwan
 Color game; RGB against Composite on a TurboGrafx-16 game; the value kept on reopening.
 
-### 2. The sprite limit row
+### 2. The sprite limit row (built 2026-11-07)
 
-- A Gameplay setting like the others there: the shelf's one value (Settings > Gameplay),
-  the game's own in game (`PlayOverrides`, amber, Y), saved as `sprite_limit=` in the
-  game's file. Label "Sprite Limit", On (the hardware's, the default) or Off.
-- Three cores have it, each spelled its own way: gpSP `gpsp_sprlim` (enabled = no limit),
-  Gearsystem `gearsystem_no_sprite_limit` (Enabled = no limit), PCE Fast
-  `pce_fast_nospritelimit` (enabled = no limit). A `sprite_option(core, on)` beside
-  `blend_option` in `crates/slot/src/core.rs`, set when the core opens and live.
-- Each core reads it in its `check_variables`, which runs on an option update, so a
-  change should apply at once; to confirm on the device.
-- In a game the row shows only where the running core has it (hidden as Frame Blending is
-  when a core has fewer than two choices). On the shelf it always shows, with a note under
-  it naming where it works ("gpSP, Game Gear and TurboGrafx-16 only." or the user's own
-  words), as the GBA's Frame Blending has.
+- A Gameplay setting like the others there: `sprite_limit` in `slot.state` (on, the
+  hardware's, unless set), the game's own in game (`PlayOverrides`, amber, Y), saved as
+  `sprite_limit=` in the game's file. Label "Sprite Limit", On or Off.
+- `core::sprite_option(core, on)` holds the three spellings, each the other way round
+  ("No Sprite Limit"): gpSP `gpsp_sprlim`, Gearsystem `gearsystem_no_sprite_limit`
+  (capitalised values), PCE Fast `pce_fast_nospritelimit`. Set as the core opens and
+  live (all three re-read their options on an update; Gearsystem's at
+  `platforms/libretro/libretro.cpp` 359).
+- In a game the row shows only where the running core has it (`has_sprite_option`). On
+  the shelf it always shows, with a note: "Off lessens flicker. Only in gpSP, Game Gear
+  and TG-16."
+- On the device (2026-11-07) the rows show where they should; the effect itself is
+  **not yet seen**: no game on the card clearly flickers. Assumed to work until one does
+  (a Game Gear or TurboGrafx-16 game with many sprites on a line is the test).
+- Checked before building (the user asked for a consistency pass first): the row's place
+  in the enum and `ALL` (the order test), the Gameplay label test, the note's width,
+  `slot.state` without the key (On), and Y sending the shelf's value back to the core.
 
 ### 3. Lynx at 60 Hz and gpSP at 32 kHz, measured
 

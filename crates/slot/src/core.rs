@@ -264,6 +264,29 @@ pub fn blend_option(which: Core, blending: Blending) -> Option<(&'static str, &'
     })
 }
 
+/// Slot²: the sprite limit as a core takes it (design/core-options.md): on is the
+/// hardware's per-line limit. Each core asks the other way round ("No Sprite Limit"), and
+/// spells it its own way; mGBA, Gambatte and the Beetle cores but PCE Fast have none.
+pub fn sprite_option(which: Core, limit: bool) -> Option<(&'static str, &'static str)> {
+    Some(match which {
+        Core::Gpsp => ("gpsp_sprlim", if limit { "disabled" } else { "enabled" }),
+        Core::Gearsystem => (
+            "gearsystem_no_sprite_limit",
+            if limit { "Disabled" } else { "Enabled" },
+        ),
+        Core::Pce => (
+            "pce_fast_nospritelimit",
+            if limit { "disabled" } else { "enabled" },
+        ),
+        _ => return None,
+    })
+}
+
+/// Whether a core lets the sprite limit be lifted.
+pub fn has_sprite_option(which: Core) -> bool {
+    sprite_option(which, true).is_some()
+}
+
 pub fn apply_blending(core: &mut LibretroCore, which: Core, blending: Blending) {
     if let Some((key, value)) = blend_option(which, blending) {
         core.set_option(key, value);
@@ -295,7 +318,10 @@ pub fn option_prefix(which: Core) -> &'static str {
 /// frameskip setting. DSperate's is our patch onto its libretro wrapper
 /// (cores/dsperate/wrapper-0001-frameskip.patch).
 fn has_frameskip(which: Core) -> bool {
-    !matches!(which, Core::Lynx | Core::Gearsystem | Core::Ngp | Core::Gambatte)
+    !matches!(
+        which,
+        Core::Lynx | Core::Gearsystem | Core::Ngp | Core::Gambatte
+    )
 }
 
 /// Whether the core writes its own save file rather than handing Slot its
@@ -489,6 +515,37 @@ pub fn apply_core_options(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_sprite_limit_is_spelled_per_core_and_inverted() {
+        assert_eq!(
+            sprite_option(Core::Gpsp, true),
+            Some(("gpsp_sprlim", "disabled"))
+        );
+        assert_eq!(
+            sprite_option(Core::Gpsp, false),
+            Some(("gpsp_sprlim", "enabled"))
+        );
+        assert_eq!(
+            sprite_option(Core::Gearsystem, false),
+            Some(("gearsystem_no_sprite_limit", "Enabled"))
+        );
+        assert_eq!(
+            sprite_option(Core::Pce, true),
+            Some(("pce_fast_nospritelimit", "disabled"))
+        );
+        for core in [
+            Core::Mgba,
+            Core::Gambatte,
+            Core::Cygne,
+            Core::Lynx,
+            Core::Ngp,
+            Core::Dsperate,
+        ] {
+            assert!(!has_sprite_option(core), "{core:?}");
+        }
+    }
+
     use super::*;
     use std::sync::Mutex;
 

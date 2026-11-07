@@ -14,6 +14,8 @@ pub enum QuickRow {
     FastForwardSound,
     Screen,
     Rumble,
+    /// Slot²: the hardware's per-line sprite limit (design/core-options.md).
+    SpriteLimit,
     DateTime,
     About,
     GbaShader,
@@ -218,11 +220,12 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 198] = [
+    pub const ALL: [QuickRow; 199] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
         QuickRow::Rumble,
+        QuickRow::SpriteLimit,
         QuickRow::DateTime,
         QuickRow::About,
         QuickRow::GbaShader,
@@ -716,11 +719,12 @@ impl QuickRow {
         QuickRow::GbStretch,
     ];
 
-    pub const GAME: [QuickRow; 6] = [
+    pub const GAME: [QuickRow; 7] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
         QuickRow::Rumble,
+        QuickRow::SpriteLimit,
         QuickRow::AutoLoad,
         QuickRow::EjectSave,
     ];
@@ -833,6 +837,7 @@ impl QuickRow {
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
             | QuickRow::Rumble
+            | QuickRow::SpriteLimit
             | QuickRow::AutoLoad
             | QuickRow::EjectSave => &QuickRow::GAME,
             QuickRow::Wallpaper
@@ -1011,6 +1016,7 @@ impl QuickRow {
             QuickRow::FastForwardSound => "Fast Forward Sound",
             QuickRow::Screen => "Screen",
             QuickRow::Rumble => "Rumble",
+            QuickRow::SpriteLimit => "Sprite Limit",
             QuickRow::ScreenGeneral => "General",
             QuickRow::Brightness | QuickRow::PlayBrightness => "Brightness",
             QuickRow::BlueLight | QuickRow::PlayBlueLight => "Blue Light",
@@ -2224,8 +2230,8 @@ pub struct QuickMenuFaces {
     pub legend: [(TexId, u32); 11],
     pub legend_light: [(TexId, u32); 11],
     /// The note under a row: a controls row's, a shortcut's, and (Slot²) the shelf's GBA
-    /// Frame Blending.
-    pub descriptions: [(TexId, u32, u32); 3],
+    /// Frame Blending and Sprite Limit.
+    pub descriptions: [(TexId, u32, u32); 4],
 }
 
 /// Slot²: the ink of a game's own value (design/game-overrides.md), multiplied over the

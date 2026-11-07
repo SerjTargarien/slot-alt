@@ -613,6 +613,8 @@ pub struct App {
     palette_pending: Option<GbColors>,
     /// Slot²: a palette change for the WonderSwan's or the TurboGrafx-16's core.
     core_palette_pending: Option<String>,
+    /// Slot²: a sprite limit change for the running core.
+    sprite_pending: Option<bool>,
     sunlight_manual: Option<u8>,
     link_player: Option<u8>,
     platform: Platform,
@@ -1084,6 +1086,7 @@ impl App {
             core: Core::default(),
             colour_pending: None,
             core_palette_pending: None,
+            sprite_pending: None,
             blending_pending: None,
             palette_live: false,
             palette_pending: None,
@@ -1597,6 +1600,10 @@ impl App {
             hidden.extend([QuickRow::Layout, QuickRow::StylusScreen]);
         }
         // slotPlus's other cores have no frame blending to pick.
+        // Slot²: the sprite limit, where the running core lets it be lifted.
+        if !crate::core::has_sprite_option(self.core) {
+            hidden.push(QuickRow::SpriteLimit);
+        }
         if Blending::choices(self.core).len() < 2 {
             hidden.push(QuickRow::Blending);
         }
@@ -1721,6 +1728,17 @@ impl App {
     pub fn core_palette_now(&self, platform: Platform) -> Option<(&'static str, String)> {
         let key = core_palette::core_palette_option(platform)?;
         Some((key, self.view().screen(platform).core_palette))
+    }
+
+    /// Slot²: the sprite limit the running game plays with: its own, or the shelf's.
+    pub fn sprite_limit(&self) -> bool {
+        self.view().sprite_limit
+    }
+
+    /// A sprite limit change for the running core, once, as its option.
+    pub fn take_sprite_limit(&mut self) -> Option<(&'static str, &'static str)> {
+        let on = self.sprite_pending.take()?;
+        crate::core::sprite_option(self.core, on)
     }
 
     /// A palette change for the running core, once.
@@ -1871,6 +1889,7 @@ impl App {
             QuickRow::Tg16Shader => Some(shader_value(self.view().shader_tg16)),
             QuickRow::NdsShader => Some(shader_value(self.view().shader_nds)),
             QuickRow::Rumble => Some(QuickValue::flag(self.view().rumble)),
+            QuickRow::SpriteLimit => Some(QuickValue::flag(self.view().sprite_limit)),
             QuickRow::AutoLoad => Some(QuickValue::flag(self.view().auto_load)),
             QuickRow::EjectSave => Some(QuickValue::flag(self.view().eject_save)),
             QuickRow::Rewind => Some(QuickValue::flag(self.view().rewind)),
@@ -3046,6 +3065,9 @@ impl App {
                     None => self.palette_pending = Some(self.gb_colors()),
                 }
             }
+            GameSetting::Play(PlaySetting::SpriteLimit) => {
+                self.sprite_pending = Some(self.view().sprite_limit)
+            }
             GameSetting::Screen(ScreenSetting::Blending) => {
                 self.blending_pending = Some(self.blending_in_play())
             }
@@ -4102,6 +4124,9 @@ impl App {
             // The shelf's value is every GBA game's, and gpSP has no ghosting. (Only
             // here: the in-game menu has no room for it over the game.)
             Some(faces.descriptions[2])
+        } else if row == QuickRow::SpriteLimit && self.in_game_menu.is_none() {
+            // On the shelf the value is every game's; only three cores take it.
+            Some(faces.descriptions[3])
         } else {
             None
         }
@@ -5180,6 +5205,7 @@ impl App {
             | QuickRow::WsPalette
             | QuickRow::Tg16Palette
             | QuickRow::Rumble
+            | QuickRow::SpriteLimit
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
@@ -5600,6 +5626,10 @@ impl App {
                 s.shader_nds = to;
             }
             QuickRow::Rumble => s.rumble = !s.rumble,
+            QuickRow::SpriteLimit => {
+                s.sprite_limit = !s.sprite_limit;
+                self.sprite_pending = Some(self.view().sprite_limit);
+            }
             QuickRow::AutoLoad => s.auto_load = !s.auto_load,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
             QuickRow::Rewind => s.rewind = !s.rewind,
@@ -5865,7 +5895,8 @@ impl App {
                     .iter()
                     .position(|(k, _)| *k == key)
                     .unwrap_or(0);
-                self.hud.toast(Toast::CorePalette(platform, at as u8), self.now());
+                self.hud
+                    .toast(Toast::CorePalette(platform, at as u8), self.now());
                 return true;
             }
             if self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
@@ -13254,6 +13285,7 @@ fn game_setting(row: QuickRow) -> Option<GameSetting> {
         QuickRow::FastForwardSound => Play(PlaySetting::FfSound),
         QuickRow::Rewind => Play(PlaySetting::Rewind),
         QuickRow::Rumble => Play(PlaySetting::Rumble),
+        QuickRow::SpriteLimit => Play(PlaySetting::SpriteLimit),
         QuickRow::AutoLoad => Play(PlaySetting::AutoLoad),
         QuickRow::EjectSave => Play(PlaySetting::EjectSave),
         r => match r.input() {

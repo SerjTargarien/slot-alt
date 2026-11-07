@@ -210,6 +210,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Fast Forward Sound",
             "Rewind",
             "Rumble",
+            "Sprite Limit",
             "Load State on Insert",
             "Save State on Eject"
         ]
@@ -888,4 +889,12 @@ fn every_row_is_at_its_own_place_in_all() {
     for (at, row) in QuickRow::ALL.into_iter().enumerate() {
         assert_eq!(row.index(), at, "{row:?}");
     }
+}
+
+#[test]
+fn the_sprite_limit_note_fits_across_the_screen() {
+    let face = slot_ui::quick_description_face(&[
+        "Off lessens flicker. Only in gpSP, Game Gear and TG-16.",
+    ]);
+    assert!(face.w > 0 && face.w <= slot_ui::OUT_W - 40, "{} px", face.w);
 }

@@ -142,8 +142,9 @@ set on 2026-11-06).
    2026-11-06), in this order:
    1. The WonderSwan and TurboGrafx-16 palettes, with Palette Back/Next on both through
       the feature table: built and checked on the device (2026-11-07).
-   2. A Sprite Limit row (Gameplay; gpSP, Gearsystem and PCE Fast have it): planned in the
-      design note.
+   2. A Sprite Limit row (Gameplay; gpSP, Gearsystem and PCE Fast have it): built
+      2026-11-07; the rows checked on the device, the effect not yet seen (no game on the
+      card clearly flickers), assumed working until a flickering game tries it.
    3. Lynx at 60 Hz and gpSP at 32 kHz: a `SLOT_CORE_OPTIONS` variable to try options
       without a build, then measure on the device and set them if they help.
 2. **Structure pass** (asked for on 2026-11-07, after the shortcut pages showed each
