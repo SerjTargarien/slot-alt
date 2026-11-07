@@ -308,13 +308,13 @@ pub fn has_sprite_option(which: Core) -> bool {
     sprite_option(which, true).is_some()
 }
 
-pub fn apply_blending(core: &mut LibretroCore, which: Core, blending: Blending) {
+pub fn apply_blending(core: &mut dyn RetroCore, which: Core, blending: Blending) {
     if let Some((key, value)) = blend_option(which, blending) {
         core.set_option(key, value);
     }
 }
 
-pub fn apply_link_options(core: &mut LibretroCore, which: Core, player: u8) {
+pub fn apply_link_options(core: &mut dyn RetroCore, which: Core, player: u8) {
     if which != Core::Mgba {
         return;
     }
@@ -445,7 +445,7 @@ fn init_options(core: Core) -> &'static [(&'static str, &'static str)] {
 }
 
 pub fn apply_core_options(
-    core: &mut LibretroCore,
+    core: &mut dyn RetroCore,
     which: Core,
     platform: Platform,
     serial: &str,

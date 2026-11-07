@@ -179,8 +179,11 @@ set on 2026-11-06).
    (WonderSwan orientation), each an `impl` block of the same type; the DS view stays in
    `app.rs`, being slotPlus's and ours together. The render tests that waited a fixed few
    seconds for a game to start now wait for it to be playing (`common::until_playing`,
-   a minute at most): two full runs and a run with every core busy passed. Next: a checked
-   snapshot of the options each core declares, to catch a misspelt option.
+   a minute at most): two full runs and a run with every core busy passed. And `cores/options.json`
+   (`tools/slotsq/core_options.py`, every option each pinned core declares, with our
+   patches'), which `every_option_slot_sets_is_one_its_core_declares` checks every option
+   Slot² sets against: a misspelt key or value fails (tried with `enabled` for Gearsystem's
+   `Enabled`). Regenerate it after a pin or patch changes.
    3. `app.rs` (13,400 lines) split by topic: screen settings, controls and shortcuts, the
       per-game layer, the menus.
    4. `/code-review` on each diff before a commit.

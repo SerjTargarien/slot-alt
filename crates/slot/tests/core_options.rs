@@ -610,3 +610,129 @@ fn mgba_takes_every_sunlight_level_slot_can_send() {
         );
     }
 }
+
+/// Every option each pinned core declares and the values it takes
+/// (`cores/options.json`, written by `tools/slotsq/core_options.py`).
+fn declared() -> serde_json::Map<String, serde_json::Value> {
+    let path =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../cores/options.json");
+    let text = std::fs::read_to_string(&path).expect("cores/options.json");
+    serde_json::from_str(&text).expect("options.json reads")
+}
+
+#[test]
+fn every_option_slot_sets_is_one_its_core_declares() {
+    // The structure pass: a misspelt option (`Enabled` for `enabled`) is ignored by the
+    // core without a word. Every function that tells a core an option runs here over its
+    // inputs, and each key and value is checked against what the core declares at its pin.
+    use slot::core::{
+        apply_blending, apply_core_options, apply_link_options, blend_option, colour_option,
+        palette_options, sprite_option,
+    };
+    use slot_retro::MockCore;
+    use slot_store::GbColors;
+    let declared = declared();
+    let runs: [(Core, &[Platform]); 9] = [
+        (Core::Mgba, &[Platform::Gba, Platform::Gb, Platform::Gbc]),
+        (Core::Gpsp, &[Platform::Gba]),
+        (Core::Gambatte, &[Platform::Gb, Platform::Gbc]),
+        (Core::Cygne, &[Platform::Ws]),
+        (Core::Lynx, &[Platform::Lynx]),
+        (Core::Gearsystem, &[Platform::Gg]),
+        (Core::Ngp, &[Platform::Ngp]),
+        (Core::Pce, &[Platform::Tg16]),
+        (Core::Dsperate, &[Platform::Nds]),
+    ];
+    let mut set: Vec<(Core, String, String)> = Vec::new();
+    for (core, platforms) in runs {
+        for &platform in platforms {
+            let palettes = std::iter::once(None).chain(GbColors::all().map(Some));
+            for palette in palettes {
+                for (colour, bios) in [(false, false), (true, true)] {
+                    for serial in every_serial_mode() {
+                        let mut mock = MockCore::new();
+                        apply_core_options(
+                            &mut mock, core, platform, serial, bios, colour, palette,
+                        );
+                        for blending in Blending::MGBA {
+                            apply_blending(&mut mock, core, blending);
+                        }
+                        apply_link_options(&mut mock, core, 1);
+                        set.extend(
+                            mock.options()
+                                .iter()
+                                .map(|(k, v)| (core, k.clone(), v.clone())),
+                        );
+                    }
+                }
+            }
+            for on in [false, true] {
+                if let Some((k, v)) = colour_option(core, platform, on) {
+                    set.push((core, k.into(), v.into()));
+                }
+                if let Some((k, v)) = sprite_option(core, on) {
+                    set.push((core, k.into(), v.into()));
+                }
+            }
+        }
+        for blending in Blending::MGBA {
+            if let Some((k, v)) = blend_option(core, blending) {
+                set.push((core, k.into(), v.into()));
+            }
+        }
+        for colours in GbColors::all() {
+            if matches!(core, Core::Mgba | Core::Gambatte) {
+                for (k, v) in palette_options(core, colours) {
+                    set.push((core, k.into(), v.into()));
+                }
+            }
+        }
+    }
+    // Set from elsewhere: the Game Boy Player, Sunlight, the WonderSwan's turn
+    // (session/ws.rs), the Lynx's turn (core::lynx_rotation), the core palettes.
+    for v in ["ON", "OFF"] {
+        set.push((Core::Mgba, "mgba_force_gbp".into(), v.into()));
+    }
+    for level in 0..=slot_store::SUNLIGHT_MAX {
+        set.push((
+            Core::Mgba,
+            slot::core::SUNLIGHT_OPTION.into(),
+            level.to_string(),
+        ));
+    }
+    for v in ["portrait", "landscape"] {
+        set.push((Core::Cygne, "wswan_rotate_display".into(), v.into()));
+    }
+    for v in ["auto", "manual", "0", "90", "180", "270"] {
+        set.push((Core::Lynx, "lynx_rot_screen".into(), v.into()));
+    }
+    for (platform, core) in [(Platform::Ws, Core::Cygne), (Platform::Tg16, Core::Pce)] {
+        let key = slot_store::core_palette::core_palette_option(platform).unwrap();
+        for (value, _) in slot_store::core_palette::core_palettes(platform) {
+            set.push((core, key.into(), value.to_string()));
+        }
+    }
+    // A list the core fills in as it starts, so no value can be checked here.
+    let open = ["mgba_gb_colors"];
+    assert!(set.len() > 100, "only {} options checked", set.len());
+    for (core, key, value) in set {
+        let options = declared[core.as_str()]
+            .as_object()
+            .expect("the core's options");
+        let values = options
+            .get(&key)
+            .unwrap_or_else(|| panic!("{core:?} declares no option {key}"));
+        let values: Vec<&str> = values
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        if !open.contains(&key.as_str()) {
+            assert!(
+                values.contains(&value.as_str()),
+                "{core:?}'s {key} takes {values:?}, not {value:?}"
+            );
+        }
+    }
+}

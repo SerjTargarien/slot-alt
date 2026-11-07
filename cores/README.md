@@ -178,6 +178,13 @@ flags and patch as usual.
 - **In Slot²:** its controls (screens, layouts, stylus) are on its controls page; its
   layouts are Slot²'s (`video_mode.rs`).
 
+## Every option each core declares
+
+`cores/options.json` lists them with their values, from each core's source at its pin
+and Slot²'s patches; `python3 -I tools/slotsq/core_options.py` writes it, and a test
+checks every option Slot² sets against it. Regenerate it with any pin or patch change.
+Which of them Slot² uses, and why, is [design/core-options.md](../design/core-options.md).
+
 ## Where to look next
 
 1. **DSperate:** try the wrapper's prebuilt PGO core, timed against today's on the same

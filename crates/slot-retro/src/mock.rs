@@ -18,6 +18,8 @@ pub struct MockCore {
     audio: Vec<i16>,
     sram: Option<Vec<u8>>,
     skip_next: bool,
+    /// Slot²: every option set, in order, for tests of what a frontend tells a core.
+    options: Vec<(String, String)>,
 }
 
 impl Default for MockCore {
@@ -34,9 +36,15 @@ impl MockCore {
             audio: Vec::new(),
             sram: None,
             skip_next: false,
+            options: Vec::new(),
         };
         c.render();
         c
+    }
+
+    /// The options set on this core so far, in order.
+    pub fn options(&self) -> &[(String, String)] {
+        &self.options
     }
 
     fn render(&mut self) {
@@ -62,6 +70,10 @@ impl MockCore {
 }
 
 impl RetroCore for MockCore {
+    fn set_option(&mut self, key: &str, value: &str) {
+        self.options.push((key.to_string(), value.to_string()));
+    }
+
     fn load(&mut self, _rom: &Path) -> Result<(), CoreError> {
         self.frame = 0;
         self.audio.clear();
