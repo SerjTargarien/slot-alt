@@ -171,24 +171,49 @@ Done and checked on the device:
   shelf's GBA Frame Blending says gpSP has no ghosting. `SLOT_CORE_OPTIONS` tries core
   options without a build.
 
-## The state now (2026-11-07)
+## The state now (2026-11-08)
 
-- **Committed:** everything, up to the menu pages that scroll (`3efc703`), on
-  `slotsq-plus`, local only (not pushed). Both devices run that build.
+- **Committed and pushed:** everything up to the name fallback for labels (`9c0b5b0`) on
+  `slotsq-plus`, pushed to both `origin/main` and `origin/claude/slotsq-plus`. After it,
+  local only: the mount note (`b28f109`) and this handoff. Both devices run `9c0b5b0`'s
+  build, started with traces on (`SLOT_TRACE=1 SLOT_TRACE_INPUT=1`; the RGB20SX also
+  `AGS_LINK_FREQ=2437`); a plain restart turns them off.
+- **Today (2026-11-08):**
+  - Labels come from the user's own server, retrocartlabels.serjbuilds.fyi (`ee47c3f`):
+    every system, No-Intro names; the user keeps adding checksums there.
+  - Fetched labels are stretched to their label, not cropped (`3adf65d`).
+  - A cart whose checksum isn't known finds its label by name (`9c0b5b0`, `art/name.rs`).
+  - The card's boot logo is the user's Slot² logo (`dec9825`), installed on the RG34XX.
+  - Mario Kart links at full speed both ways (link step 5, `9edf266`).
+- **The Cart Studio's label printer, as it is (checked, left alone):** a cart with no
+  label file wears a text label; applying a fetched one peels that text label off and
+  keeps it in the tray as an undo. A press of A counts only once the printed label has
+  stopped moving, so an early press does nothing (it felt like an extra click on the
+  slower RGB20SX). Upstream's behaviour; the user will work on the printer later.
+- **The Pokémon trade test (gpSP), paused:** see design/two-devices.md, phase 4. On both
+  cards: `Games/GBA/Pokemon Heart and Soul (v2.0.6).gba` (the accent left out: Base²
+  can't name it, see the mount item below) set to gpSP; its save, from the user's other
+  device, was edited to warp to Goldenrod's Pokémon Center (the continue warp, 8 bytes)
+  and has since traded and saved twice. Backups on each card: `Cache/hns-before-warp/`
+  (the save before the warp and the resume state then), and on the RG34XX also
+  `Cache/hns-before-save/` (the blank save and states from before the user's save went
+  in). Each card has a resume state from the black screen; Continue from the title, not
+  the resume, to come out in Goldenrod.
 - **On the RGB20SX's card:** `System/cygne_libretro.so` is Slot²'s patched Beetle Cygne
   (slotPlus's kept as `System/cygne_libretro.so.slotplus`); `Config/selected_core.txt`
-  sets Castlevania - Aria of Sorrow to gpSP and Tetris to mGBA; `Config/shortcuts/ws.txt`
-  has the WonderSwan's palette keys (MENU+L2/R2). Its Base² image doesn't set the link
-  channel yet (`os/.../etc/basesq/frontend` does, from the next image).
-- **On the RG34XX's card:** Tetris on mGBA; our launcher, build and Cygne (above).
-- **On both:** the DS's core, games, labels, saves, states and config files deleted.
+  sets Castlevania - Aria of Sorrow and Heart and Soul to gpSP, Tetris to mGBA;
+  `Config/shortcuts/ws.txt` has the WonderSwan's palette keys (MENU+L2/R2).
+- **On the RG34XX's card:** Tetris on mGBA, Heart and Soul on gpSP; our launcher, build,
+  Cygne and the boot logo.
+- **On both:** the DS removed (core, games, labels, saves, states, config).
 - **Cores here:** Docker isn't reachable from this WSL machine and `task` isn't
   installed; cores are cross-compiled through their recipes (cores/README.md, "How they
   are built"). `scp` doesn't work with Base² (no SFTP server): copy files with
   `ssh ... 'cat > path' < file`. The scratchpad in `/tmp` doesn't survive a restart of
   WSL; `vendor/` keeps the pinned sources that were fetched.
 - **Tests:** the render tests that start a game wait for it to be playing rather than a
-  fixed time (2026-11-07); a loaded run no longer fails them.
+  fixed time (2026-11-07). `render_native::the_default_bezel_reaches_the_top_and_bottom_of_a_4_by_3_panel`
+  failed once in a full run on 2026-11-08 and passed alone twice: likely flaky under load.
 
 ## Two devices (2026-11-07)
 
@@ -222,7 +247,9 @@ phase 4).
    wlan0, and silence counted once the link is armed (`dc2e9da`, `dbb8ffb`, `0866d3a`).
    Both directions hold, end and eject; the host's game crosses packed (`5af5bf5`,
    ~1.9 KB for Tetris), so starts are smooth; a link runs at full clock (step 5), and Mario
-   Kart (mGBA) holds 60 fps both ways. Next: a Pokémon trade (gpSP), then the channel
+   Kart (mGBA) holds 60 fps both ways. A Pokémon trade on gpSP (Heart & Soul, 2026-11-08)
+   went through, then both games hung on a black screen after it: hack or our gpSP link,
+   not known yet (two-devices.md, phase 4, has the next steps). Then the channel
    setting. Change one thing at a time and check it on
    both devices before the next (the user, 2026-11-07). The history:
    **First link (2026-11-07).** Tetris on mGBA, the RG34XX (BaseOS

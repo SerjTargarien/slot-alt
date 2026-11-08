@@ -165,8 +165,21 @@ playing alone. One refused eject after the rebuild was short holds after a MENU 
 went down for 60 ms and again 20 ms later (a bounce, or a quick double press: a tap and a
 double tap, the quick menu and the switcher); worth watching on the RG34XX.
 
+**A Pokémon trade on gpSP (2026-11-08), half done.** Pokémon Heart & Soul v2.0.6 (an
+Emerald hack; its link trading is only at the two receptionists in Goldenrod's Pokémon
+Center, added in v2.0.6), the RG34XX hosting. The link held, the trade went through and
+both games saved after it (save counter 17 to 19 on both), then both hung on a black,
+silent screen on the way back to the trade room, whose loading the game runs in lockstep
+over the link. Not known yet whether it's the hack ("Fixed some linking desyncs" in its
+v2.0.6 notes; nothing reported on its GitHub) or our gpSP link (netpacket) dropping or
+stalling a transfer. Next: a trade with an unmodified Gen 3 game (Emerald, FireRed) over
+the same link, or per-second packet counts in the gpSP link and the same trade again.
+Also cheap to try: gpSP 9 commits past our pin (`7b2dd37`) include "Fix GBA I/O read
+semantics" and "arm64: send I/O reads at 0x400 and above to the slow reader"
+(2026-09-19); the link's registers are I/O registers.
+
 Left: the channel setting (likely 2.4 GHz only, Default, 1, 6, 11: both devices have it),
-and Pokémon trades (gpSP). Once, after hosting Mario Kart, the RG34XX's home Wi-Fi stayed
+and the trade's black screen above. Once, after hosting Mario Kart, the RG34XX's home Wi-Fi stayed
 off (its log ends at "down", no "warm") until a restart; not seen since. Power saving on a joiner adds delay to each
 packet; with the state packed, play is smooth from the start, so it can wait. The plan:
 
@@ -199,7 +212,10 @@ Decisions for the user, then work in this order:
 3. **Labels of our own.** Labels come from the user's own server since 2026-11-08
    (`https://retrocartlabels.serjbuilds.fyi/`, `index.json` and `<stem>.webp`,
    `art/jobs.rs`), in upstream's index format: everything upstream's had, and labels
-   for GG, Lynx, NGP/NGPC, TG16 and WS/WSC under `sq/`.
+   for GG, Lynx, NGP/NGPC, TG16 and WS/WSC under `sq/`. Since 2026-11-08 its entries
+   also carry their No-Intro `name` and `platform`, and a cart whose checksum isn't
+   there (a translation, a hack) is found by name (`art/name.rs`, `9c0b5b0`). Fetched
+   labels are stretched to their label, not cropped (`3adf65d`).
    Our own database: where it lives (in the repo and made on the device by `art_make`,
    or hosted), which systems it covers, and what happens offline.
 4. **The structure, now that merges don't count.** The rule of Slot²'s own code in files
