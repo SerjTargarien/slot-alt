@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde_json::Value;
+use slot_store::Platform;
 use slot_ui::house_label::Band;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -14,11 +15,15 @@ pub struct Entry {
     pub real: Option<String>,
     pub logo: Option<String>,
     pub look: Option<Look>,
+    /// Slot²: the entry's No-Intro name, to choose between entries of one name.
+    pub name: Option<String>,
 }
 
 pub struct ArtIndex {
     entries: Vec<Entry>,
     by_crc: HashMap<u32, usize>,
+    /// Slot²: entries by platform and name key (`super::name::key`), names and akas.
+    by_name: HashMap<(String, String), Vec<usize>>,
 }
 
 impl ArtIndex {
@@ -29,6 +34,7 @@ impl ArtIndex {
         let mut index = ArtIndex {
             entries: Vec::new(),
             by_crc: HashMap::new(),
+            by_name: HashMap::new(),
         };
         for (key, raw) in &map {
             let at = index.entries.len();
@@ -40,12 +46,48 @@ impl ArtIndex {
             for crc in crcs {
                 index.by_crc.insert(crc, at);
             }
+            if let Some(platform) = raw["platform"].as_str() {
+                let akas = raw["aka"].as_array().into_iter().flatten();
+                let names = std::iter::once(&raw["name"]).chain(akas);
+                for name in names.filter_map(Value::as_str) {
+                    let key = super::name::key(name);
+                    if !key.is_empty() {
+                        let at_name = index.by_name.entry((platform.into(), key)).or_default();
+                        if !at_name.contains(&at) {
+                            at_name.push(at);
+                        }
+                    }
+                }
+            }
         }
         Some(index)
     }
 
     pub fn get(&self, crc: u32) -> Option<&Entry> {
         self.by_crc.get(&crc).map(|&at| &self.entries[at])
+    }
+
+    /// Slot²: the entry for a file named `stem`, for when its checksum isn't here (a
+    /// translation or a hack): the same name on the cart's platform, the best of several
+    /// by `super::name::rank`.
+    pub fn named(&self, platform: Platform, stem: &str) -> Option<&Entry> {
+        let key = super::name::key(stem);
+        if key.is_empty() {
+            return None;
+        }
+        let file_tags = super::name::tags(stem);
+        super::name::platforms(platform).iter().find_map(|p| {
+            let found = self.by_name.get(&(p.to_string(), key.clone()))?;
+            found
+                .iter()
+                .map(|&at| &self.entries[at])
+                .min_by_key(|e| super::name::rank(e.name.as_deref().unwrap_or(""), &file_tags))
+        })
+    }
+
+    /// Slot²: a cart's entry, by its checksum, else by its file name.
+    pub fn for_cart(&self, crc: u32, platform: Platform, stem: &str) -> Option<&Entry> {
+        self.get(crc).or_else(|| self.named(platform, stem))
     }
 }
 
@@ -62,6 +104,7 @@ fn entry(raw: &Value) -> Entry {
         real: path("support-texture"),
         logo: path("wheel"),
         look: look(&raw["look"]),
+        name: path("name"),
     }
 }
 

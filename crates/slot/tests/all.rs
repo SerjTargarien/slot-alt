@@ -10,6 +10,7 @@ mod app;
 mod art_index;
 mod art_jobs;
 mod art_make;
+mod art_name;
 mod art_rom;
 mod audio;
 mod baseos;

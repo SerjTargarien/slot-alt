@@ -152,7 +152,8 @@ fn label_for(
     let Ok(crc) = rom::rom_crc(&cart.rom) else {
         return Ok(None);
     };
-    let Some(entry) = index.get(crc) else {
+    // Slot²: by name when the checksum isn't known (art/name.rs).
+    let Some(entry) = index.for_cart(crc, cart.platform, &cart.stem) else {
         return Ok(None);
     };
     for k in [kind, other(kind)] {
@@ -299,7 +300,7 @@ pub fn studio_art_with(
     let Ok(crc) = rom::rom_crc(&cart.rom) else {
         return art;
     };
-    let entry = index.get(crc);
+    let entry = index.for_cart(crc, cart.platform, &cart.stem);
     art.look = entry.and_then(|e| e.look.clone());
     let dir = root.join(make::STUDIO_CACHE);
     let label = make::label_path(root, cart);
