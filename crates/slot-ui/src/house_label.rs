@@ -400,7 +400,8 @@ impl Label {
     pub fn full(png: &[u8], platform: Platform) -> Option<Label> {
         let (art, w, h) = art::decode_png_bytes(png)?;
         let (lw, lh) = size(platform);
-        let mut rgba = art::cover_rgba(&art, w, h, lw, lh)?;
+        // Slot²: stretched to the label, not cropped (2026-11-08).
+        let mut rgba = art::stretch_rgba(&art, w, h, lw, lh)?;
         for p in rgba.chunks_exact_mut(4) {
             let a = p[3] as u32;
             for c in &mut p[..3] {
@@ -781,20 +782,36 @@ mod tests {
         }
     }
 
+    /// Slot² (2026-11-08): a full label is stretched to fill, not cropped, so a scan of
+    /// another shape keeps its edges: a square one in a GBA label keeps its top and bottom
+    /// tenths, squashed, where the crop cut them off.
     #[test]
-    fn a_full_label_is_cropped_to_fill_not_shrunk() {
+    fn a_full_label_is_stretched_to_fill_not_cropped() {
+        let red = [250, 0, 0];
         let mut art = solid(400, 400);
-        for y in (0..90).chain(310..400) {
+        for y in (0..40).chain(360..400) {
             for x in 0..400 {
                 let i = ((y * 400 + x) * 4) as usize;
-                art[i..i + 4].copy_from_slice(&[250, 0, 0, 255]);
+                art[i..i + 4].copy_from_slice(&[red[0], red[1], red[2], 255]);
             }
         }
         let label = Label::full(&png_of(&art, 400, 400), Platform::Gba).expect("decodes");
-        let (rgb, _, _) = rgb_of(&label.png());
+        let (rgb, w, h) = rgb_of(&label.png());
+        assert_eq!((w, h), (W, H), "the label isn't the GBA label's size");
+        let at = |x: u32, y: u32| {
+            let i = ((y * w + x) * 3) as usize;
+            [rgb[i], rgb[i + 1], rgb[i + 2]]
+        };
+        let ink = [INK[0], INK[1], INK[2]];
+        for x in [0, w / 2, w - 1] {
+            assert_eq!(at(x, 0), red, "the top edge was cut off at x {x}");
+            assert_eq!(at(x, h - 1), red, "the bottom edge was cut off at x {x}");
+            assert_eq!(at(x, h / 2), ink, "the middle moved at x {x}");
+        }
+        let top = (0..h).take_while(|&y| at(w / 2, y) == red).count() as u32;
         assert!(
-            rgb.chunks_exact(3).all(|p| p == [INK[0], INK[1], INK[2]]),
-            "the cropped rows showed"
+            top.abs_diff(h / 10) <= 1,
+            "the top band took {top} of {h} rows, not a tenth"
         );
     }
 

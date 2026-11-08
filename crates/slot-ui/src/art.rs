@@ -60,6 +60,26 @@ fn fit_bottom_rgba(src: &[u8], sw: u32, sh: u32, w: u32, h: u32) -> Option<Vec<u
     Some(out)
 }
 
+/// Slot²: the whole art in a `w` x `h` box, each side scaled on its own, so nothing is
+/// cut off and the shape gives a little instead. Fetched real labels fill their label
+/// this way (2026-11-08); `cover_rgba` cut the edges off the ones of another shape.
+pub(crate) fn stretch_rgba(src: &[u8], sw: u32, sh: u32, w: u32, h: u32) -> Option<Vec<u8>> {
+    if sw == 0 || sh == 0 || w == 0 || h == 0 {
+        return None;
+    }
+    let (kx, ky) = (sw as f32 / w as f32, sh as f32 / h as f32);
+    let mut out = vec![0u8; (w * h * 4) as usize];
+    for y in 0..h {
+        let (y0, y1) = (y as f32 * ky, (y + 1) as f32 * ky);
+        for x in 0..w {
+            let (x0, x1) = (x as f32 * kx, (x + 1) as f32 * kx);
+            let px = box_average(src, sw, sh, x0, y0, x1, y1);
+            out[((y * w + x) * 4) as usize..][..4].copy_from_slice(&px);
+        }
+    }
+    Some(out)
+}
+
 fn box_average(src: &[u8], sw: u32, sh: u32, x0: f32, y0: f32, x1: f32, y1: f32) -> [u8; 4] {
     let xa = (x0.floor().max(0.0) as u32).min(sw - 1);
     let ya = (y0.floor().max(0.0) as u32).min(sh - 1);
