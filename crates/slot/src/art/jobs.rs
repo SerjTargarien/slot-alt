@@ -12,7 +12,7 @@ use slot_ui::house_label::{glance, logo_tag, looks_same};
 use super::rom;
 use crate::update::{self, UpdateFail};
 
-pub const ART_BASE: &str = "https://art.slot-cfw.fyi/";
+pub const ART_BASE: &str = "https://retrocartlabels.serjbuilds.fyi/";
 const CACHE: &str = "Cache/art";
 const FETCH_THREADS: usize = 3;
 

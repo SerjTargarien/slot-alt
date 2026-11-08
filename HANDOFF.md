@@ -276,7 +276,7 @@ Waiting on a decision or an outside party:
 - Turbo as a feature (removed as an input on 2026-11-06): one way for every system, such as
   a MENU chord that makes whatever is held auto-fire.
 
-Label art for the new systems (the art server covers only GB, GBC and GBA): WS 324x132,
+Label art for the new systems (the user's art server has them since 2026-11-08): WS 324x132,
 Lynx 284x190, GG 290x200, NGP 246x133, TG16 191 wide up to 163 tall.
 
 ## Renaming (2026-11-06)

@@ -196,8 +196,10 @@ Decisions for the user, then work in this order:
 2. **Gamebit our own.** Its source is in `web/` (Vue, built with bun; bun isn't
    installed here). Our systems only (no DS if it goes), our look, built by us into
    `System/web`.
-3. **Labels of our own.** Labels come from upstream's server
-   (`https://art.slot-cfw.fyi/`, `index.json` and `<stem>.webp`, `art/jobs.rs`).
+3. **Labels of our own.** Labels come from the user's own server since 2026-11-08
+   (`https://retrocartlabels.serjbuilds.fyi/`, `index.json` and `<stem>.webp`,
+   `art/jobs.rs`), in upstream's index format: everything upstream's had, and labels
+   for GG, Lynx, NGP/NGPC, TG16 and WS/WSC under `sq/`.
    Our own database: where it lives (in the repo and made on the device by `art_make`,
    or hosted), which systems it covers, and what happens offline.
 4. **The structure, now that merges don't count.** The rule of Slot²'s own code in files

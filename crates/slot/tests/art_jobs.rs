@@ -7,7 +7,7 @@ use slot::art::jobs::{fetch_missing_with, load_index, ArtEvent, IndexFetch};
 use slot::art::make::Kind;
 use slot::update::UpdateFail;
 
-const ART: &str = "https://art.slot-cfw.fyi/";
+const ART: &str = slot::art::jobs::ART_BASE;
 
 fn encode(w: u32, h: u32, rgba: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
