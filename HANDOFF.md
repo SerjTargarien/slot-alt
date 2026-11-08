@@ -263,6 +263,10 @@ Waiting on a decision or an outside party:
   2026-11-07). Base² boots with `console=tty0` and has no `boot-resource` partition, so
   `--install-bootlogo` writes nothing there; it needs a Base² way (a splash in the init, or
   the kernel's logo) that still leaves early errors readable.
+- Base² mounts the card with `iocharset=ascii` (`/proc/mounts` on the RGB20SX), so a file
+  name with an accent ("Pokémon ...") can't be created or opened there: "Invalid
+  argument" (2026-11-08). BaseOS mounts with `utf8`. Mount the card with `utf8` in Base²'s
+  init, then check that names already on cards still read the same.
 - Housekeeping: the flaky tests above; four `__pycache__` files tracked in git.
 - The shelf's system first in Screen and Controls > In-Game (game-overrides.md): shelved
   on 2026-11-06. Amber means a game's own value, so it can't also mark the shelf's system;
