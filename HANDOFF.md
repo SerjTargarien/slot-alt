@@ -17,12 +17,16 @@ Last updated 2026-11-07. Read this first. Older detail is in
 - Running slot on ROCKNIX was retired on 2026-11-06; its notes and probe scripts are in
   `history/rocknix/`.
 
-## Branches
+## Branches and copies
 
-- `slotsq-plus`: the current work (local only, not pushed yet). It is
-  `claude/beautiful-feynman-ffzfnx` plus the slotPlusUltra merge and everything since.
-- `claude/beautiful-feynman-ffzfnx`: on the fork (`SerjTargarien/slot-alt`) up to
-  `e9c035d`. Fold `slotsq-plus` into it and push when the user asks.
+- `slotsq-plus`: the current work, tracking `origin/main` on the fork
+  (`SerjTargarien/slot-alt`). `main` is the fork's only branch; push `slotsq-plus` to it
+  (fast-forward, never force) when the user asks.
+- Three copies, nothing else: this WSL repo (the working one), the fork on GitHub, and a
+  Windows clone at `C:\Users\xergy\Documents\Development\OS\slot-alt` (on `main`, for
+  GitHub Desktop). Housekeeping on 2026-11-23 removed the old Windows checkouts, the
+  private `slot-plus-alt` copy of slotPlus and the `claude/*` branches. The history from
+  before the rewrite is kept locally as the tag `before-rewrite` (not pushed).
 - No release until Base² and Slot² are stable and feature complete.
 
 ## The devices
@@ -174,7 +178,7 @@ Done and checked on the device:
 ## The state now (2026-11-08)
 
 - **Committed and pushed:** everything up to the name fallback for labels (`9c0b5b0`) on
-  `slotsq-plus`, pushed to both `origin/main` and `origin/claude/slotsq-plus`. After it,
+  `slotsq-plus`, pushed to `origin/main`. After it,
   local only: the mount note (`b28f109`) and this handoff. Both devices run `9c0b5b0`'s
   build, started with traces on (`SLOT_TRACE=1 SLOT_TRACE_INPUT=1`; the RGB20SX also
   `AGS_LINK_FREQ=2437`); a plain restart turns them off.
