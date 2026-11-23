@@ -1,0 +1,270 @@
+slot: boot: start at 0.0 ms
+slot: running on ROCKNIX, model Powkiddy RGB20SX
+slot: kms connector 59 crtc 54 mode 720x720 at 60.69 Hz
+slot: kms: waiting for the GPU before each flip
+Could not open module param file '/sys/module/bifrost_kbase/parameters/large_page_conf'
+slot: boot: surface at 25.2 ms
+slot: boot: compositor at 208.3 ms
+slot: baseos target , model , rotation ccw 
+slot: panel 720x720, canvas 720x720, turn None
+slot: backlight backlight (0 to 255), battery battery, rtc0, no motor
+slot: boot: platform at 243.9 ms
+slot: boot: audio at 244.0 ms
+slot: boot: root at 245.2 ms
+slot: boot: scan at 245.5 ms
+slot: boot: session at 246.2 ms
+slot: boot: frontend at 247.5 ms
+slot: boot: paper at 262.5 ms
+slot: boot: cart faces at 291.9 ms
+slot: boot: shelf faces at 361.8 ms
+slot: boot: faces at 444.3 ms
+slot: boot: bezel at 444.4 ms
+slot: input /dev/input/event0 (rk805 pwrkey)
+slot: input /dev/input/event1 (adc-keys)
+slot: input /dev/input/event3 (gpio-keys-control)
+slot: input /dev/input/event4 (gpio-keys-vol)
+slot: input /sys/bus/iio/devices/iio:device0/in_voltage0_raw as Menu
+slot: boot: input at 446.6 ms
+slot: pace margin 4000 us
+slot: clock: capping the CPU to the frame budget, starting at 1800 MHz
+slot: boot: ui faces at 568.3 ms
+slot: boot: first frame at 605.5 ms
+slot: prefetch: 8388608 bytes of /storage/slot/Games/GBA/Castlevania - Aria of Sorrow (USA).gba in 6.9 ms
+slot: launch: insert Castlevania - Aria of Sorrow (USA) at 4348.6 ms
+slot: launch: opening Castlevania - Aria of Sorrow (USA) on mgba at 4348.8 ms
+slot: launch: resume state read at 4349.1 ms
+slot: core /storage/slot/System/mgba_libretro.so
+slot: launch: core opened at 4352.2 ms
+slot: launch: save read at 4352.4 ms
+slot: emu: loading /storage/slot/Games/GBA/Castlevania - Aria of Sorrow (USA).gba at 4365.6 ms
+slot: emu: save ram, 131072 bytes, at 4417.1 ms
+slot: emu: ready at 4431.1 ms
+slot: audio plug:default at 48000 Hz
+slot: audio reopened at 4777.0 ms
+slot: launch: first frame shown at 5224.6 ms
+slot: latency: read>pad 4584.9 pad>emu 0.1 emu>pub 1.4 pub>take 0.3 take>swapped 12.1 (swap 5.0) total 4598.7 ms
+slot: audio released after silence
+slot: latency: read>pad 8.3 pad>emu 0.1 emu>pub 1.4 pub>take 0.5 take>swapped 14.6 (swap 7.4) total 25.0 ms
+slot: audio plug:default at 48000 Hz
+slot: audio reopened at 8761.3 ms
+slot: latency: read>pad 6.7 pad>emu 0.1 emu>pub 4.0 pub>take 0.8 take>swapped 11.2 (swap 3.3) total 22.7 ms
+slot: pace: 600 frames, 3 missed a latch, 115 drawn early, 0 stale, work 13.1 ms, period 16.67 ms
+slot: kms: 600 flips, 3 skipped a vblank (3 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 1.11 ms, submit to scanout avg 6.09 max 12.38 ms
+slot: latency: read>pad 1.2 pad>emu 0.1 emu>pub 3.1 pub>take 0.6 take>swapped 12.9 (swap 5.5) total 17.9 ms
+slot: latency: read>pad 8.0 pad>emu 0.1 emu>pub 2.4 pub>take 0.5 take>swapped 13.7 (swap 6.0) total 24.6 ms
+slot: latency: read>pad 9.9 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 3.7) total 26.5 ms
+slot: latency: read>pad 2.4 pad>emu 0.1 emu>pub 2.1 pub>take 0.3 take>swapped 13.7 (swap 8.7) total 18.6 ms
+slot: latency: read>pad 11.4 pad>emu 0.1 emu>pub 4.0 pub>take 0.6 take>swapped 11.9 (swap 4.4) total 28.0 ms
+slot: latency: read>pad 1.0 pad>emu 0.1 emu>pub 3.7 pub>take 0.3 take>swapped 12.1 (swap 5.0) total 17.2 ms
+slot: latency: read>pad 1.3 pad>emu 0.1 emu>pub 3.9 pub>take 0.4 take>swapped 11.7 (swap 4.2) total 17.4 ms
+slot: latency: read>pad 7.1 pad>emu 0.1 emu>pub 3.8 pub>take 0.5 take>swapped 12.2 (swap 9.4) total 23.7 ms
+slot: latency: read>pad 6.4 pad>emu 0.1 emu>pub 4.0 pub>take 0.3 take>swapped 12.3 (swap 7.3) total 23.1 ms
+slot: latency: read>pad 7.9 pad>emu 0.1 emu>pub 4.0 pub>take 0.4 take>swapped 11.8 (swap 4.2) total 24.2 ms
+slot: latency: read>pad 16.4 pad>emu 0.1 emu>pub 4.2 pub>take 0.4 take>swapped 11.5 (swap 3.5) total 32.6 ms
+slot: latency: read>pad 16.2 pad>emu 0.1 emu>pub 3.9 pub>take 0.4 take>swapped 12.3 (swap 5.2) total 32.8 ms
+slot: latency: read>pad 12.3 pad>emu 0.1 emu>pub 3.9 pub>take 0.4 take>swapped 12.2 (swap 5.1) total 28.9 ms
+slot: latency: read>pad 5.6 pad>emu 0.1 emu>pub 4.2 pub>take 0.6 take>swapped 11.7 (swap 4.2) total 22.1 ms
+slot: pace: 600 frames, 1 missed a latch, 93 drawn early, 0 stale, work 12.6 ms, period 16.68 ms
+slot: kms: 600 flips, 1 skipped a vblank (0 submitted after the vblank they were meant for, 1 submitted in time), eglSwapBuffers avg 0.15 max 2.62 ms, submit to scanout avg 5.50 max 17.11 ms
+slot: latency: read>pad 0.6 pad>emu 0.1 emu>pub 4.4 pub>take 0.3 take>swapped 11.9 (swap 4.8) total 17.2 ms
+slot: latency: read>pad 15.0 pad>emu 0.3 emu>pub 4.4 pub>take 0.5 take>swapped 11.4 (swap 4.0) total 31.6 ms
+slot: latency: read>pad 10.9 pad>emu 0.1 emu>pub 3.7 pub>take 0.4 take>swapped 12.4 (swap 5.3) total 27.5 ms
+slot: latency: read>pad 4.6 pad>emu 0.1 emu>pub 4.2 pub>take 0.3 take>swapped 11.9 (swap 4.9) total 21.2 ms
+slot: latency: read>pad 14.6 pad>emu 0.1 emu>pub 4.1 pub>take 0.5 take>swapped 12.0 (swap 9.2) total 31.2 ms
+slot: latency: read>pad 11.4 pad>emu 0.1 emu>pub 4.0 pub>take 0.5 take>swapped 12.0 (swap 4.3) total 27.9 ms
+slot: latency: read>pad 11.4 pad>emu 0.1 emu>pub 4.0 pub>take 0.5 take>swapped 12.0 (swap 4.4) total 28.0 ms
+slot: latency: read>pad 2.1 pad>emu 0.2 emu>pub 4.3 pub>take 0.3 take>swapped 11.6 (swap 4.5) total 18.5 ms
+slot: latency: read>pad 4.0 pad>emu 0.1 emu>pub 3.8 pub>take 0.3 take>swapped 12.3 (swap 5.0) total 20.4 ms
+slot: latency: read>pad 5.2 pad>emu 0.1 emu>pub 4.1 pub>take 0.6 take>swapped 11.9 (swap 4.2) total 21.9 ms
+slot: latency: read>pad 3.1 pad>emu 0.1 emu>pub 4.0 pub>take 0.6 take>swapped 11.8 (swap 4.2) total 19.7 ms
+slot: latency: read>pad 4.7 pad>emu 0.1 emu>pub 3.8 pub>take 0.4 take>swapped 12.3 (swap 10.0) total 21.3 ms
+slot: latency: read>pad 8.9 pad>emu 0.1 emu>pub 4.1 pub>take 0.4 take>swapped 12.1 (swap 6.5) total 25.5 ms
+slot: latency: read>pad 11.9 pad>emu 0.1 emu>pub 3.7 pub>take 0.5 take>swapped 12.4 (swap 4.1) total 28.5 ms
+slot: latency: read>pad 16.0 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.1 (swap 3.6) total 32.6 ms
+slot: latency: read>pad 9.0 pad>emu 0.1 emu>pub 4.9 pub>take 0.3 take>swapped 11.4 (swap 4.3) total 25.7 ms
+slot: latency: read>pad 2.3 pad>emu 0.1 emu>pub 5.0 pub>take 0.3 take>swapped 11.2 (swap 4.1) total 18.9 ms
+slot: latency: read>pad 11.3 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.1 (swap 3.3) total 27.9 ms
+slot: latency: read>pad 5.4 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.6) total 22.1 ms
+slot: latency: read>pad 8.4 pad>emu 0.1 emu>pub 5.1 pub>take 0.6 take>swapped 10.8 (swap 3.5) total 25.0 ms
+slot: latency: read>pad 2.7 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.3 (swap 3.7) total 19.3 ms
+slot: latency: read>pad 7.0 pad>emu 0.1 emu>pub 5.3 pub>take 0.6 take>swapped 10.6 (swap 7.6) total 23.6 ms
+slot: latency: read>pad 7.2 pad>emu 0.1 emu>pub 5.4 pub>take 0.3 take>swapped 10.8 (swap 3.7) total 23.8 ms
+slot: pace: 600 frames, 0 missed a latch, 74 drawn early, 0 stale, work 15.8 ms, period 16.68 ms
+slot: latency: read>pad 15.8 pad>emu 0.1 emu>pub 5.3 pub>take 0.3 take>swapped 10.7 (swap 3.6) total 32.3 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.70 ms, submit to scanout avg 4.85 max 9.97 ms
+slot: latency: read>pad 7.0 pad>emu 0.1 emu>pub 5.4 pub>take 0.5 take>swapped 10.6 (swap 3.1) total 23.6 ms
+slot: latency: read>pad 0.8 pad>emu 0.1 emu>pub 5.3 pub>take 0.6 take>swapped 10.6 (swap 3.0) total 17.4 ms
+slot: latency: read>pad 1.5 pad>emu 0.1 emu>pub 6.0 pub>take 0.3 take>swapped 10.3 (swap 3.2) total 18.2 ms
+slot: latency: read>pad 11.2 pad>emu 0.1 emu>pub 5.8 pub>take 0.4 take>swapped 10.4 (swap 3.2) total 27.9 ms
+slot: latency: read>pad 6.1 pad>emu 0.1 emu>pub 5.2 pub>take 0.6 take>swapped 10.7 (swap 3.2) total 22.7 ms
+slot: latency: read>pad 4.0 pad>emu 0.1 emu>pub 5.3 pub>take 0.3 take>swapped 10.8 (swap 3.8) total 20.7 ms
+slot: latency: read>pad 4.1 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.8) total 20.8 ms
+slot: latency: read>pad 10.5 pad>emu 0.1 emu>pub 5.1 pub>take 0.3 take>swapped 11.1 (swap 4.0) total 27.1 ms
+slot: latency: read>pad 1.0 pad>emu 0.1 emu>pub 5.5 pub>take 0.5 take>swapped 10.5 (swap 2.8) total 17.7 ms
+slot: latency: read>pad 15.3 pad>emu 0.1 emu>pub 5.4 pub>take 0.5 take>swapped 10.6 (swap 3.3) total 31.9 ms
+slot: latency: read>pad 12.5 pad>emu 0.1 emu>pub 5.2 pub>take 0.5 take>swapped 10.8 (swap 3.4) total 29.2 ms
+slot: latency: read>pad 7.1 pad>emu 0.2 emu>pub 4.8 pub>take 0.3 take>swapped 11.3 (swap 8.9) total 23.8 ms
+slot: latency: read>pad 2.1 pad>emu 0.1 emu>pub 5.2 pub>take 0.5 take>swapped 10.8 (swap 3.3) total 18.7 ms
+slot: latency: read>pad 11.0 pad>emu 0.1 emu>pub 4.8 pub>take 0.3 take>swapped 11.4 (swap 9.0) total 27.6 ms
+slot: latency: read>pad 15.1 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.1 (swap 3.7) total 31.8 ms
+slot: latency: read>pad 15.4 pad>emu 0.1 emu>pub 5.1 pub>take 0.7 take>swapped 10.7 (swap 3.0) total 32.0 ms
+slot: latency: read>pad 6.7 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 3.5) total 23.3 ms
+slot: latency: read>pad 0.3 pad>emu 0.1 emu>pub 5.3 pub>take 0.4 take>swapped 10.8 (swap 3.6) total 16.9 ms
+slot: latency: read>pad 8.4 pad>emu 0.1 emu>pub 5.1 pub>take 0.3 take>swapped 11.0 (swap 3.6) total 25.0 ms
+slot: latency: read>pad 12.9 pad>emu 0.1 emu>pub 5.0 pub>take 0.3 take>swapped 11.2 (swap 8.8) total 29.5 ms
+slot: latency: read>pad 8.2 pad>emu 0.1 emu>pub 5.3 pub>take 0.4 take>swapped 10.9 (swap 3.6) total 24.9 ms
+slot: latency: read>pad 4.9 pad>emu 0.2 emu>pub 5.1 pub>take 0.3 take>swapped 11.0 (swap 3.9) total 21.6 ms
+slot: latency: read>pad 3.4 pad>emu 0.1 emu>pub 4.7 pub>take 0.6 take>swapped 11.2 (swap 3.7) total 20.0 ms
+slot: latency: read>pad 4.3 pad>emu 0.1 emu>pub 5.5 pub>take 0.4 take>swapped 10.7 (swap 3.2) total 20.9 ms
+slot: latency: read>pad 3.7 pad>emu 0.1 emu>pub 5.3 pub>take 0.5 take>swapped 10.7 (swap 3.4) total 20.3 ms
+slot: latency: read>pad 14.3 pad>emu 0.1 emu>pub 5.2 pub>take 0.3 take>swapped 11.1 (swap 3.1) total 31.0 ms
+slot: latency: read>pad 3.4 pad>emu 0.1 emu>pub 5.3 pub>take 0.4 take>swapped 10.8 (swap 3.2) total 20.0 ms
+slot: pace: 600 frames, 0 missed a latch, 47 drawn early, 0 stale, work 13.3 ms, period 16.68 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.15 max 1.22 ms, submit to scanout avg 4.24 max 9.24 ms
+slot: latency: read>pad 15.6 pad>emu 0.1 emu>pub 5.3 pub>take 0.3 take>swapped 10.9 (swap 3.7) total 32.2 ms
+slot: latency: read>pad 0.7 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.1 (swap 3.7) total 17.3 ms
+slot: latency: read>pad 9.5 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.2 (swap 4.1) total 26.2 ms
+slot: latency: read>pad 5.5 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.3 (swap 3.0) total 22.2 ms
+slot: latency: read>pad 5.5 pad>emu 0.1 emu>pub 4.8 pub>take 0.3 take>swapped 11.4 (swap 4.3) total 22.1 ms
+slot: latency: read>pad 7.1 pad>emu 0.1 emu>pub 4.7 pub>take 0.6 take>swapped 11.2 (swap 3.5) total 23.7 ms
+slot: latency: read>pad 4.6 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 5.7) total 21.2 ms
+slot: latency: read>pad 4.8 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.1 (swap 5.8) total 21.4 ms
+slot: latency: read>pad 6.0 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 4.1) total 22.6 ms
+slot: latency: read>pad 15.0 pad>emu 0.1 emu>pub 5.4 pub>take 0.3 take>swapped 10.9 (swap 3.7) total 31.6 ms
+slot: latency: read>pad 14.3 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.1 (swap 3.7) total 31.0 ms
+slot: latency: read>pad 11.5 pad>emu 0.1 emu>pub 5.0 pub>take 0.3 take>swapped 11.3 (swap 4.1) total 28.1 ms
+slot: latency: read>pad 9.9 pad>emu 0.1 emu>pub 4.9 pub>take 0.6 take>swapped 11.0 (swap 3.4) total 26.5 ms
+slot: latency: read>pad 6.0 pad>emu 0.1 emu>pub 5.4 pub>take 0.4 take>swapped 10.7 (swap 3.2) total 22.6 ms
+slot: latency: read>pad 5.4 pad>emu 0.1 emu>pub 4.8 pub>take 0.4 take>swapped 11.4 (swap 4.3) total 22.0 ms
+slot: latency: read>pad 7.6 pad>emu 0.1 emu>pub 5.2 pub>take 0.5 take>swapped 10.8 (swap 3.4) total 24.2 ms
+slot: latency: read>pad 12.4 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.1 (swap 4.0) total 29.0 ms
+slot: latency: read>pad 6.2 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 8.6) total 22.8 ms
+slot: latency: read>pad 1.7 pad>emu 0.1 emu>pub 5.1 pub>take 0.7 take>swapped 10.7 (swap 3.7) total 18.4 ms
+slot: latency: read>pad 4.8 pad>emu 0.1 emu>pub 5.1 pub>take 0.3 take>swapped 11.1 (swap 4.0) total 21.4 ms
+slot: latency: read>pad 13.3 pad>emu 0.1 emu>pub 5.3 pub>take 0.6 take>swapped 10.7 (swap 3.1) total 29.9 ms
+slot: latency: read>pad 1.4 pad>emu 0.1 emu>pub 5.4 pub>take 0.6 take>swapped 10.5 (swap 3.0) total 18.0 ms
+slot: latency: read>pad 5.6 pad>emu 0.1 emu>pub 5.5 pub>take 0.4 take>swapped 10.7 (swap 3.5) total 22.3 ms
+slot: latency: read>pad 7.8 pad>emu 0.1 emu>pub 4.8 pub>take 0.3 take>swapped 11.4 (swap 4.3) total 24.4 ms
+slot: latency: read>pad 1.4 pad>emu 0.3 emu>pub 5.6 pub>take 0.5 take>swapped 10.2 (swap 7.1) total 18.0 ms
+slot: pace: 600 frames, 0 missed a latch, 51 drawn early, 0 stale, work 13.7 ms, period 16.67 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.29 ms, submit to scanout avg 4.46 max 9.33 ms
+slot: latency: read>pad 7.7 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 4.1) total 24.3 ms
+slot: latency: read>pad 6.8 pad>emu 0.1 emu>pub 4.5 pub>take 0.4 take>swapped 11.7 (swap 9.3) total 23.4 ms
+slot: latency: read>pad 9.0 pad>emu 0.1 emu>pub 4.4 pub>take 0.4 take>swapped 11.7 (swap 4.6) total 25.7 ms
+slot: latency: read>pad 8.7 pad>emu 0.1 emu>pub 5.0 pub>take 0.3 take>swapped 11.2 (swap 4.2) total 25.3 ms
+slot: latency: read>pad 7.0 pad>emu 0.1 emu>pub 5.2 pub>take 0.3 take>swapped 11.0 (swap 3.9) total 23.7 ms
+slot: latency: read>pad 12.4 pad>emu 0.1 emu>pub 4.5 pub>take 0.3 take>swapped 11.7 (swap 4.5) total 29.1 ms
+slot: latency: read>pad 10.0 pad>emu 0.1 emu>pub 4.7 pub>take 0.5 take>swapped 11.2 (swap 5.2) total 26.6 ms
+slot: latency: read>pad 13.2 pad>emu 0.1 emu>pub 5.2 pub>take 0.6 take>swapped 10.7 (swap 3.2) total 29.8 ms
+slot: latency: read>pad 8.8 pad>emu 0.1 emu>pub 4.8 pub>take 0.3 take>swapped 11.4 (swap 4.3) total 25.4 ms
+slot: latency: read>pad 3.6 pad>emu 0.1 emu>pub 4.7 pub>take 0.3 take>swapped 11.5 (swap 9.2) total 20.2 ms
+slot: latency: read>pad 11.6 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.1 (swap 3.5) total 28.2 ms
+slot: latency: read>pad 13.1 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 3.5) total 29.8 ms
+slot: latency: read>pad 6.1 pad>emu 0.1 emu>pub 5.1 pub>take 0.5 take>swapped 10.9 (swap 3.3) total 22.7 ms
+slot: latency: read>pad 5.2 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.2 (swap 3.7) total 21.8 ms
+slot: latency: read>pad 1.0 pad>emu 0.1 emu>pub 4.7 pub>take 0.3 take>swapped 11.5 (swap 4.3) total 17.7 ms
+slot: latency: read>pad 3.2 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 3.7) total 19.8 ms
+slot: latency: read>pad 2.1 pad>emu 0.1 emu>pub 4.8 pub>take 0.4 take>swapped 11.3 (swap 3.8) total 18.7 ms
+slot: latency: read>pad 9.7 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.9) total 26.2 ms
+slot: latency: read>pad 15.6 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.3 (swap 4.2) total 32.3 ms
+slot: latency: read>pad 11.7 pad>emu 0.1 emu>pub 5.0 pub>take 0.4 take>swapped 11.1 (swap 6.1) total 28.3 ms
+slot: latency: read>pad 4.5 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.1 (swap 3.6) total 21.2 ms
+slot: latency: read>pad 5.4 pad>emu 0.1 emu>pub 4.7 pub>take 0.5 take>swapped 11.3 (swap 5.4) total 22.0 ms
+slot: pace: 600 frames, 0 missed a latch, 75 drawn early, 0 stale, work 13.4 ms, period 16.67 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.36 ms, submit to scanout avg 4.60 max 9.11 ms
+slot: latency: read>pad 16.3 pad>emu 0.4 emu>pub 5.3 pub>take 0.8 take>swapped 10.2 (swap 2.6) total 32.9 ms
+slot: latency: read>pad 12.6 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.2 (swap 3.7) total 29.2 ms
+slot: latency: read>pad 6.7 pad>emu 0.1 emu>pub 4.9 pub>take 0.5 take>swapped 11.2 (swap 3.6) total 23.3 ms
+slot: latency: read>pad 13.5 pad>emu 0.1 emu>pub 4.9 pub>take 0.3 take>swapped 11.3 (swap 4.2) total 30.1 ms
+slot: latency: read>pad 10.5 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 11.0 (swap 8.6) total 27.2 ms
+slot: latency: read>pad 14.0 pad>emu 0.1 emu>pub 5.6 pub>take 0.4 take>swapped 10.5 (swap 3.5) total 30.6 ms
+slot: latency: read>pad 0.3 pad>emu 0.1 emu>pub 4.9 pub>take 0.6 take>swapped 11.0 (swap 3.5) total 16.9 ms
+slot: latency: read>pad 16.3 pad>emu 0.1 emu>pub 5.0 pub>take 0.4 take>swapped 11.1 (swap 4.0) total 32.9 ms
+slot: latency: read>pad 7.4 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.3 (swap 4.0) total 24.0 ms
+slot: latency: read>pad 2.3 pad>emu 0.1 emu>pub 4.7 pub>take 0.4 take>swapped 11.5 (swap 8.7) total 18.9 ms
+slot: latency: read>pad 10.3 pad>emu 0.1 emu>pub 4.6 pub>take 0.4 take>swapped 11.6 (swap 4.5) total 26.9 ms
+slot: latency: read>pad 2.9 pad>emu 0.1 emu>pub 4.6 pub>take 0.4 take>swapped 11.5 (swap 4.5) total 19.5 ms
+slot: latency: read>pad 0.7 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.4) total 17.3 ms
+slot: latency: read>pad 12.0 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 3.5) total 28.6 ms
+slot: latency: read>pad 9.8 pad>emu 0.1 emu>pub 4.5 pub>take 0.5 take>swapped 11.6 (swap 4.5) total 26.5 ms
+slot: latency: read>pad 16.6 pad>emu 0.1 emu>pub 4.5 pub>take 0.3 take>swapped 11.8 (swap 9.4) total 33.3 ms
+slot: latency: read>pad 8.5 pad>emu 0.1 emu>pub 5.0 pub>take 0.4 take>swapped 11.2 (swap 3.8) total 25.2 ms
+slot: latency: read>pad 10.1 pad>emu 0.1 emu>pub 5.0 pub>take 0.4 take>swapped 11.2 (swap 4.1) total 26.7 ms
+slot: latency: read>pad 4.0 pad>emu 0.1 emu>pub 4.7 pub>take 0.4 take>swapped 11.3 (swap 3.9) total 20.5 ms
+slot: latency: read>pad 8.8 pad>emu 0.1 emu>pub 4.5 pub>take 0.4 take>swapped 11.6 (swap 9.3) total 25.4 ms
+slot: latency: read>pad 5.8 pad>emu 0.1 emu>pub 4.6 pub>take 0.7 take>swapped 11.2 (swap 3.3) total 22.4 ms
+slot: latency: read>pad 5.8 pad>emu 0.1 emu>pub 4.9 pub>take 0.6 take>swapped 11.0 (swap 8.3) total 22.4 ms
+slot: latency: read>pad 14.0 pad>emu 0.1 emu>pub 4.8 pub>take 0.3 take>swapped 11.3 (swap 6.3) total 30.6 ms
+slot: pace: 600 frames, 0 missed a latch, 61 drawn early, 0 stale, work 13.8 ms, period 16.67 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 2.06 ms, submit to scanout avg 4.51 max 9.33 ms
+slot: latency: read>pad 3.9 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.3 (swap 4.1) total 20.6 ms
+slot: latency: read>pad 3.4 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 4.1) total 20.0 ms
+slot: latency: read>pad 6.8 pad>emu 0.1 emu>pub 4.5 pub>take 0.3 take>swapped 11.8 (swap 4.6) total 23.5 ms
+slot: latency: read>pad 15.1 pad>emu 0.1 emu>pub 4.4 pub>take 0.3 take>swapped 11.8 (swap 4.8) total 31.7 ms
+slot: latency: read>pad 11.8 pad>emu 0.1 emu>pub 5.1 pub>take 0.5 take>swapped 10.8 (swap 3.5) total 28.4 ms
+slot: latency: read>pad 4.0 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 3.6) total 20.6 ms
+slot: latency: read>pad 0.7 pad>emu 0.1 emu>pub 4.7 pub>take 0.5 take>swapped 11.3 (swap 3.8) total 17.3 ms
+slot: latency: read>pad 13.4 pad>emu 0.1 emu>pub 4.7 pub>take 0.6 take>swapped 11.2 (swap 3.5) total 30.0 ms
+slot: latency: read>pad 15.0 pad>emu 0.1 emu>pub 4.6 pub>take 0.3 take>swapped 11.7 (swap 4.5) total 31.7 ms
+slot: latency: read>pad 7.8 pad>emu 0.1 emu>pub 4.7 pub>take 0.5 take>swapped 11.3 (swap 3.7) total 24.4 ms
+slot: latency: read>pad 7.1 pad>emu 0.1 emu>pub 4.5 pub>take 0.5 take>swapped 11.6 (swap 4.0) total 23.7 ms
+slot: latency: read>pad 12.5 pad>emu 0.1 emu>pub 4.4 pub>take 0.3 take>swapped 11.8 (swap 9.5) total 29.2 ms
+slot: latency: read>pad 7.6 pad>emu 0.3 emu>pub 4.9 pub>take 0.4 take>swapped 11.0 (swap 3.9) total 24.2 ms
+slot: latency: read>pad 16.4 pad>emu 0.1 emu>pub 4.3 pub>take 0.3 take>swapped 11.9 (swap 4.8) total 33.0 ms
+slot: latency: read>pad 8.2 pad>emu 0.1 emu>pub 4.5 pub>take 0.4 take>swapped 11.6 (swap 4.5) total 24.8 ms
+slot: latency: read>pad 14.2 pad>emu 0.1 emu>pub 4.5 pub>take 0.5 take>swapped 11.6 (swap 4.5) total 30.9 ms
+slot: pace: 600 frames, 0 missed a latch, 59 drawn early, 0 stale, work 13.8 ms, period 16.67 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.35 ms, submit to scanout avg 4.46 max 9.39 ms
+slot: latency: read>pad 1.8 pad>emu 0.1 emu>pub 4.4 pub>take 0.4 take>swapped 11.6 (swap 4.5) total 18.3 ms
+slot: latency: read>pad 2.5 pad>emu 0.1 emu>pub 5.2 pub>take 0.5 take>swapped 10.8 (swap 3.2) total 19.1 ms
+slot: latency: read>pad 12.3 pad>emu 0.1 emu>pub 4.9 pub>take 0.7 take>swapped 10.9 (swap 3.1) total 28.9 ms
+slot: latency: read>pad 5.4 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.4) total 22.0 ms
+slot: latency: read>pad 10.9 pad>emu 0.1 emu>pub 5.2 pub>take 0.3 take>swapped 11.0 (swap 3.9) total 27.5 ms
+slot: latency: read>pad 3.7 pad>emu 0.1 emu>pub 5.5 pub>take 0.5 take>swapped 10.4 (swap 2.7) total 20.3 ms
+slot: latency: read>pad 14.4 pad>emu 0.1 emu>pub 5.1 pub>take 0.4 take>swapped 11.2 (swap 8.9) total 31.1 ms
+slot: latency: read>pad 8.5 pad>emu 0.1 emu>pub 5.8 pub>take 0.3 take>swapped 10.4 (swap 5.4) total 25.1 ms
+slot: latency: read>pad 14.0 pad>emu 0.1 emu>pub 5.1 pub>take 0.5 take>swapped 10.9 (swap 3.5) total 30.7 ms
+slot: latency: read>pad 10.0 pad>emu 0.1 emu>pub 5.1 pub>take 0.3 take>swapped 11.1 (swap 8.8) total 26.6 ms
+slot: latency: read>pad 14.6 pad>emu 0.1 emu>pub 5.0 pub>take 0.6 take>swapped 10.9 (swap 3.4) total 31.2 ms
+slot: latency: read>pad 4.3 pad>emu 0.1 emu>pub 5.0 pub>take 0.4 take>swapped 11.1 (swap 4.0) total 20.9 ms
+slot: latency: read>pad 16.5 pad>emu 0.1 emu>pub 5.3 pub>take 0.6 take>swapped 10.6 (swap 2.7) total 33.0 ms
+slot: latency: read>pad 6.2 pad>emu 0.1 emu>pub 5.3 pub>take 0.5 take>swapped 10.8 (swap 8.1) total 22.9 ms
+slot: latency: read>pad 9.2 pad>emu 0.1 emu>pub 5.4 pub>take 0.3 take>swapped 10.9 (swap 3.7) total 25.9 ms
+slot: latency: read>pad 16.1 pad>emu 0.1 emu>pub 5.4 pub>take 0.3 take>swapped 10.7 (swap 3.6) total 32.7 ms
+slot: pace: 600 frames, 0 missed a latch, 45 drawn early, 0 stale, work 14.8 ms, period 16.68 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.27 ms, submit to scanout avg 4.25 max 9.38 ms
+slot: latency: read>pad 11.6 pad>emu 0.3 emu>pub 5.2 pub>take 0.5 take>swapped 10.7 (swap 3.0) total 28.2 ms
+slot: latency: read>pad 13.1 pad>emu 0.1 emu>pub 5.2 pub>take 0.3 take>swapped 11.0 (swap 3.9) total 29.7 ms
+slot: latency: read>pad 14.2 pad>emu 0.1 emu>pub 5.5 pub>take 0.6 take>swapped 10.4 (swap 4.9) total 30.8 ms
+slot: latency: read>pad 13.9 pad>emu 0.5 emu>pub 5.1 pub>take 0.5 take>swapped 10.6 (swap 3.0) total 30.5 ms
+slot: latency: read>pad 5.7 pad>emu 0.1 emu>pub 5.1 pub>take 0.5 take>swapped 10.9 (swap 3.5) total 22.3 ms
+slot: latency: read>pad 7.5 pad>emu 0.1 emu>pub 4.9 pub>take 0.8 take>swapped 10.8 (swap 2.9) total 24.1 ms
+slot: latency: read>pad 5.6 pad>emu 0.1 emu>pub 5.1 pub>take 0.4 take>swapped 11.0 (swap 3.9) total 22.3 ms
+slot: latency: read>pad 0.6 pad>emu 0.1 emu>pub 4.8 pub>take 0.4 take>swapped 11.4 (swap 9.0) total 17.3 ms
+slot: latency: read>pad 3.0 pad>emu 0.1 emu>pub 6.1 pub>take 0.4 take>swapped 10.1 (swap 7.8) total 19.7 ms
+slot: latency: read>pad 13.8 pad>emu 0.1 emu>pub 5.3 pub>take 0.5 take>swapped 10.7 (swap 3.3) total 30.4 ms
+slot: latency: read>pad 0.8 pad>emu 0.1 emu>pub 5.2 pub>take 0.4 take>swapped 10.9 (swap 3.8) total 17.5 ms
+slot: latency: read>pad 0.4 pad>emu 0.1 emu>pub 5.2 pub>take 0.5 take>swapped 10.8 (swap 2.5) total 17.0 ms
+slot: latency: read>pad 13.6 pad>emu 0.1 emu>pub 5.3 pub>take 0.6 take>swapped 10.6 (swap 2.9) total 30.2 ms
+slot: latency: read>pad 3.4 pad>emu 0.2 emu>pub 4.9 pub>take 0.3 take>swapped 11.2 (swap 4.2) total 20.0 ms
+slot: latency: read>pad 7.2 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.3 (swap 4.1) total 23.8 ms
+slot: latency: read>pad 8.3 pad>emu 0.1 emu>pub 5.0 pub>take 0.5 take>swapped 11.0 (swap 8.2) total 24.8 ms
+slot: latency: read>pad 11.2 pad>emu 0.1 emu>pub 4.9 pub>take 0.4 take>swapped 11.2 (swap 6.1) total 27.8 ms
+slot: latency: read>pad 10.2 pad>emu 0.1 emu>pub 5.1 pub>take 0.7 take>swapped 10.8 (swap 3.4) total 26.8 ms
+slot: latency: read>pad 6.0 pad>emu 0.1 emu>pub 4.8 pub>take 0.5 take>swapped 11.2 (swap 3.5) total 22.6 ms
+slot: pace: 600 frames, 0 missed a latch, 48 drawn early, 0 stale, work 15.9 ms, period 16.68 ms
+slot: kms: 600 flips, 0 skipped a vblank (0 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.14 max 0.97 ms, submit to scanout avg 4.35 max 10.06 ms
+slot: latency: read>pad 7.6 pad>emu 0.1 emu>pub 3.9 pub>take 0.6 take>swapped 12.1 (swap 4.4) total 24.2 ms
+slot: latency: read>pad 16.5 pad>emu 0.1 emu>pub 4.3 pub>take 0.5 take>swapped 11.7 (swap 4.3) total 33.1 ms
+slot: latency: read>pad 11.1 pad>emu 0.1 emu>pub 2.8 pub>take 0.3 take>swapped 13.4 (swap 11.0) total 27.7 ms
+slot: latency: read>pad 11.2 pad>emu 0.1 emu>pub 5.3 pub>take 0.3 take>swapped 11.0 (swap 3.6) total 27.9 ms
+slot: pace: 600 frames, 1 missed a latch, 102 drawn early, 0 stale, work 24.2 ms, period 16.68 ms
+slot: kms: 600 flips, 1 skipped a vblank (1 submitted after the vblank they were meant for, 0 submitted in time), eglSwapBuffers avg 0.15 max 0.32 ms, submit to scanout avg 5.40 max 13.19 ms
+slot: emu: stopping at 112306.2 ms
+slot: audio: 0 samples dropped, 7950 starved
+slot: emu: stopped at 112332.1 ms
+slot: prefetch: 8388608 bytes of /storage/slot/Games/GBA/Castlevania - Aria of Sorrow (USA).gba in 6.3 ms
+slot: audio released after silence
+slot: clock: 1608 MHz
+slot: told to stop, saving first
+arm_release_ver: g29p1-12eac0, rk_so_ver: 5

@@ -1,0 +1,654 @@
+slot ROCKNIX probe, Thu Nov  5 08:55:22 CET 2026
+
+===== system
+$ cat /etc/os-release
+OS_NAME="ROCKNIX"
+OS_VERSION="20261101"
+OS_BUILD="official"
+GIT_ORGANIZATION="ROCKNIX"
+GIT_REPO="distribution"
+HOME_URL="https://rocknix.org"
+BUILD_ID="cefc14339a4ae18c02bb69888f27835e50664b60"
+BUILD_BRANCH="next"
+BUILD_DATE="Sun Nov  1 09:08:17 UTC 2026"
+HW_DEVICE="RK3566"
+HW_ARCH="aarch64"
+HW_CPU="Rockchip RK3566"
+DISTRO_DEVICE="RK3566"
+$ uname -a
+Linux RGB20SX 7.2.11 #1 SMP PREEMPT Sun Nov  1 06:17:40 UTC 2026 aarch64 GNU/Linux
+/storage/probe.sh: line 28: warning: command substitution: ignored null byte in input
+/sys/firmware/devicetree/base/model: Powkiddy RGB20SX
+/storage/probe.sh: line 28: warning: command substitution: ignored null byte in input
+/sys/firmware/devicetree/base/compatible: powkiddy,rgb20sxrockchip,rk3566
+$ ls -l /lib/ld-linux-aarch64.so.1 /usr/lib/ld-linux-aarch64.so.1
+-rwxr-xr-x    1 root     root        200424 Nov  1 06:11 /lib/ld-linux-aarch64.so.1
+-rwxr-xr-x    1 root     root        200424 Nov  1 06:11 /usr/lib/ld-linux-aarch64.so.1
+$ ls -l /usr/lib/libc.so.6
+-rwxr-xr-x    1 root     root       1781920 Nov  1 06:11 /usr/lib/libc.so.6
+$ /usr/lib/libc.so.6 | head -n 1
+GNU C Library (GNU libc) stable release version 2.44.
+$ cat /proc/cpuinfo | grep -E 'CPU part|Features' | sort | uniq -c
+      4 CPU part	: 0xd05
+      4 Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+$ free -m
+               total        used        free      shared  buff/cache   available
+Mem:             975         385          81           8         596         589
+Swap:              0           0           0
+$ command -v python3
+/usr/bin/python3
+
+===== services
+sway: active
+essway: active
+emustation: inactive
+inputplumber: active
+pipewire: active
+pipewire-pulse: active
+wireplumber: active
+connman: inactive
+iwd: active
+NetworkManager: active
+sshd: active
+systemd-logind: active
+$ systemctl list-units --type=service --state=running --no-legend --plain | cut -d' ' -f1
+avahi-daemon.service
+dbus.service
+debug-shell.service
+essway.service
+input.service
+inputplumber.service
+iwd.service
+NetworkManager.service
+pipewire-pulse.service
+pipewire.service
+powerstate.service
+rpcbind.service
+seatd.service
+sshd@18-12295-192.168.1.72:22-192.168.1.40:61076.service
+sway.service
+systemd-journald.service
+systemd-logind.service
+systemd-oomd.service
+systemd-resolved.service
+systemd-timesyncd.service
+systemd-udevd.service
+touchkeyboard.service
+wireplumber.service
+$ grep -sE '^[^#]*Handle(PowerKey|LidSwitch)' /etc/systemd/logind.conf /etc/systemd/logind.conf.d/*.conf /usr/lib/systemd/logind.conf.d/*.conf /storage/.config/logind.conf.d/*.conf
+/etc/systemd/logind.conf:HandlePowerKey=suspend
+/etc/systemd/logind.conf:HandleLidSwitch=suspend
+
+===== gpu
+$ gpudriver
+libmali
+$ lsmod | grep -E 'mali|panfrost|panthor'
+mali_kbase            757760  6
+$ ls -l /usr/lib/libEGL.so* /usr/lib/libGLESv2.so* /usr/lib/libgbm.so* /usr/lib/libdrm.so*
+lrwxrwxrwx    1 root     root            11 Nov  1 07:23 /usr/lib/libEGL.so -> libEGL.so.1
+lrwxrwxrwx    1 root     root            15 Nov  1 07:23 /usr/lib/libEGL.so.1 -> libEGL.so.1.1.0
+-rwxr-xr-x    1 root     root        133833 Nov  1 07:39 /usr/lib/libEGL.so.1.1.0
+lrwxrwxrwx    1 root     root            14 Nov  1 07:23 /usr/lib/libGLESv2.so -> libGLESv2.so.2
+lrwxrwxrwx    1 root     root            18 Nov  1 07:23 /usr/lib/libGLESv2.so.2 -> libGLESv2.so.2.1.0
+-rwxr-xr-x    1 root     root        133833 Nov  1 07:39 /usr/lib/libGLESv2.so.2.1.0
+lrwxrwxrwx    1 root     root            11 Nov  1 07:20 /usr/lib/libdrm.so -> libdrm.so.2
+lrwxrwxrwx    1 root     root            17 Nov  1 07:20 /usr/lib/libdrm.so.2 -> libdrm.so.2.133.0
+-rwxr-xr-x    1 root     root        133928 Nov  1 07:20 /usr/lib/libdrm.so.2.133.0
+lrwxrwxrwx    1 root     root            11 Nov  1 07:26 /usr/lib/libgbm.so -> libgbm.so.1
+lrwxrwxrwx    1 root     root            15 Nov  1 07:26 /usr/lib/libgbm.so.1 -> libgbm.so.1.0.0
+-rwxr-xr-x    1 root     root        133833 Nov  1 07:39 /usr/lib/libgbm.so.1.0.0
+$ mount | grep -E 'libEGL|libGLES|libgbm|libmali'
+/dev/loop0 on /usr/lib/libEGL.so.1.1.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib/libGLESv1_CM.so.1.2.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib/libGLESv2.so.2.1.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib/libgbm.so.1.0.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib32/libEGL.so.1.1.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib32/libGLESv1_CM.so.1.2.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib32/libGLESv2.so.2.1.0 type squashfs (ro,relatime,errors=continue)
+/dev/loop0 on /usr/lib32/libgbm.so.1.0.0 type squashfs (ro,relatime,errors=continue)
+$ ls /usr/lib/mali
+libEGL.so
+libEGL.so.1
+libGLESv1_CM.so
+libGLESv1_CM.so.1
+libGLESv2.so
+libGLESv2.so.2
+libMaliOpenCL.so
+libMaliOpenCL.so.1
+libgbm.so
+libgbm.so.1
+$ ldconfig -p | grep -E 'libEGL|libGLESv2|libgbm|libdrm|libasound'
+	libgbm.so.1 (libc6,AArch64) => /usr/lib/libgbm.so.1
+	libgbm.so.1 (libc6,hard-float) => /usr/lib32/libgbm.so.1
+	libgbm.so (libc6,AArch64) => /usr/lib/libgbm.so
+	libgbm.so (libc6,hard-float) => /usr/lib32/libgbm.so
+	libdrm.so.2 (libc6,AArch64) => /usr/lib/libdrm.so.2
+	libdrm.so.2 (libc6,hard-float) => /usr/lib32/libdrm.so.2
+	libdrm.so (libc6,AArch64) => /usr/lib/libdrm.so
+	libdrm.so (libc6,hard-float) => /usr/lib32/libdrm.so
+	libasound.so.2 (libc6,AArch64) => /usr/lib/libasound.so.2
+	libasound.so.2 (libc6,hard-float) => /usr/lib32/libasound.so.2
+	libasound.so (libc6,AArch64) => /usr/lib/libasound.so
+	libasound.so (libc6,hard-float) => /usr/lib32/libasound.so
+	libGLESv2.so.2 (libc6,AArch64) => /usr/lib/libGLESv2.so.2
+	libGLESv2.so.2 (libc6,hard-float) => /usr/lib32/libGLESv2.so.2
+	libGLESv2.so (libc6,AArch64) => /usr/lib/libGLESv2.so
+	libGLESv2.so (libc6,hard-float) => /usr/lib32/libGLESv2.so
+	libEGL_mesa.so.0 (libc6,AArch64) => /usr/lib/libEGL_mesa.so.0
+	libEGL_mesa.so.0 (libc6,hard-float) => /usr/lib32/libEGL_mesa.so.0
+	libEGL_mesa.so (libc6,AArch64) => /usr/lib/libEGL_mesa.so
+	libEGL_mesa.so (libc6,hard-float) => /usr/lib32/libEGL_mesa.so
+	libEGL.so.1 (libc6,AArch64) => /usr/lib/libEGL.so.1
+	libEGL.so.1 (libc6,hard-float) => /usr/lib32/libEGL.so.1
+	libEGL.so (libc6,AArch64) => /usr/lib/libEGL.so
+	libEGL.so (libc6,hard-float) => /usr/lib32/libEGL.so
+
+===== display
+$ ls -l /dev/dri /dev/fb0
+crw-rw----    1 root     video      29,   0 Nov  5 07:58 /dev/fb0
+
+/dev/dri:
+total 0
+drwxr-xr-x    2 root     root            60 Nov  5 07:58 by-path
+crw-rw----    1 root     video     226,   0 Nov  5 08:21 card0
+/sys/class/drm/card0-DSI-1/status: connected 
+/sys/class/drm/card0-DSI-1/enabled: enabled 
+/sys/class/drm/card0-DSI-1/modes: 720x720 
+/sys/class/drm/card0-DSI-1/dpms: On 
+/sys/class/drm/card0-HDMI-A-1/status: disconnected 
+/sys/class/drm/card0-HDMI-A-1/enabled: disabled 
+/sys/class/drm/card0-HDMI-A-1/modes: 
+/sys/class/drm/card0-HDMI-A-1/dpms: On 
+/sys/class/graphics/fb0/modes: U:720x720p-0 
+/sys/class/graphics/fb0/virtual_size: 720,720 
+/sys/kernel/debug/dri/0/name: rockchip dev=display-subsystem unique=display-subsystem 
+/sys/kernel/debug/dri/display-subsystem/name: rockchip dev=display-subsystem unique=display-subsystem 
+$ cat /sys/kernel/debug/dri/*/state | grep -E 'crtc\[|plane\[|connector\[|mode:|active=|enable=|fb=|format=|crtc-pos|rotation' | head -n 40
+plane[35]: Smart0-win0
+	fb=0
+	crtc-pos=0x0+0+0
+	rotation=1
+plane[41]: Esmart0-win0
+	fb=61
+		format=XR24 little-endian (0x34325258)
+	crtc-pos=720x720+0+0
+	rotation=1
+plane[47]: Cluster0-win0
+	fb=0
+	crtc-pos=0x0+0+0
+	rotation=1
+crtc[53]: video_port0
+	enable=0
+	active=0
+	self_refresh_active=0
+	mode: "": 0 0 0 0 0 0 0 0 0 0 0x0 0x0
+crtc[54]: video_port1
+	enable=1
+	active=1
+	self_refresh_active=0
+	mode: "720x720": 61 37000 720 765 769 814 720 735 738 749 0x48 0xa
+connector[56]: HDMI-A-1
+	output_format=RGB
+connector[59]: DSI-1
+plane[35]: Smart0-win0
+	fb=0
+	crtc-pos=0x0+0+0
+	rotation=1
+plane[41]: Esmart0-win0
+	fb=61
+		format=XR24 little-endian (0x34325258)
+	crtc-pos=720x720+0+0
+	rotation=1
+plane[47]: Cluster0-win0
+	fb=0
+	crtc-pos=0x0+0+0
+	rotation=1
+crtc[53]: video_port0
+$ grep -E 'Output|current|transform|Mode' /var/log/sway.log | head -n 20
+00:00:00.130 [INFO] [sway/commands.c:381] Config command: output DSI-1 transform 0
+00:00:00.130 [INFO] [sway/commands.c:404] After replacement: output DSI-1 transform 0
+$ command -v drm_tool modetest swaymsg
+/usr/bin/drm_tool
+/usr/bin/modetest
+/usr/bin/swaymsg
+
+===== input
+$ cat /proc/bus/input/devices
+I: Bus=0019 Vendor=0000 Product=0000 Version=0000
+N: Name="rk805 pwrkey"
+P: Phys=rk805_pwrkey/input0
+S: Sysfs=/devices/platform/fdd40000.i2c/i2c-0/0-0020/rk805-pwrkey.3.auto/input/input0
+U: Uniq=
+H: Handlers=kbd event0 
+B: PROP=0
+B: EV=3
+B: KEY=10000000000000 0
+
+I: Bus=0019 Vendor=0000 Product=0000 Version=0000
+N: Name="adc-joystick"
+P: Phys=
+S: Sysfs=/devices/platform/adc-joystick/input/input2
+U: Uniq=
+H: Handlers=js0 event2 
+B: PROP=0
+B: EV=9
+B: ABS=1b
+
+I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="gpio-keys-control"
+P: Phys=gpio-keys/input0
+S: Sysfs=/devices/platform/gpio-keys-control/input/input3
+U: Uniq=
+H: Handlers=js1 event3 
+B: PROP=0
+B: EV=3
+B: KEY=f00000000 0 0 0 6fdb000000000000 0 0 0 0
+
+I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="gpio-keys-vol"
+P: Phys=gpio-keys/input0
+S: Sysfs=/devices/platform/gpio-keys-vol/input/input4
+U: Uniq=
+H: Handlers=kbd event4 
+B: PROP=0
+B: EV=100003
+B: KEY=c000000000000 0
+
+I: Bus=0019 Vendor=0001 Product=0001 Version=0100
+N: Name="adc-keys"
+P: Phys=adc-keys/input0
+S: Sysfs=/devices/platform/adc-keys/input/input36
+U: Uniq=
+H: Handlers=event1 
+B: PROP=0
+B: EV=3
+B: KEY=1000000000000000 0 0 0 0
+
+I: Bus=0003 Vendor=1234 Product=5678 Version=0111
+N: Name="InputPlumber Keyboard"
+P: Phys=
+S: Sysfs=/devices/virtual/input/input42
+U: Uniq=
+H: Handlers=sysrq kbd event5 
+B: PROP=0
+B: EV=3
+B: KEY=40000000000 0 0 3c000 4100000000 0 300000c07 ff9f607ac07057ff fabeffdfffefffff fffffffffffffffe
+
+I: Bus=0003 Vendor=054c Product=0ce6 Version=8111
+N: Name="Sony Interactive Entertainment DualSense Wireless Controller"
+P: Phys=
+S: Sysfs=/devices/virtual/misc/uhid/0003:054C:0CE6.0008/input/input43
+U: Uniq=42:2f:a4:d5:05:02
+H: Handlers=js2 event6 
+B: PROP=0
+B: EV=20000b
+B: KEY=7fdb000000000000 0 0 0 0
+B: ABS=3003f
+B: FF=107030000 0
+
+I: Bus=0003 Vendor=054c Product=0ce6 Version=8111
+N: Name="Sony Interactive Entertainment DualSense Wireless Controller Motion Sensors"
+P: Phys=
+S: Sysfs=/devices/virtual/misc/uhid/0003:054C:0CE6.0008/input/input44
+U: Uniq=42:2f:a4:d5:05:02
+H: Handlers=js3 event7 
+B: PROP=40
+B: EV=19
+B: ABS=3f
+B: MSC=20
+
+I: Bus=0003 Vendor=054c Product=0ce6 Version=8111
+N: Name="Sony Interactive Entertainment DualSense Wireless Controller Touchpad"
+P: Phys=
+S: Sysfs=/devices/virtual/misc/uhid/0003:054C:0CE6.0008/input/input45
+U: Uniq=42:2f:a4:d5:05:02
+H: Handlers=event8 
+B: PROP=5
+B: EV=b
+B: KEY=2420 10000 0 0 0 0
+B: ABS=260800000000003
+
+I: Bus=0003 Vendor=054c Product=0ce6 Version=8111
+N: Name="Sony Interactive Entertainment DualSense Wireless Controller Headset Jack"
+P: Phys=
+S: Sysfs=/devices/virtual/misc/uhid/0003:054C:0CE6.0008/input/input46
+U: Uniq=42:2f:a4:d5:05:02
+H: Handlers=event9 
+B: PROP=0
+B: EV=21
+B: SW=14
+
+$ ls -l /dev/input /dev/inputplumber /dev/inputplumber/sources
+/dev/input:
+total 0
+drwxr-xr-x    2 root     root           180 Nov  5 08:54 by-path
+crw-rw----    1 root     input      13,  64 Nov  5 08:54 event0
+crw-rw----    1 root     input      13,  68 Nov  5 08:54 event4
+crw-rw----    1 root     input      13,  69 Nov  5 08:54 event5
+crw-rw----    1 root     input      13,  70 Nov  5 08:54 event6
+crw-rw----    1 root     input      13,  72 Nov  5 08:54 event8
+crw-rw----    1 root     input      13,  73 Nov  5 08:54 event9
+crw-rw-r--    1 root     input      13,   2 Nov  5 08:54 js2
+crw-rw-r--    1 root     input      13,   3 Nov  5 08:54 js3
+
+/dev/inputplumber:
+total 0
+drwxr-xr-x    2 root     root           140 Nov  5 08:54 by-hidden
+drwxr-xr-x    2 root     root           140 Nov  5 08:54 sources
+
+/dev/inputplumber/sources:
+total 0
+c---------    1 root     root       13,  65 Nov  5 08:54 event1
+c---------    1 root     root       13,  66 Nov  5 08:54 event2
+c---------    1 root     root       13,  67 Nov  5 08:54 event3
+c---------    1 root     root       13,   0 Nov  5 08:54 js0
+c---------    1 root     root       13,   1 Nov  5 08:54 js1
+event0 rk805 pwrkey | key: 10000000000000 0 | abs: 0
+event1 adc-keys | key: 1000000000000000 0 0 0 0 | abs: 0
+event2 adc-joystick | key: 0 | abs: 1b
+event3 gpio-keys-control | key: f00000000 0 0 0 6fdb000000000000 0 0 0 0 | abs: 0
+event4 gpio-keys-vol | key: c000000000000 0 | abs: 0
+event5 InputPlumber Keyboard | key: 40000000000 0 0 3c000 4100000000 0 300000c07 ff9f607ac07057ff fabeffdfffefffff fffffffffffffffe | abs: 0
+event6 Sony Interactive Entertainment DualSense Wireless Controller | key: 7fdb000000000000 0 0 0 0 | abs: 3003f
+event7 Sony Interactive Entertainment DualSense Wireless Controller Motion Sensors | key: 0 | abs: 3f
+event8 Sony Interactive Entertainment DualSense Wireless Controller Touchpad | key: 2420 10000 0 0 0 0 | abs: 260800000000003
+event9 Sony Interactive Entertainment DualSense Wireless Controller Headset Jack | key: 0 | abs: 0
+$ command -v evtest evtest-ng
+/usr/bin/evtest
+iio:device0 (fe720000.saradc): in_voltage0_raw=1023 in_voltage1_raw=383 in_voltage2_raw=934 in_voltage3_raw=527 in_voltage4_raw=527 in_voltage5_raw=533 in_voltage6_raw=543 in_voltage7_raw=527 scale=1.757812500
+iio:device1 (adc-mux): in_voltage0_raw=533 in_voltage1_raw=539 in_voltage2_raw=527 in_voltage3_raw=525
+
+===== audio
+$ cat /proc/asound/cards
+ 0 [HDMI           ]: simple-card - HDMI
+                      HDMI
+ 1 [rk817ext       ]: simple-card - rk817_ext
+                      rk817_ext
+$ aplay -l
+**** List of PLAYBACK Hardware Devices ****
+card 0: HDMI [HDMI], device 0: fe400000.i2s-i2s-hifi i2s-hifi-0 [fe400000.i2s-i2s-hifi i2s-hifi-0]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 1: rk817ext [rk817_ext], device 0: fe410000.i2s-rk817-hifi rk817-hifi-0 [fe410000.i2s-rk817-hifi rk817-hifi-0]
+  Subdevices: 0/1
+  Subdevice #0: subdevice #0
+$ aplay -L | head -n 40
+null
+    Discard all samples (playback) or generate zero samples (capture)
+pipewire
+    PipeWire Sound Server
+default
+    Default ALSA Output (currently PipeWire Media Server)
+sysdefault:CARD=HDMI
+    HDMI, fe400000.i2s-i2s-hifi i2s-hifi-0
+    Default Audio Device
+sysdefault:CARD=rk817ext
+    rk817_ext, fe410000.i2s-rk817-hifi rk817-hifi-0
+    Default Audio Device
+$ ls /etc/alsa/conf.d /usr/share/alsa/alsa.conf.d
+/etc/alsa/conf.d:
+50-pipewire.conf
+99-pipewire-default.conf
+
+/usr/share/alsa/alsa.conf.d:
+50-pipewire.conf
+99-pipewire-default.conf
+$ amixer scontrols
+Simple mixer control 'Master',0
+Simple mixer control 'Capture',0
+$ grep -H . /proc/asound/card*/pcm*p/sub*/status
+grep: /proc/asound/card*/pcm*p/sub*/status: No such file or directory
+$ command -v wpctl pactl pw-cli
+/usr/bin/wpctl
+/usr/bin/pactl
+/usr/bin/pw-cli
+$ wpctl status | head -n 40
+PipeWire 'pipewire-0' [1.6.8, root@ROCKNIX, cookie:1575504492]
+ └─ Clients:
+        32. WirePlumber (main-systemwide)       [1.6.8, root@ROCKNIX, pid:344]
+        33. pipewire                            [1.6.8, root@ROCKNIX, pid:353]
+        47. WirePlumber (main-systemwide) [export] [1.6.8, root@ROCKNIX, pid:344]
+        64. EmulationStation                    [1.6.8, root@RGB20SX, pid:26696]
+        65. pipewire                            [1.6.8, root@ROCKNIX, pid:353]
+        66. emulationstation                    [1.6.8, root@RGB20SX, pid:26696]
+        72. wpctl                               [1.6.8, root@RGB20SX, pid:44151]
+
+Audio
+ ├─ Devices:
+ │      48. Built-in Audio                      [alsa]
+ │      49. Built-in Audio                      [alsa]
+ │  
+ ├─ Sinks:
+ │      56. Built-in Audio Stereo               [vol: 0.40]
+ │  *   57. Built-in Audio Headphones           [vol: 0.35]
+ │  
+ ├─ Sources:
+ │      58. Built-in Audio Microphone           [vol: 1.00]
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+        67. emulationstation                                            
+             70. output_FR       > fe410000.i2s-rk817-hifi rk817-hifi-0:playback_FR	[active]
+             71. output_FL       > fe410000.i2s-rk817-hifi rk817-hifi-0:playback_FL	[active]
+
+Video
+ ├─ Devices:
+ │  
+ ├─ Sinks:
+ │  
+ ├─ Sources:
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+
+
+===== power
+/sys/class/backlight/backlight/brightness: 89 
+/sys/class/backlight/backlight/max_brightness: 255 
+/sys/class/backlight/backlight/type: raw 
+$ cat /sys/class/power_supply/battery/uevent
+DEVTYPE=power_supply
+OF_NAME=charger
+OF_FULLNAME=/i2c@fdd40000/pmic@20/charger
+OF_COMPATIBLE_N=0
+POWER_SUPPLY_NAME=battery
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_STATUS=Discharging
+POWER_SUPPLY_CHARGE_TYPE=N/A
+POWER_SUPPLY_PRESENT=1
+POWER_SUPPLY_VOLTAGE_MAX_DESIGN=4172000
+POWER_SUPPLY_VOLTAGE_MIN_DESIGN=3400000
+POWER_SUPPLY_VOLTAGE_AVG=3772740
+POWER_SUPPLY_VOLTAGE_BOOT=4005490
+POWER_SUPPLY_CURRENT_AVG=-786556
+POWER_SUPPLY_CHARGE_FULL_DESIGN=5000000
+POWER_SUPPLY_CHARGE_EMPTY_DESIGN=0
+POWER_SUPPLY_CHARGE_FULL=5000000
+POWER_SUPPLY_CHARGE_NOW=4036324
+POWER_SUPPLY_CONSTANT_CHARGE_CURRENT_MAX=2000000
+POWER_SUPPLY_CONSTANT_CHARGE_VOLTAGE_MAX=4250000
+POWER_SUPPLY_CAPACITY=81
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_CHARGE_TERM_CURRENT=300000
+$ cat /sys/class/power_supply/charger/uevent
+DEVTYPE=power_supply
+OF_NAME=charger
+OF_FULLNAME=/i2c@fdd40000/pmic@20/charger
+OF_COMPATIBLE_N=0
+POWER_SUPPLY_NAME=charger
+POWER_SUPPLY_TYPE=USB
+POWER_SUPPLY_ONLINE=0
+POWER_SUPPLY_VOLTAGE_MAX_DESIGN=5500000
+POWER_SUPPLY_VOLTAGE_MIN_DESIGN=3800000
+POWER_SUPPLY_VOLTAGE_AVG=790000
+POWER_SUPPLY_TYPE=USB
+POWER_SUPPLY_USB_TYPE=Unknown [DCP]
+$ cat /sys/class/power_supply/ps-controller-battery-42:2f:a4:d5:05:02/uevent
+DEVTYPE=power_supply
+POWER_SUPPLY_NAME=ps-controller-battery-42:2f:a4:d5:05:02
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_STATUS=Full
+POWER_SUPPLY_PRESENT=1
+POWER_SUPPLY_CAPACITY=100
+POWER_SUPPLY_TYPE=Battery
+POWER_SUPPLY_SCOPE=Device
+$ ls /sys/class/leds /sys/class/rtc /sys/class/pwm
+/sys/class/leds:
+green:status
+input43:rgb:indicator
+input43:white:player-1
+input43:white:player-2
+input43:white:player-3
+input43:white:player-4
+input43:white:player-5
+red:charging
+
+/sys/class/pwm:
+pwmchip0
+pwmchip1
+pwmchip2
+
+/sys/class/rtc:
+rtc0
+$ find /sys/devices/platform -name rumble_enable
+$ command -v poweroff reboot timedatectl hwclock rmmod
+/usr/sbin/poweroff
+/usr/sbin/reboot
+/usr/bin/timedatectl
+/usr/sbin/hwclock
+/usr/sbin/rmmod
+
+===== storage
+$ df -h
+Filesystem                Size      Used Available Use% Mounted on
+devtmpfs                461.3M      4.0K    461.3M   0% /dev
+tmpfs                   195.0M      4.5M    190.5M   2% /run
+/dev/mmcblk1p1            2.0G      1.3G    668.3M  67% /flash
+/dev/loop0                1.3G      1.3G         0 100% /
+/dev/mmcblk1p2          235.3G    430.3M    234.9G   0% /storage
+tmpfs                   487.6M    436.0K    487.1M   0% /dev/shm
+tmpfs                   487.6M     20.0K    487.6M   0% /tmp
+tmpfs                   487.6M      1.1M    486.4M   0% /var
+/dev/mmcblk1p2          235.3G    430.3M    234.9G   0% /var/lib/systemd/timesync
+none                      1.0M         0      1.0M   0% /run/credentials/systemd-journald.service
+none                      1.0M         0      1.0M   0% /run/credentials/systemd-resolved.service
+none                    235.3G    430.3M    234.9G   0% /tmp/database
+none                    235.3G    430.3M    234.9G   0% /tmp/assets
+none                    235.3G    430.3M    234.9G   0% /tmp/cores
+none                    235.3G    430.3M    234.9G   0% /tmp/joypads
+none                    235.3G    430.3M    234.9G   0% /tmp/shaders
+none                    235.3G    430.3M    234.9G   0% /tmp/overlays
+/dev/mmcblk1p2          235.3G    430.3M    234.9G   0% /storage/roms
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib/libEGL.so.1.1.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib/libGLESv1_CM.so.1.2.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib/libGLESv2.so.2.1.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib/libgbm.so.1.0.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib32/libEGL.so.1.1.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib32/libGLESv1_CM.so.1.2.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib32/libGLESv2.so.2.1.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib32/libgbm.so.1.0.0
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib/libSDL2-2.0.so.0.3200.10
+/dev/loop0                1.3G      1.3G         0 100% /usr/lib32/libSDL2-2.0.so.0.3200.10
+devtmpfs                461.3M      4.0K    461.3M   0% /usr/lib/libGL.so.1.7.0
+devtmpfs                461.3M      4.0K    461.3M   0% /usr/lib32/libGL.so.1.7.0
+devtmpfs                461.3M      4.0K    461.3M   0% /usr/share/vulkan/icd.d/panfrost_icd.aarch64.json
+devtmpfs                461.3M      4.0K    461.3M   0% /usr/share/vulkan/icd.d/panfrost_icd.armv8-a.lib32.json
+$ mount | grep -E 'mmcblk|/storage|/roms'
+/dev/mmcblk1p1 on /flash type vfat (ro,noatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,errors=remount-ro)
+/dev/mmcblk1p2 on /storage type ext4 (rw,noatime)
+/dev/mmcblk1p2 on /var/lib/systemd/timesync type ext4 (rw,noatime)
+none on /tmp/database type overlay (rw,relatime,lowerdir=/usr/share/libretro-database,upperdir=/storage/database,workdir=/storage/.tmp/database-workdir)
+none on /tmp/assets type overlay (rw,relatime,lowerdir=/usr/share/retroarch-assets,upperdir=/storage/assets,workdir=/storage/.tmp/assets-workdir)
+none on /tmp/cores type overlay (rw,relatime,lowerdir=/usr/lib/libretro,upperdir=/storage/cores,workdir=/storage/.tmp/cores-workdir)
+none on /tmp/joypads type overlay (rw,relatime,lowerdir=/usr/share/libretro/autoconfig,upperdir=/storage/joypads,workdir=/storage/.tmp/joypads-workdir)
+none on /tmp/shaders type overlay (rw,relatime,lowerdir=/usr/share/common-shaders:/usr/share/glsl-shaders:/usr/share/slang-shaders,upperdir=/storage/shaders,workdir=/storage/.tmp/shaders-workdir)
+none on /tmp/overlays type overlay (rw,relatime,lowerdir=/usr/share/retroarch-overlays,upperdir=/storage/overlays,workdir=/storage/.tmp/overlays-workdir)
+/dev/mmcblk1p2 on /storage/roms type ext4 (rw,noatime)
+
+===== wifi
+$ ls /sys/class/net
+lo
+sit0
+wlan0
+$ iw list 2>/dev/null | sed -n '/Supported interface modes/,/Band 2\|software interface/p' | head -n 20
+	Supported interface modes:
+		 * IBSS
+		 * managed
+		 * AP
+		 * AP/VLAN
+		 * monitor
+	Band 1:
+		Capabilities: 0x196e
+			HT20/HT40
+			SM Power Save disabled
+			RX HT20 SGI
+			RX HT40 SGI
+			RX STBC 1-stream
+			Max AMSDU length: 7935 bytes
+			DSSS/CCK HT40
+		Maximum RX AMPDU length 65535 bytes (exponent: 0x003)
+		Minimum RX AMPDU time spacing: 16 usec (0x07)
+		HT Max RX data rate: 150 Mbps
+		HT TX/RX MCS rate indexes supported: 0-7, 32
+		Bitrates (non-HT):
+$ iw dev | grep -E 'Interface|type|channel'
+	Interface wlan0
+		type managed
+		channel 3 (2422 MHz), width: 20 MHz, center1: 2422 MHz
+$ command -v iw iwctl connmanctl wpa_cli wpa_supplicant hostapd udhcpc
+/usr/sbin/iw
+/usr/bin/iwctl
+/usr/sbin/udhcpc
+
+===== buttons
+Stopping InputPlumber so the raw button devices can be read.
+$ ls -l /dev/input
+total 0
+drwxr-xr-x    2 root     root           180 Nov  5 08:55 by-path
+crw-rw----    1 root     input      13,  64 Nov  5 08:55 event0
+crw-rw----    1 root     input      13,  65 Nov  5 08:55 event1
+crw-rw----    1 root     input      13,  66 Nov  5 08:55 event2
+crw-rw----    1 root     input      13,  67 Nov  5 08:55 event3
+crw-rw----    1 root     input      13,  68 Nov  5 08:55 event4
+crw-rw-r--    1 root     input      13,   0 Nov  5 08:55 js0
+crw-rw-r--    1 root     input      13,   1 Nov  5 08:55 js1
+reading: event0 (rk805 pwrkey), event1 (adc-keys), event2 (adc-joystick), event3 (gpio-keys-control), event4 (gpio-keys-vol)
+
+resting axes:
+event2 adc-joystick ABS_X: rest 517, declared 250 to 800, fuzz 32, flat 32
+event2 adc-joystick ABS_Y: rest 519, declared 250 to 800, fuzz 32, flat 32
+event2 adc-joystick ABS_RX: rest 542, declared 250 to 800, fuzz 32, flat 32
+event2 adc-joystick ABS_RY: rest 525, declared 250 to 800, fuzz 32, flat 32
+FN ADC (/sys/bus/iio/devices/iio:device0/in_voltage0_raw) at rest: 1023
+
+buttons:
+A: event3 (gpio-keys-control) key code 305 (0x131)
+B: event3 (gpio-keys-control) key code 304 (0x130)
+X: event3 (gpio-keys-control) key code 307 (0x133)
+Y: event3 (gpio-keys-control) key code 308 (0x134)
+L1: event3 (gpio-keys-control) key code 310 (0x136)
+R1: event3 (gpio-keys-control) key code 311 (0x137)
+L2: event3 (gpio-keys-control) key code 312 (0x138)
+R2: event3 (gpio-keys-control) key code 313 (0x139)
+SELECT: event3 (gpio-keys-control) key code 314 (0x13a)
+START: event3 (gpio-keys-control) key code 315 (0x13b)
+FN: no key event, FN ADC dropped to 15
+UP: event3 (gpio-keys-control) key code 544 (0x220)
+DOWN: event3 (gpio-keys-control) key code 545 (0x221)
+LEFT: event3 (gpio-keys-control) key code 546 (0x222)
+RIGHT: event3 (gpio-keys-control) key code 547 (0x223)
+L3: event3 (gpio-keys-control) key code 317 (0x13d)
+R3: event3 (gpio-keys-control) key code 318 (0x13e)
+VOLUME-UP: event4 (gpio-keys-vol) key code 115 (0x73)
+VOLUME-DOWN: event4 (gpio-keys-vol) key code 114 (0x72)
+
+sticks:
+event2 adc-joystick ABS_X moved 27 to 1032
+event2 adc-joystick ABS_Y moved 19 to 1023
+event2 adc-joystick ABS_RX moved 19 to 1023
+event2 adc-joystick ABS_RY moved 27 to 1032
+InputPlumber started again.
+
+===== done

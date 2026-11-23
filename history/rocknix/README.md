@@ -149,3 +149,14 @@ What step 1 adds:
 - Link play on a 2.4 GHz channel (`AGS_LINK_FREQ`).
 - The web server and RomM.
 - An update channel for ROCKNIX builds.
+
+## Raw captures
+
+Kept from the Windows checkout when it was retired (2026-11-23):
+
+- `slot-probe.txt`: the full `probe.sh` output from the RGB20SX on ROCKNIX 20261101
+  (Nov 5), the source of the table above.
+- `slot-mgba-new.log` and `power-mgba-new.log`: slot's log and the battery and clock
+  readings from an mGBA run on ROCKNIX (Nov 5).
+- `pico8-cart-example.jpg`: a PICO-8 cart picture that was waiting to be committed in
+  that checkout.
